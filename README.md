@@ -78,6 +78,44 @@ The committed example at `examples/snapshots/refund_window_v1.yml` is the
 working reference for the schema — see [`docs/schema.md`](docs/schema.md)
 for the field-by-field spec.
 
+## Diff layer (#2 · this PR)
+
+`diff_response(snapshot, candidate, *, embedder, threshold=0.85)` compares
+a new response against a stored snapshot along two channels:
+
+- **Cosine similarity** between the candidate's embedding and the snapshot's
+  stored canonical embedding.
+- **Structured-slot extraction** against the snapshot's `structured_slots`
+  declarations — every slot must be present and type-correct in the
+  candidate.
+
+The verdict is the AND of both channels. Cosine alone (which "passed" but
+the slot extraction failed) is not enough — the snapshot's structural
+assertions are hard requirements.
+
+```python
+from prompt_regression import HashEmbedder, diff_response, load_snapshot
+
+snap = load_snapshot("examples/snapshots/refund_window_v1.yml")
+candidate = "The Pro plan has a 14-day refund window from purchase."
+
+result = diff_response(snap, candidate, embedder=HashEmbedder())
+print(result.verdict)            # "pass" | "warn" | "fail"
+print(result.cosine_score)
+print(result.slot_deltas)        # per-slot extraction verdicts
+```
+
+The embedder is a pluggable Protocol — same single-method shape adopted
+across the portfolio. `HashEmbedder` is the dep-free fallback that lets
+CI exercise the diff flow hermetically; production callers BYO via the
+Protocol (Cohere, Voyage, OpenAI, sentence-transformers all conform).
+
+The diff layer **refuses** to compare against a snapshot whose
+`embedding_model` differs from the current embedder's name (D-006) — pass
+`force=True` to override. The default refusal is a deliberate
+footgun-prevention guard: a silently re-embedded comparison is the kind
+of bug that produces false PASSes that look like the suite is working.
+
 ## Benchmarks / Results
 
 *Benchmarks pending issue [#4]: a real model-version regression captured
