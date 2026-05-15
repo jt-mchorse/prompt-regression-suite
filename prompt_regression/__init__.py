@@ -1,13 +1,31 @@
 """prompt-regression-suite: snapshot testing for prompts.
 
-The public surface for issue #1 is the snapshot schema and YAML round-trip:
+Public surface:
 
     from prompt_regression import Snapshot, Prompt, ResponseShape, CanonicalResponse
     from prompt_regression import load_snapshot, save_snapshot
+    # Diff layer (#2):
+    from prompt_regression import diff_response, HashEmbedder, DiffResult
 
-Diff/HTML-report layers ship in subsequent issues (#2, #3).
+HTML report layer (#3) and the real-regression-caught README screenshot (#4)
+ship in subsequent issues.
 """
 
+from .diff import (
+    DEFAULT_THRESHOLD,
+    DEFAULT_WARN_BAND,
+    DiffResult,
+    Embedder,
+    EmbedderModelMismatchError,
+    HashEmbedder,
+    SemanticCategoryScore,
+    SlotDelta,
+    cosine,
+    diff_response,
+    diff_slots,
+    extract_slots,
+    score_semantic_categories,
+)
 from .io import load_snapshot, save_snapshot
 from .schema import (
     SCHEMA_VERSION,
@@ -19,6 +37,7 @@ from .schema import (
 )
 
 __all__ = [
+    # Schema (#1)
     "SCHEMA_VERSION",
     "CanonicalResponse",
     "Prompt",
@@ -27,4 +46,18 @@ __all__ = [
     "SnapshotValidationError",
     "load_snapshot",
     "save_snapshot",
+    # Diff layer (#2)
+    "DEFAULT_THRESHOLD",
+    "DEFAULT_WARN_BAND",
+    "DiffResult",
+    "Embedder",
+    "EmbedderModelMismatchError",
+    "HashEmbedder",
+    "SemanticCategoryScore",
+    "SlotDelta",
+    "cosine",
+    "diff_response",
+    "diff_slots",
+    "extract_slots",
+    "score_semantic_categories",
 ]

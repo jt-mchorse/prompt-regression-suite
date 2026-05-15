@@ -21,3 +21,25 @@ context_for_next_session:
 decisions_made: [D-002, D-003]
 followups: []
 ---
+
+---
+session: 2026-05-15T16:59Z
+duration_min: 55
+issue: 2
+focus: semantic_similarity_diff_layer
+delta:
+  files_added: 2
+  files_changed: 2
+  tests_added: 25
+  test_pass_rate: "54/54"
+context_for_next_session:
+  - diff_layer_shipped_two_channels_cosine_plus_slots_anded_d004
+  - embedder_protocol_with_hashembedder_reference_d005
+  - embedder_model_mismatch_refused_by_default_d006_force_kwarg_overrides
+  - identical_one_paraphrase_pass_off_topic_fail_acceptance_criteria_met
+  - default_threshold_0_85_per_issue_2_acceptance_criterion
+  - html_report_layer_3_consumes_diffresult_shape_locked_here
+  - real_regression_screenshot_4_uses_diff_layer_end_to_end
+decisions_made: [D-004, D-005, D-006]
+followups: []
+---
