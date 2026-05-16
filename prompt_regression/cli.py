@@ -60,8 +60,8 @@ def make_embedder(name: str) -> Embedder:
             "Implement the Embedder protocol locally and import via the library API."
         )
     raise ValueError(
-        f"unknown --embedder value {name!r}; known: hash" +
-        (", reserved: " + ", ".join(sorted(_RESERVED_EMBEDDERS)) if _RESERVED_EMBEDDERS else "")
+        f"unknown --embedder value {name!r}; known: hash"
+        + (", reserved: " + ", ".join(sorted(_RESERVED_EMBEDDERS)) if _RESERVED_EMBEDDERS else "")
     )
 
 
@@ -144,17 +144,19 @@ def _run_command(args: argparse.Namespace) -> int:
         candidate = candidates.get(rel) or candidates.get(snap.id)
         if candidate is None:
             skipped += 1
-            rows.append({
-                "snapshot_path": str(path),
-                "snapshot_id": snap.id,
-                "verdict": "skipped",
-                "cosine": None,
-                "threshold": args.threshold,
-                "embedder": embedder.model_name,
-                "snapshot_embedder": snap.canonical.embedding_model,
-                "slot_failures": [],
-                "notes": ["no candidate supplied"],
-            })
+            rows.append(
+                {
+                    "snapshot_path": str(path),
+                    "snapshot_id": snap.id,
+                    "verdict": "skipped",
+                    "cosine": None,
+                    "threshold": args.threshold,
+                    "embedder": embedder.model_name,
+                    "snapshot_embedder": snap.canonical.embedding_model,
+                    "slot_failures": [],
+                    "notes": ["no candidate supplied"],
+                }
+            )
             continue
         try:
             result = diff_response(
@@ -167,17 +169,19 @@ def _run_command(args: argparse.Namespace) -> int:
             )
         except EmbedderModelMismatchError as e:
             failed += 1
-            rows.append({
-                "snapshot_path": str(path),
-                "snapshot_id": snap.id,
-                "verdict": "error",
-                "cosine": None,
-                "threshold": args.threshold,
-                "embedder": embedder.model_name,
-                "snapshot_embedder": snap.canonical.embedding_model,
-                "slot_failures": [],
-                "notes": [str(e)],
-            })
+            rows.append(
+                {
+                    "snapshot_path": str(path),
+                    "snapshot_id": snap.id,
+                    "verdict": "error",
+                    "cosine": None,
+                    "threshold": args.threshold,
+                    "embedder": embedder.model_name,
+                    "snapshot_embedder": snap.canonical.embedding_model,
+                    "slot_failures": [],
+                    "notes": [str(e)],
+                }
+            )
             continue
         rows.append(_row_for(path, snap, result))
         if result.verdict == "fail":
@@ -324,14 +328,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Walk a snapshots dir, diff each against candidates, exit non-zero on failure.",
         description="Diff a directory of snapshots against a JSONL of candidate responses.",
     )
-    run_p.add_argument("--snapshots", required=True, help="Directory of *.snapshot.yaml files (recursive).")
+    run_p.add_argument(
+        "--snapshots", required=True, help="Directory of *.snapshot.yaml files (recursive)."
+    )
     run_p.add_argument(
         "--candidates",
         required=True,
         help='JSONL of {"snapshot": "<path-or-id>", "candidate": "<text>"} rows.',
     )
     run_p.add_argument("--embedder", default="hash", help="Embedder name (default: hash).")
-    run_p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD, help="Cosine pass threshold.")
+    run_p.add_argument(
+        "--threshold", type=float, default=DEFAULT_THRESHOLD, help="Cosine pass threshold."
+    )
     run_p.add_argument(
         "--warn-band",
         type=float,

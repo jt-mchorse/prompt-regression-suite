@@ -114,7 +114,9 @@ def _write_candidates(path: Path, rows: list[dict]) -> Path:
     return path
 
 
-def test_run_happy_path_all_pass(snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_run_happy_path_all_pass(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
     candidates = _write_candidates(
         tmp_path / "cands.jsonl",
         [
@@ -138,7 +140,9 @@ def test_run_happy_path_all_pass(snapshots_dir: Path, tmp_path: Path, capsys: py
     assert "shipping-policy.snapshot.yaml" in out
 
 
-def test_run_failing_candidate_exits_nonzero(snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_run_failing_candidate_exits_nonzero(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
     candidates = _write_candidates(
         tmp_path / "cands.jsonl",
         [
@@ -159,7 +163,9 @@ def test_run_failing_candidate_exits_nonzero(snapshots_dir: Path, tmp_path: Path
     assert "fail" in out
 
 
-def test_run_skips_snapshots_with_no_candidate(snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_run_skips_snapshots_with_no_candidate(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
     candidates = _write_candidates(
         tmp_path / "cands.jsonl",
         [
@@ -177,7 +183,9 @@ def test_run_skips_snapshots_with_no_candidate(snapshots_dir: Path, tmp_path: Pa
     assert "no candidate supplied" in out
 
 
-def test_run_json_format_emits_valid_payload(snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_run_json_format_emits_valid_payload(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
     candidates = _write_candidates(
         tmp_path / "cands.jsonl",
         [
@@ -190,9 +198,12 @@ def test_run_json_format_emits_valid_payload(snapshots_dir: Path, tmp_path: Path
     rc = main(
         [
             "run",
-            "--snapshots", str(snapshots_dir),
-            "--candidates", str(candidates),
-            "--format", "json",
+            "--snapshots",
+            str(snapshots_dir),
+            "--candidates",
+            str(candidates),
+            "--format",
+            "json",
         ]
     )
     assert rc == 0
@@ -238,8 +249,10 @@ def test_update_without_force_refuses(snapshots_dir: Path, capsys: pytest.Captur
     rc = main(
         [
             "update",
-            "--snapshot", str(snapshots_dir / "refund-policy.snapshot.yaml"),
-            "--canonical", "New canonical response text.",
+            "--snapshot",
+            str(snapshots_dir / "refund-policy.snapshot.yaml"),
+            "--canonical",
+            "New canonical response text.",
         ]
     )
     assert rc == 2
@@ -253,8 +266,10 @@ def test_update_with_force_rewrites_canonical(snapshots_dir: Path):
     rc = main(
         [
             "update",
-            "--snapshot", str(path),
-            "--canonical", new_text,
+            "--snapshot",
+            str(path),
+            "--canonical",
+            new_text,
             "--force",
         ]
     )
@@ -285,15 +300,19 @@ def test_update_rejects_empty_canonical(snapshots_dir: Path, monkeypatch: pytest
         main(["update", "--snapshot", str(path), "--canonical-stdin", "--force"])
 
 
-def test_update_rejects_both_canonical_sources(snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch):
+def test_update_rejects_both_canonical_sources(
+    snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setattr("sys.stdin", io.StringIO("from stdin\n"))
     path = snapshots_dir / "refund-policy.snapshot.yaml"
     with pytest.raises(SystemExit, match="not both"):
         main(
             [
                 "update",
-                "--snapshot", str(path),
-                "--canonical", "literal arg",
+                "--snapshot",
+                str(path),
+                "--canonical",
+                "literal arg",
                 "--canonical-stdin",
                 "--force",
             ]
@@ -309,8 +328,10 @@ def test_diff_pass(snapshots_dir: Path, capsys: pytest.CaptureFixture[str]):
     rc = main(
         [
             "diff",
-            "--snapshot", str(snapshots_dir / "refund-policy.snapshot.yaml"),
-            "--candidate", "Our refund policy gives Pro plan customers 14 days to request a return.",
+            "--snapshot",
+            str(snapshots_dir / "refund-policy.snapshot.yaml"),
+            "--candidate",
+            "Our refund policy gives Pro plan customers 14 days to request a return.",
         ]
     )
     assert rc == 0
@@ -322,8 +343,10 @@ def test_diff_fail(snapshots_dir: Path, capsys: pytest.CaptureFixture[str]):
     rc = main(
         [
             "diff",
-            "--snapshot", str(snapshots_dir / "refund-policy.snapshot.yaml"),
-            "--candidate", "Hamsters often run on wheels at night.",
+            "--snapshot",
+            str(snapshots_dir / "refund-policy.snapshot.yaml"),
+            "--candidate",
+            "Hamsters often run on wheels at night.",
         ]
     )
     assert rc == 1
@@ -335,9 +358,12 @@ def test_diff_json_format(snapshots_dir: Path, capsys: pytest.CaptureFixture[str
     rc = main(
         [
             "diff",
-            "--snapshot", str(snapshots_dir / "refund-policy.snapshot.yaml"),
-            "--candidate", "Our refund policy gives Pro plan customers 14 days to request a return.",
-            "--format", "json",
+            "--snapshot",
+            str(snapshots_dir / "refund-policy.snapshot.yaml"),
+            "--candidate",
+            "Our refund policy gives Pro plan customers 14 days to request a return.",
+            "--format",
+            "json",
         ]
     )
     assert rc == 0
@@ -347,7 +373,9 @@ def test_diff_json_format(snapshots_dir: Path, capsys: pytest.CaptureFixture[str
     assert payload["embedder_model"] == HashEmbedder().model_name
 
 
-def test_diff_candidate_stdin(snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
+def test_diff_candidate_stdin(
+    snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO("Our refund policy gives Pro plan customers 14 days to request a return.\n"),
@@ -355,7 +383,8 @@ def test_diff_candidate_stdin(snapshots_dir: Path, monkeypatch: pytest.MonkeyPat
     rc = main(
         [
             "diff",
-            "--snapshot", str(snapshots_dir / "refund-policy.snapshot.yaml"),
+            "--snapshot",
+            str(snapshots_dir / "refund-policy.snapshot.yaml"),
             "--candidate-stdin",
         ]
     )
