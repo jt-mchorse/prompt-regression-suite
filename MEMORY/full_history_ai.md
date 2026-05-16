@@ -68,3 +68,28 @@ context_for_next_session:
 decisions_made: [D-007, D-008]
 followups: []
 ---
+
+---
+session: 2026-05-16T20:10Z
+duration_min: 40
+issue: 5
+focus: prompt_snap_cli_run_update_diff_subcommands
+delta:
+  files_added: 2  # prompt_regression/cli.py, tests/test_cli.py
+  files_changed: 2  # pyproject.toml, README.md
+  tests_added: 25
+  test_pass_rate: "95/95"
+context_for_next_session:
+  - prompt_snap_console_script_registered_via_project_scripts_in_pyproject
+  - three_subcommands_run_update_diff_argparse_main_in_cli_py
+  - run_walks_snapshot_glob_recursively_loads_candidates_jsonl_keyed_by_path_or_id_emits_text_or_json_exits_1_on_failure
+  - update_requires_force_flag_re_embeds_canonical_via_configured_embedder_writes_via_save_snapshot
+  - diff_supports_candidate_arg_or_candidate_stdin_format_text_or_json_exits_1_on_fail
+  - make_embedder_hash_default_voyage_openai_cohere_reserved_names_raise_not_implemented_loud_misconfig
+  - skipped_snapshots_no_candidate_supplied_do_not_fail_run_exit_zero_only_real_failures_do
+  - force_embedder_flag_overrides_d_006_embedder_model_mismatch_guard
+  - no_new_decisions_pure_glue_over_existing_types
+  - issue_5_acceptance_cli_installed_as_console_script_done_update_requires_force_done_help_complete_done
+decisions_made: []
+followups: []
+---

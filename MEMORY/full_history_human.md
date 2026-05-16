@@ -61,3 +61,20 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None. Real-LLM regression capture is documented as a two-string swap when an operator runs the script against a real API.
 
 **Next session:** Either #5 (whatever lands as the next priority issue) or a fresh repo — prompt-regression-suite is at v0.1.
+
+## 2026-05-16 — Issue #5: `prompt-snap` CLI (run / update / diff)
+**Duration:** ~40 min · **Branch:** `session/2026-05-16-2001-issue-5`
+
+- Shipped `prompt_regression/cli.py` plus a `prompt-snap` console script registered via `[project.scripts]` in `pyproject.toml`. Three subcommands, pure glue over existing types (`diff_response`, `load_snapshot`, `save_snapshot`, `HashEmbedder`); no new core decisions.
+- `prompt-snap run` walks a directory of `*.snapshot.yaml` files recursively, loads candidates from a JSONL keyed by either the snapshot path relative to the snapshots dir or by `snapshot.id`, runs `diff_response` per pair, prints a per-snapshot status table (or JSON via `--format json`), and exits non-zero on any `fail` verdict. Snapshots without a candidate are surfaced as `skipped` and do not fail the run. `EmbedderModelMismatchError` becomes an `error` row that counts as a failure.
+- `prompt-snap update` re-baselines one snapshot's canonical response (re-embeds via the configured embedder) and writes back via `save_snapshot`. **Requires `--force`** — without it exits 2 with a clear "refusing to update without --force (prevents accidental re-baselining of a failing snapshot)" message. New text via `--canonical` or `--canonical-stdin`; mixing both is rejected, an empty/whitespace value is rejected.
+- `prompt-snap diff` is the ad-hoc single-snapshot version. Candidate from `--candidate` or stdin; output text or JSON; exits 1 on `fail`. Honors `--force-embedder` to skip the D-006 mismatch guard.
+- `make_embedder("hash")` returns `HashEmbedder`; reserved names `voyage`/`openai`/`cohere` raise `NotImplementedError` with a clear "implement the Embedder protocol locally" message so misconfigured runs fail loud at startup instead of silently against a stale stub.
+- 25 new hermetic tests in `tests/test_cli.py` covering embedder resolution, parser help across subcommands, `run` happy/fail/skip/JSON/missing-dir/empty-dir paths, `update` without-force/with-force/stdin/empty/both-sources-conflict, `diff` pass/fail/JSON/stdin. Full suite 95/95 pass; ruff clean.
+- README "CLI: `prompt-snap` (#5 · this PR)" subsection with the three subcommands, sample output, and the candidates JSONL row shape.
+
+**Why this work, this session:** #5 was the last open issue in this repo (low priority); closing it brings prompt-regression-suite from v0.1 to v0.1+CLI. Picking a new repo here also keeps the multi-issue session prompt's "spread across repos" intent honest after four PRs concentrated in `rag-production-kit`, `mcp-server-cookbook`, `llm-eval-harness`, and `llm-cost-optimizer`.
+
+**Open questions / blockers:** None. Real-embedder backends (Voyage, OpenAI, Cohere) are intentionally reserved-but-not-wired; an operator implements the `Embedder` protocol locally and passes their own instance via the library API until those integrations land.
+
+**Next session:** prompt-regression-suite has zero open issues. Loop to a different portfolio repo, or schedule operator follow-ups for Voyage/OpenAI/Cohere embedder integrations.
