@@ -171,6 +171,51 @@ captured regression is "replace the two text constants in the script
 with recorded responses and re-run". A future operator-run version
 against real Anthropic API output drops in the same way.
 
+## CLI: `prompt-snap` (#5 · this PR)
+
+`pip install -e .` installs the `prompt-snap` console script with
+three subcommands. The dep-free `HashEmbedder` is the default; the
+`--embedder` flag accepts `hash` today and reserves `voyage` /
+`openai` / `cohere` for follow-up integrations (they raise a clear
+"not yet wired" error rather than silently using a stale stub).
+
+```bash
+# Walk a snapshot dir, diff each against candidates in a JSONL, exit non-zero on any fail.
+prompt-snap run \
+    --snapshots ./snapshots \
+    --candidates ./candidates.jsonl
+# # prompt-snap run  total=2 failed=0 skipped=0
+# verdict   cosine   snapshot
+# -------- --------  ------------------------
+# pass      0.940    snapshots/refund-policy.snapshot.yaml
+# pass      0.967    snapshots/shipping-policy.snapshot.yaml
+
+# Ad-hoc diff: one snapshot vs one candidate. Exits 1 on fail.
+prompt-snap diff \
+    --snapshot snapshots/refund-policy.snapshot.yaml \
+    --candidate "Refunds are now available for 30 days after purchase."
+# verdict: warn
+# cosine:  0.812 (threshold 0.85)
+# ...
+
+# Re-baseline a snapshot after an intentional change. REQUIRES --force.
+prompt-snap update \
+    --snapshot snapshots/refund-policy.snapshot.yaml \
+    --canonical "Refunds are available for 30 days after purchase." \
+    --force
+```
+
+The candidates JSONL row shape is
+`{"snapshot": "<path-relative-to-snapshots-dir>", "candidate": "<text>"}`
+or `{"id": "<snapshot.id>", "candidate": "<text>"}`; the lookup tries
+the relative path first, then falls back to the id.
+
+`run` and `diff` accept `--format json` for downstream tooling, and
+both honor the embedder-vs-snapshot-model guard (D-006); pass
+`--force-embedder` to override. `update` defends against accidental
+re-baselining by requiring `--force` explicitly — running it without
+the flag exits 2 with a clear message.
+
 ## Benchmarks / Results
 
 *Real-LLM regression captured under [#4] is shipped as a synthetic

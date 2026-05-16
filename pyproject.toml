@@ -38,6 +38,9 @@ dev = [
 Repository = "https://github.com/jt-mchorse/prompt-regression-suite"
 Issues    = "https://github.com/jt-mchorse/prompt-regression-suite/issues"
 
+[project.scripts]
+prompt-snap = "prompt_regression.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["prompt_regression"]
 
