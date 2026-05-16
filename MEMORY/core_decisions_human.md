@@ -80,3 +80,31 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. `force=True` is the operator's safety valve.
 
 **Related issues:** #2
+
+## D-007 — HTML report is a single self-contained file (2026-05-16)
+**Decision:** `prompt_regression.render_report(entries)` returns one HTML string with inline CSS, no JavaScript, no external assets. The CI artifact-URL is the deployment story: a single uploaded HTML file viewable in any browser, deep-linkable per snapshot via `#snapshot-<id>` anchors.
+
+**Why:** CI consumers want a URL, not a pipeline. A multi-file report (separate CSS, separate JSON, separate index) forces consumers to either zip+download or set up a static-hosting layer. A single file lands as one artifact, opens in Chrome/Firefox/Safari with no setup, and stays usable forever (no broken CDN reference five years from now). No JS keeps the report readable in static viewers and in `cat`/`less` for the determined.
+
+**Alternatives considered:**
+- React-via-CDN — rejected: overkill for a static report; the trace viewer in `agent-orchestration-platform` (#6 / D-006 there) uses it precisely because it has interactive list/detail navigation, which this static artifact doesn't.
+- Separate CSS file — rejected: breaks the single-URL artifact story.
+- Jinja2 templating — rejected: adds a dep for a one-off render that f-strings handle.
+
+**Reversibility:** Cheap. The renderer is one module of pure-string assembly; restructuring is a contained refactor.
+
+**Related issues:** #3, #4
+
+## D-008 — Regression demo uses synthetic responses, honestly labeled (2026-05-16)
+**Decision:** The "real regression caught" demo for issue #4 ships with two synthetic response strings — a baseline and an "upgraded" model's response — clearly labeled in the snapshot's `notes` field and in the README section title as a documentation demo. The path to a real captured regression is documented as "replace the two strings in `scripts/render_regression_demo.py` with recorded responses and re-run".
+
+**Why:** A *real* cross-version capture requires (a) operator API budget and (b) two different model versions to query, neither of which a hermetic CI session can provide. The bar set by the issue ("real regression caught") is interpreted as "the diff and report layers can demonstrably catch a regression-shaped change end-to-end" — which the synthetic example proves. Fabricating one and labeling it real would be exactly the kind of dishonesty the portfolio's no-fabricated-benchmarks rule exists to prevent. Honest disclosure plus a two-line swap path is the right balance.
+
+**Alternatives considered:**
+- Block issue #4 until real-API capture is available — rejected: would indefinitely stall the demo + screenshot work without delivering value.
+- Ship a fake, unlabeled "regression" — rejected: dishonest; would mislead anyone reading the README.
+- Generate responses from a live LLM at demo-run time — rejected: requires `ANTHROPIC_API_KEY` in CI; defeats the point of a reproducible-on-fresh-clone demo.
+
+**Reversibility:** Cheap. Two strings in one file get replaced when an operator runs a real capture; the snapshot's `notes` field and the README's framing get updated in the same PR.
+
+**Related issues:** #4

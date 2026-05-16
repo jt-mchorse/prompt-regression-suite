@@ -6,9 +6,8 @@ Public surface:
     from prompt_regression import load_snapshot, save_snapshot
     # Diff layer (#2):
     from prompt_regression import diff_response, HashEmbedder, DiffResult
-
-HTML report layer (#3) and the real-regression-caught README screenshot (#4)
-ship in subsequent issues.
+    # HTML report layer (#3):
+    from prompt_regression import ReportEntry, render_report
 """
 
 from .diff import (
@@ -26,6 +25,7 @@ from .diff import (
     extract_slots,
     score_semantic_categories,
 )
+from .html_report import ReportEntry, render_report
 from .io import load_snapshot, save_snapshot
 from .schema import (
     SCHEMA_VERSION,
@@ -60,4 +60,7 @@ __all__ = [
     "diff_slots",
     "extract_slots",
     "score_semantic_categories",
+    # HTML report (#3)
+    "ReportEntry",
+    "render_report",
 ]

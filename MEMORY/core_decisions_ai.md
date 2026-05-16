@@ -54,3 +54,21 @@
   reversibility: cheap
   related_issues: [2]
   superseded_by: null
+
+- id: D-007
+  date: 2026-05-16
+  decision: html_report_is_single_self_contained_file_inline_css_no_js
+  rationale: ci_artifact_url_is_the_deployment_story_no_external_assets_no_js_means_works_in_any_browser_or_static_viewer
+  alternatives_rejected: [react_via_cdn_overkill_for_static_report, separate_css_file_breaks_artifact_single_url_story, jinja2_template_added_dep]
+  reversibility: cheap
+  related_issues: [3, 4]
+  superseded_by: null
+
+- id: D-008
+  date: 2026-05-16
+  decision: regression_demo_uses_synthetic_responses_honestly_labeled_real_capture_is_two_string_swap_away
+  rationale: real_cross_version_capture_requires_operator_api_budget_no_fabricated_benchmarks_synthetic_with_disclosure_better_than_pretending_or_indefinitely_blocking
+  alternatives_rejected: [block_4_until_real_api_capture_available, ship_fake_unlabeled_as_real_regression_dishonest, generate_responses_from_llm_at_demo_run_time_requires_api_in_ci]
+  reversibility: cheap
+  related_issues: [4]
+  superseded_by: null

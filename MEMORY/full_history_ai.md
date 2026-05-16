@@ -43,3 +43,28 @@ context_for_next_session:
 decisions_made: [D-004, D-005, D-006]
 followups: []
 ---
+
+---
+session: 2026-05-16T04:20Z
+duration_min: 35
+issue: 4
+focus: html_report_layer_3_plus_regression_demo_4_combined
+delta:
+  files_added: 4
+  files_changed: 3
+  tests_added: 16
+  test_pass_rate: "70/70"
+context_for_next_session:
+  - html_report_module_in_prompt_regression_html_report_ty_renders_diffresult_to_single_self_contained_html
+  - inline_css_no_js_no_external_assets_d_007_ci_artifact_url_is_deployment_story
+  - reportentry_dataclass_carries_snapshot_id_diff_candidate_text_baseline_text
+  - failing_sections_render_categories_slots_responses_passing_sections_collapse_to_one_line
+  - anchor_links_snapshot_id_safe_slugified_so_ci_url_deep_links_to_failure
+  - scripts_render_regression_demo_py_builds_baseline_snapshot_in_process_with_hashembedder_runs_diff_writes_html
+  - demo_regression_is_synthetic_d_008_honestly_labeled_in_snapshot_notes_and_readme_real_capture_is_two_string_swap
+  - screenshot_via_playwright_or_wkhtmltoimage_optional_fallback_writes_just_html
+  - 13_html_report_tests_3_demo_script_tests_16_total_new_70_70_overall
+  - issue_3_html_report_and_issue_4_real_regression_caught_both_close_in_this_pr
+decisions_made: [D-007, D-008]
+followups: []
+---

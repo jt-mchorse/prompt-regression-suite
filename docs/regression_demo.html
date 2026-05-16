@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Regression demo — refund-window prompt across model versions</title>
+  <style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0;
+  background: #0b0d12; color: #e8edf2;
+  font: 14px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+main { max-width: 980px; margin: 32px auto; padding: 0 20px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+h2 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; }
+h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: #8a93a6; }
+code { font-family: ui-monospace, "SFMono-Regular", monospace; font-size: 12px; color: #e8edf2; }
+.summary {
+  display: flex; gap: 16px; padding: 12px 16px;
+  background: #151922; border: 1px solid #232938; border-radius: 10px;
+  margin: 0 0 18px;
+}
+.summary .stat { font-size: 13px; }
+.summary .stat strong { font-size: 18px; display: block; }
+.summary .pass strong { color: #6ee7b7; }
+.summary .warn strong { color: #fcd34d; }
+.summary .fail strong { color: #fca5a5; }
+.summary .total strong { color: #93c5fd; }
+
+.section {
+  background: #151922; border: 1px solid #232938; border-radius: 10px;
+  padding: 14px 18px; margin: 12px 0;
+}
+.section.pass  { border-left: 3px solid #6ee7b7; }
+.section.warn  { border-left: 3px solid #fcd34d; }
+.section.fail  { border-left: 3px solid #fca5a5; }
+.badge {
+  display: inline-block; padding: 1px 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+  border-radius: 4px; margin-right: 8px; vertical-align: 2px;
+}
+.badge.pass { background: rgba(110,231,183,0.16); color: #6ee7b7; }
+.badge.warn { background: rgba(252,211,77,0.16); color: #fcd34d; }
+.badge.fail { background: rgba(252,165,165,0.16); color: #fca5a5; }
+
+.anchor { color: inherit; text-decoration: none; }
+.anchor:hover { text-decoration: underline; }
+.meta, .muted { color: #8a93a6; font-size: 12px; }
+.section-block { margin: 12px 0 0; }
+.notes { color: #fcd34d; font-size: 12px; margin: 6px 0 0; padding-left: 18px; }
+.passnote { color: #8a93a6; font-size: 12px; margin: 6px 0 0; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { border-bottom: 1px solid #232938; padding: 6px 10px; text-align: left; }
+th { color: #8a93a6; font-weight: 500; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.slots .slot-missing td:nth-child(4),
+.slots .slot-type_mismatch td:nth-child(4) { color: #fca5a5; }
+.slots .slot-ok td:nth-child(4) { color: #6ee7b7; }
+.slots .slot-type_unknown td:nth-child(4) { color: #fcd34d; }
+
+.responses {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.response {
+  background: #0e1622; border: 1px solid #1a2842; border-radius: 6px;
+  padding: 10px 12px; margin: 0; max-height: 320px; overflow: auto;
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  white-space: pre-wrap; word-break: break-word; font-size: 12px;
+}
+.response.baseline::before { content: "baseline "; color: #93c5fd; }
+.response.candidate::before { content: "candidate "; color: #fcd34d; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>Regression demo — refund-window prompt across model versions</h1>
+    <div class="summary">
+      <div class="stat total"><strong>1</strong>snapshots</div>
+      <div class="stat pass"><strong>0</strong>pass</div>
+      <div class="stat warn"><strong>0</strong>warn</div>
+      <div class="stat fail"><strong>1</strong>fail</div>
+    </div>
+<section class="section fail" id="snapshot-refund-window-pro-v1-demo">
+  <h2><span class="badge fail">FAIL</span> <a href="#snapshot-refund-window-pro-v1-demo" class="anchor">refund-window-pro-v1-demo</a></h2>
+  <div class="meta">
+    cosine <code>0.218</code> · threshold <code>0.850</code>
+    · embedder <code>hash-embedder-128d-ngram2</code>
+    vs snapshot-embed <code>hash-embedder-128d-ngram2</code>
+  </div>
+  <ul class="notes">
+    <li>slot &#x27;refund_days&#x27;: missing</li>
+    <li>slot &#x27;eligibility_caveat&#x27;: missing</li>
+  </ul>
+  <div class="section-block">    <h3>Semantic categories</h3>    <table class="categories">      <thead><tr><th>category</th><th>cosine vs response</th></tr></thead>      <tbody><tr><td>refund-window</td><td class="num">0.204</td></tr><tr><td>plan-tier</td><td class="num">0.204</td></tr><tr><td>eligibility-conditions</td><td class="num">0.204</td></tr></tbody>    </table>  </div>
+  <div class="section-block">    <h3>Structured slots</h3>    <table class="slots">      <thead><tr><th>slot</th><th>expected type</th><th>actual</th><th>status</th></tr></thead>      <tbody><tr class="slot-missing"><td>refund_days</td><td><code>integer</code></td><td>—</td><td>missing</td></tr><tr class="slot-ok"><td>plan_name</td><td><code>string</code></td><td>&#x27;Pro plan customers can request a refund within two weeks of their purchase.&#x27;</td><td>ok</td></tr><tr class="slot-missing"><td>eligibility_caveat</td><td><code>string</code></td><td>—</td><td>missing</td></tr></tbody>    </table>  </div>
+  <div class="section-block">    <h3>Responses (baseline vs candidate)</h3>    <div class="responses">      <pre class="response baseline">The Pro plan has a 14-day refund window from the original purchase date. Refunds during that window are full unless usage exceeds 25% of the included monthly quota, in which case the unused remainder is refunded.</pre>      <pre class="response candidate">Pro plan customers can request a refund within two weeks of their purchase. Reach out to support@exampleco.com to start the process.</pre>    </div>  </div>
+</section>
+  </main>
+</body>
+</html>
