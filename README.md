@@ -116,15 +116,72 @@ The diff layer **refuses** to compare against a snapshot whose
 footgun-prevention guard: a silently re-embedded comparison is the kind
 of bug that produces false PASSes that look like the suite is working.
 
+## HTML report (#3 · this PR)
+
+A self-contained HTML report renders one section per snapshot, with the
+embedding-cosine score, a semantic-category table, per-slot deltas, and
+the two responses side-by-side. Anchor links (`#snapshot-<id>`) make a
+CI artifact URL deep-linkable to a single failure. No JS, no external
+assets:
+
+```python
+from prompt_regression import HashEmbedder, ReportEntry, diff_response, render_report
+
+embedder = HashEmbedder()
+results = [
+    ReportEntry(
+        snapshot_id=snap.id,
+        diff=diff_response(snap, candidate_text, embedder=embedder),
+        candidate_text=candidate_text,
+        baseline_text=snap.canonical.text,
+    )
+    for snap, candidate_text in your_snapshots_and_candidates
+]
+Path("report.html").write_text(render_report(results), encoding="utf-8")
+```
+
+Verdict colors mirror the diff layer's vocabulary (D-007): `pass` green,
+`warn` amber, `fail` red. Passing sections collapse to a one-line note —
+the report stays scannable when most snapshots are green.
+
+## Regression demo (#4 · this PR)
+
+`scripts/render_regression_demo.py` runs an end-to-end demo: a baseline
+snapshot for a "refund window for the Pro plan" prompt versus an
+"upgraded" model's response that drops the eligibility-caveat slot and
+phrases the window as "two weeks" instead of "14 days". The diff layer
+catches both regressions (slot extraction misses the integer; the
+semantic similarity drops below threshold), and the HTML report renders
+the failure as a single artifact.
+
+```bash
+python scripts/render_regression_demo.py --no-screenshot
+# → docs/regression_demo.html  (verdict: fail, cosine: 0.218)
+```
+
+A screenshot is generated automatically when Playwright or
+`wkhtmltoimage` is available locally; the script falls back to writing
+just the HTML when neither is installed.
+
+**Honest disclosure (D-008).** The two responses are synthetic — clearly
+labeled in the snapshot's `notes` field and in this section's title. The
+diff layer and the report renderer don't care whether the inputs are
+synthetic or recorded from real model versions; the path to a real
+captured regression is "replace the two text constants in the script
+with recorded responses and re-run". A future operator-run version
+against real Anthropic API output drops in the same way.
+
 ## Benchmarks / Results
 
-*Benchmarks pending issue [#4]: a real model-version regression captured
-end-to-end with the snapshot, diff, and HTML report layers in place. The
-diff layer lands in [#2], the report layer in [#3].*
+*Real-LLM regression captured under [#4] is shipped as a synthetic
+demo here (`docs/regression_demo.html`); a real recorded regression
+replaces the two strings in `scripts/render_regression_demo.py` and
+re-runs the same script.*
 
 ## Demo
 
-*60-second demo pending — depends on the HTML report layer ([#3]).*
+See `docs/regression_demo.html` (built by `scripts/render_regression_demo.py`).
+A 60-second video pending; the static HTML demo is runnable today.
 
 ## Why these decisions
 
