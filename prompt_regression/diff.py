@@ -348,9 +348,17 @@ def diff_response(
     warn_band: float = DEFAULT_WARN_BAND,
     force: bool = False,
 ) -> DiffResult:
-    """Compare `candidate_text` against `snapshot`. Returns a structured DiffResult."""
-    if not 0.0 < threshold <= 1.0:
-        raise ValueError(f"threshold must be in (0, 1]; got {threshold}")
+    """Compare `candidate_text` against `snapshot`. Returns a structured DiffResult.
+
+    The effective cosine threshold is the snapshot's own ``tolerance`` when
+    set (issue #10), falling back to the ``threshold`` kwarg / CLI flag
+    otherwise. ``DiffResult.threshold`` carries the *effective* value so
+    downstream surfaces (HTML report, PR comments) show the number that
+    was actually applied to this row.
+    """
+    effective_threshold = snapshot.tolerance if snapshot.tolerance is not None else threshold
+    if not 0.0 < effective_threshold <= 1.0:
+        raise ValueError(f"threshold must be in (0, 1]; got {effective_threshold}")
     if warn_band < 0:
         raise ValueError(f"warn_band must be non-negative; got {warn_band}")
 
@@ -362,6 +370,11 @@ def diff_response(
         )
 
     notes: list[str] = []
+    if snapshot.tolerance is not None and snapshot.tolerance != threshold:
+        notes.append(
+            f"per-snapshot tolerance {snapshot.tolerance:.3f} overrides run threshold "
+            f"{threshold:.3f}"
+        )
     candidate_vec = embedder.embed(candidate_text)
     cosine_score = cosine(candidate_vec, snapshot.canonical.embedding)
 
@@ -370,8 +383,8 @@ def diff_response(
     )
     slot_deltas = diff_slots(snapshot.response_shape.structured_slots, candidate_text)
 
-    cosine_pass = cosine_score >= threshold
-    cosine_warn = (not cosine_pass) and cosine_score >= max(0.0, threshold - warn_band)
+    cosine_pass = cosine_score >= effective_threshold
+    cosine_warn = (not cosine_pass) and cosine_score >= max(0.0, effective_threshold - warn_band)
     slots_ok = all(not d.is_failure for d in slot_deltas)
 
     if not slots_ok:
@@ -384,18 +397,19 @@ def diff_response(
     elif cosine_warn:
         verdict = "warn"
         notes.append(
-            f"cosine {cosine_score:.3f} below threshold {threshold:.3f} but inside warn band"
+            f"cosine {cosine_score:.3f} below threshold {effective_threshold:.3f} "
+            "but inside warn band"
         )
     else:
         verdict = "fail"
-        notes.append(f"cosine {cosine_score:.3f} below threshold {threshold:.3f}")
+        notes.append(f"cosine {cosine_score:.3f} below threshold {effective_threshold:.3f}")
 
     return DiffResult(
         cosine_score=cosine_score,
         semantic_category_scores=category_scores,
         slot_deltas=slot_deltas,
         verdict=verdict,
-        threshold=threshold,
+        threshold=effective_threshold,
         embedder_model=embedder.model_name,
         snapshot_embedding_model=snapshot.canonical.embedding_model,
         notes=notes,

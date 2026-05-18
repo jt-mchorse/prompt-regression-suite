@@ -116,6 +116,32 @@ The diff layer **refuses** to compare against a snapshot whose
 footgun-prevention guard: a silently re-embedded comparison is the kind
 of bug that produces false PASSes that look like the suite is working.
 
+### Per-snapshot tolerance (#10)
+
+The run-level `threshold` is the right default for *most* snapshots, but
+real suites mix tight extraction prompts (where 0.85 is sometimes too
+lenient) with loose creative prompts (where 0.85 fails on legitimate
+paraphrases). Pin a per-snapshot value on the snapshot itself rather
+than running two passes with different `--threshold` values:
+
+```yaml
+id: creative-kite-poem-v1
+prompt: { model: claude-haiku-4-5-20251001, user: "Write a brief, evocative poem..." }
+# ...
+tolerance: 0.75    # cosine bar for this snapshot only
+notes: |
+  Tolerance lowered to 0.75 — creative-writing prompt with high-temp
+  sampler; legitimate paraphrases would false-fail at the default 0.85.
+```
+
+When `tolerance` is set, `diff_response` ignores the per-run `threshold`
+kwarg for *that snapshot* and uses the pinned value instead. The
+`DiffResult.threshold` field carries the *effective* threshold so HTML
+reports and PR comments always show the number that was actually
+applied. Absent / `null` means "use the run-level default."
+
+`examples/snapshots/creative_kite_v1.yml` ships as a worked example.
+
 ## HTML report (#3 · this PR)
 
 A self-contained HTML report renders one section per snapshot, with the
