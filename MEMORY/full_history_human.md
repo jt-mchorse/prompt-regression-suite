@@ -78,3 +78,16 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None. Real-embedder backends (Voyage, OpenAI, Cohere) are intentionally reserved-but-not-wired; an operator implements the `Embedder` protocol locally and passes their own instance via the library API until those integrations land.
 
 **Next session:** prompt-regression-suite has zero open issues. Loop to a different portfolio repo, or schedule operator follow-ups for Voyage/OpenAI/Cohere embedder integrations.
+
+## 2026-05-18 — Issue #10: Per-snapshot tolerance override
+**Duration:** ~30 min · **Branch:** `session/2026-05-18-1607-issue-10` · **PR:** [#11](https://github.com/jt-mchorse/prompt-regression-suite/pull/11) (ready)
+
+- Added an optional `Snapshot.tolerance: float | None` field that pins the cosine threshold for a single snapshot, overriding the per-run `--threshold` flag. When unset, the per-run default applies — every existing fixture round-trips byte-stably.
+- `diff_response` now resolves the effective threshold from the snapshot first, falling back to the kwarg; `DiffResult.threshold` carries the value actually applied so HTML reports and PR-comment surfaces never lie about which bar a verdict was computed against. A note is appended to `DiffResult.notes` whenever the snapshot's tolerance differs from the run-level threshold, so the audit trail is explicit.
+- Shipped `examples/snapshots/creative_kite_v1.yml` with `tolerance: 0.75` and an explanatory `notes:` line as a worked example of when to lower the bar (creative-writing prompt + high-temperature sampler).
+
+**Why this work, this session:** Every original `priority:high` issue is closed. The remaining cluster of operator pain is the "real suites mix tight extraction prompts with loose creative prompts" case where one global threshold is wrong for at least one cluster — and the schema already supports the field naturally via the D-002 dataclass pattern. Low-risk, high-leverage extension.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Move to next zero-open-issue repo in build sequence (rag-production-kit per §8 dependency order).

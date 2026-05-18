@@ -93,3 +93,26 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T16:07Z
+duration_min: 30
+issue: 10
+focus: per_snapshot_tolerance_override_field
+delta:
+  files_added: 2  # tests/test_tolerance.py, examples/snapshots/creative_kite_v1.yml
+  files_changed: 3  # prompt_regression/schema.py, prompt_regression/diff.py, README.md
+  tests_added: 21
+  test_pass_rate: "116/116"
+context_for_next_session:
+  - snapshot_tolerance_optional_float_in_zero_open_to_one_closed_validated_in_post_init_bool_str_list_rejected
+  - to_dict_omits_tolerance_when_none_mirrors_notes_pattern_existing_yaml_round_trips_byte_stable
+  - diff_response_effective_threshold_is_snapshot_tolerance_or_threshold_kwarg_diffresult_threshold_carries_effective
+  - override_note_appended_to_diffresult_notes_when_snapshot_tolerance_differs_from_run_threshold
+  - creative_kite_v1_yml_worked_example_tolerance_0_75_with_explanatory_notes
+  - readme_diff_layer_section_has_per_snapshot_tolerance_subsection_with_yaml_snippet
+  - no_new_d_entry_resolution_concern_over_existing_d_004_two_channel_diff_does_not_change_channel_composition
+  - load_snapshot_save_snapshot_round_trip_invariant_preserved_for_both_tolerance_set_and_tolerance_absent
+decisions_made: []
+followups: []
+---
