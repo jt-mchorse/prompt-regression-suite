@@ -195,6 +195,12 @@ class Snapshot:
     The ``id`` is the stable key the diff layer uses to find a baseline when
     a new response comes in — it should be unique within a repo's snapshot
     directory and not encode date or model info (those have their own fields).
+
+    ``tolerance`` (issue #10) pins the cosine threshold for this snapshot
+    only. When set, the diff layer uses it instead of the per-run
+    ``threshold`` kwarg / CLI flag — useful for tight extraction prompts
+    (raise it) and loose creative prompts (lower it). When ``None`` (or
+    absent in YAML), the per-run default applies as before.
     """
 
     id: str
@@ -204,6 +210,7 @@ class Snapshot:
     schema_version: str = SCHEMA_VERSION
     created_at: str = field(default_factory=_utcnow_iso)
     notes: str | None = None
+    tolerance: float | None = None
 
     def __post_init__(self) -> None:
         _require_str(self.id, "Snapshot.id")
@@ -218,6 +225,16 @@ class Snapshot:
         _require_str(self.schema_version, "Snapshot.schema_version")
         _require_str(self.created_at, "Snapshot.created_at")
         self.notes = _require_optional_str(self.notes, "Snapshot.notes")
+        if self.tolerance is not None:
+            # bool is an int — reject it explicitly so True/False don't sneak through.
+            if isinstance(self.tolerance, bool) or not isinstance(self.tolerance, (int, float)):
+                raise SnapshotValidationError(
+                    f"Snapshot.tolerance must be a number or None, got {type(self.tolerance).__name__}"
+                )
+            tol = float(self.tolerance)
+            if not 0.0 < tol <= 1.0:
+                raise SnapshotValidationError(f"Snapshot.tolerance must be in (0, 1]; got {tol}")
+            self.tolerance = tol
 
     def to_dict(self) -> dict[str, Any]:
         """Render the snapshot as a plain dict suitable for YAML/JSON dump.
@@ -225,9 +242,13 @@ class Snapshot:
         Round-trip identity: ``Snapshot.from_dict(s.to_dict()) == s``.
         """
         data = asdict(self)
-        # Drop None notes so YAML stays tidy on snapshots that don't use it.
+        # Drop None-valued optional fields so YAML stays tidy on snapshots
+        # that don't use them. Same pattern for `tolerance` (issue #10) as
+        # `notes` — absence in YAML means "fall back to the per-run default".
         if data.get("notes") is None:
             data.pop("notes", None)
+        if data.get("tolerance") is None:
+            data.pop("tolerance", None)
         return data
 
     @classmethod
@@ -259,4 +280,5 @@ class Snapshot:
             schema_version=data.get("schema_version", SCHEMA_VERSION),
             created_at=data.get("created_at", _utcnow_iso()),
             notes=data.get("notes"),
+            tolerance=data.get("tolerance"),
         )
