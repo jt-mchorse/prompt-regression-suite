@@ -91,3 +91,16 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Move to next zero-open-issue repo in build sequence (rag-production-kit per §8 dependency order).
+
+## 2026-05-18 — Issue #12: snapshot test for `docs/regression_demo.html`
+**Duration:** ~20 min · **Branch:** `session/2026-05-18-1927-issue-12`
+
+- Added `tests/test_regression_demo_snapshot.py` (2 tests). The first runs `render_regression_demo.main(... --no-screenshot)` against a `tmp_path` and asserts byte equality with the committed `docs/regression_demo.html`. The second checks the synthetic-disclosure framing ("across model versions") survives — a light belt-and-braces test against a future refactor that drops the disclosure language.
+- The existing `test_render_regression_demo.py` covered the diff math and the structural shape of the HTML, but didn't lock the committed file. A tweak to a constant or title would have passed every test while quietly desyncing the README's Demo link from the live script.
+- Verified the failure path by tampering the title string in `scripts/render_regression_demo.py`; the snapshot fired with the regen hint visible. Restored the file.
+
+**Why this work, this session:** Same hygiene pattern landed today in `llm-cost-optimizer` (lock the committed `docs/savings.{json,md}` and README table to bench output). The handoff §10 commits the portfolio to "no fabricated benchmarks" / "no fabricated demo"; snapshot tests are the enforcement mechanism for both.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Continue the multi-issue loop; next build-sequence repo is `rag-production-kit`.

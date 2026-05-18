@@ -116,3 +116,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T20:25Z
+duration_min: 20
+issue: 12
+focus: snapshot_test_locks_docs_regression_demo_html_to_render_script_output
+delta:
+  files_added: 1   # tests/test_regression_demo_snapshot.py
+  files_changed: 0
+  tests_added: 2   # byte-equal snapshot + synthetic-disclosure framing check
+  test_pass_rate: "118/118"
+context_for_next_session:
+  - snapshot_pattern_runs_render_regression_demo_main_against_tmp_path_no_screenshot_compares_committed_docs_regression_demo_html_byte_equal
+  - failure_message_names_python_scripts_render_regression_demo_py_no_screenshot_regen_command
+  - tamper_verified_by_replacing_title_string_in_render_script_test_fired_then_reverted
+  - synthetic_disclosure_test_guards_across_model_versions_framing_so_future_renderer_refactor_dropping_disclosure_is_loud
+  - pattern_parallel_to_llm_cost_optimizer_savings_snapshot_test_committed_today_no_new_d_entry_enforces_no_fabricated_demo_handoff_section_10
+decisions_made: []
+followups: []
+---
