@@ -4,6 +4,19 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #17: snapshot lock README numeric/identifier defaults to source constants
+**Duration:** ~28 min · **Branch:** `session/2026-05-19-1921-issue-17` · **PR:** [#18](https://github.com/jt-mchorse/prompt-regression-suite/pull/18) (ready)
+
+- Added `tests/test_readme_defaults_snapshot.py` (4 tests) closing the orthogonal axis the existing demo-HTML + CLI tests don't cover: README claims that quote source constants (`threshold=0.85` ↔ `DEFAULT_THRESHOLD`, pip extras), the console-script name (`prompt-snap` ↔ pyproject `[project.scripts]`), and the "What this is" subcommand bullet (`prompt-snap run | update | diff` ↔ live argparse).
+- Source is the truth — every failure message tells the operator to update the README to match the new live value. The threshold test asserts the README's two threshold mentions agree with each other *before* comparing to source (so a half-updated README fails loudly with a "pick one and align both anchors" message rather than silently picking one over the other). The subcommand-surface test discovers live names via `build_parser()._actions` choices rather than parsing `--help` text, so it's robust to argparse formatting changes.
+- Tamper-verified 3 of 4 (`DEFAULT_THRESHOLD` 0.85→0.75, pyproject `prompt-snap → prompt-snap-renamed`, README dropping the `diff` subcommand) — each fires with the source symbol referenced in the failure message; revert restores green. Full suite 125/125 (was 121); ruff check + format clean.
+
+**Why this work, this session:** Phase A repo selection ran with `priority:high` empty across the portfolio and the existing `priority:med`/`priority:low` issues either had open PRs against them or required screen capture (demo issues). Filing #17 + working it kept the portfolio's snapshot wave honest by closing the orthogonal source-constants gap — sister to the same pattern landed in llm-eval-harness (#22→#23) and llm-cost-optimizer (#20→#21) earlier in the same session.
+
+**Open questions / blockers:** None.
+
+**Next session:** Continues with whichever repo Phase A selection picks; remaining defaults-snapshot candidates in the portfolio are `agent-orchestration-platform` (model IDs, eval extras) and any repo that still quotes source constants in its README without a snapshot lock.
+
 ## 2026-05-19 — Issue #14: drop "Issue [#N] ships" framing + drift lock
 **Duration:** ~25 min · **Branch:** `session/2026-05-19-issue-14`
 
