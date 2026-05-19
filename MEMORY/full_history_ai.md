@@ -155,3 +155,22 @@ context_for_next_session:
 decisions_made: []
 followups: ["#15"]
 ---
+
+---
+session: 2026-05-19T20:10Z
+duration_min: 28
+issue: 17
+focus: snapshot_lock_readme_numeric_identifier_defaults_to_source_constants
+delta:
+  files_added: 1   # tests/test_readme_defaults_snapshot.py
+  tests_added: 4
+  test_pass_rate: "125/125"
+context_for_next_session:
+  - readme_defaults_now_locked_four_surfaces_default_threshold_pip_extras_prompt_snap_console_script_subcommand_surface
+  - threshold_test_asserts_two_readme_mentions_agree_with_each_other_before_comparing_to_source
+  - subcommand_test_discovers_live_via_argparse_actions_choices_not_help_output
+  - tamper_verified_three_of_four_default_threshold_console_script_rename_subcommand_drop
+  - sister_to_test_regression_demo_snapshot_orthogonal_axis_source_constants_vs_rendered_html
+decisions_made: []
+followups: []
+---
