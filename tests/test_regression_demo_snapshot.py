@@ -74,3 +74,55 @@ def test_committed_regression_demo_html_carries_synthetic_disclosure() -> None:
         "reader doesn't mistake it for a captured real-model regression. "
         "If the wording changed intentionally, update this assertion."
     )
+
+
+# ---------------------------------------------------------------------
+# README drift-lock invariants (added 2026-05-19, issue #14).
+
+
+def _readme() -> str:
+    return (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_readme_what_this_is_section_cites_every_shipped_issue() -> None:
+    body = _readme()
+    start = body.index("## What this is")
+    end = body.index("##", start + 1)
+    section = body[start:end]
+    expected = ["(#1)", "(#2)", "(#3)", "(#4)", "(#5)", "(#10)"]
+    missing = [ref for ref in expected if ref not in section]
+    assert not missing, (
+        f"`## What this is` is missing issue references: {missing}. "
+        f"Every closed issue with shipped surface must be cited."
+    )
+
+
+def test_readme_does_not_carry_issue_n_ships_framing() -> None:
+    """The pre-2026-05-19 phrasing `Issue [#1] ships the schema ...` was
+    correct only when most issues were open. It's a regression if it
+    comes back.
+    """
+    body = _readme()
+    import re as _re
+
+    matches = _re.findall(r"[Ii]ssue\s*\[?#\d+\]?\s+(?:ships|adds|documents)", body)
+    assert not matches, (
+        f"README contains stale present-tense framing for closed issues: {matches!r}. "
+        "Rewrite past-tense — every closed issue should be cited as `(#N)` with a "
+        "past-tense or surface-naming clause."
+    )
+
+
+def test_readme_demo_section_names_followup_and_describes_today() -> None:
+    body = _readme()
+    start = body.index("## Demo")
+    end = body.index("##", start + 1)
+    demo = body[start:end]
+    import re as _re
+
+    assert _re.search(r"#\d+", demo), (
+        "Demo section must name at least one follow-up issue (the captured-asset owner)."
+    )
+    assert "render_regression_demo" in demo, (
+        "Demo section must reference the regression-demo renderer script."
+    )

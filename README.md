@@ -15,21 +15,40 @@ once, and from then on every model change is checked against the snapshot's
 structural expectations and the embedding similarity of the new response to
 the original.
 
-The snapshot itself is a plain YAML file checked into your repo alongside
-the prompt it covers, so diffs to expected behavior show up in pull
-requests the same way diffs to code do. Issue [#1] ships the schema and the
-loader/saver; issue [#2] adds the embedding-similarity + structured-slot
-diff function on top of it; issue [#3] adds the HTML report; issue [#4]
-documents a real regression caught with the resulting toolchain. Everything
-in this repo is narrow on purpose: it does *not* replace
-[`llm-eval-harness`](https://github.com/jt-mchorse/llm-eval-harness) — that
-covers golden datasets and LLM-as-judge evals. This one is snapshot-style
-only.
+The snapshot itself is a plain YAML file checked into your repo
+alongside the prompt it covers, so diffs to expected behavior show up
+in pull requests the same way diffs to code do. Six closed issues map
+to today's surface:
+
+- **Snapshot schema + loader** (#1) — YAML `Snapshot` / `Prompt` /
+  `ResponseShape` / `CanonicalResponse`, round-trip identity guaranteed.
+- **Semantic similarity diff** (#2) — embedding-similarity + structured
+  slot-shape diff with a configurable per-snapshot tolerance.
+- **HTML report** (#3) — single-file HTML with inline SVG so the
+  report ships as one artifact and renders without a CDN.
+- **Caught regression** (#4) — `docs/regression_demo.html` is a real
+  before/after pair demonstrating a synthetic-but-realistic drift
+  surfacing through the toolchain. An operator-recorded real
+  regression swaps the two strings in
+  `scripts/render_regression_demo.py` and re-runs the same script.
+- **CLI** (#5) — `prompt-snap run | update | diff`, with `--force` on
+  `update` to defend against accidental re-baselining.
+- **Per-snapshot tolerance** (#10) — `Snapshot.tolerance` overrides
+  the global default; bumped to `1.0` (always-pass) for snapshots that
+  are intentionally allowed to drift, lowered for the ones you want
+  strict.
+
+Everything in this repo is narrow on purpose: it does *not* replace
+[`llm-eval-harness`](https://github.com/jt-mchorse/llm-eval-harness) —
+that covers golden datasets and LLM-as-judge evals. This one is
+snapshot-style only.
 
 [#1]: https://github.com/jt-mchorse/prompt-regression-suite/issues/1
 [#2]: https://github.com/jt-mchorse/prompt-regression-suite/issues/2
 [#3]: https://github.com/jt-mchorse/prompt-regression-suite/issues/3
 [#4]: https://github.com/jt-mchorse/prompt-regression-suite/issues/4
+[#5]: https://github.com/jt-mchorse/prompt-regression-suite/issues/5
+[#10]: https://github.com/jt-mchorse/prompt-regression-suite/issues/10
 
 ## Architecture
 
@@ -251,8 +270,18 @@ re-runs the same script.*
 
 ## Demo
 
-See `docs/regression_demo.html` (built by `scripts/render_regression_demo.py`).
-A 60-second video pending; the static HTML demo is runnable today.
+The runnable surface today is two commands:
+
+```bash
+# Regenerate the synthetic regression report (built by #4).
+python scripts/render_regression_demo.py
+
+# Inspect the result in a browser.
+open docs/regression_demo.html
+```
+
+A captured 60-second video (showing the report side-by-side with a
+`prompt-snap diff` invocation) is tracked in **#15**.
 
 ## Why these decisions
 

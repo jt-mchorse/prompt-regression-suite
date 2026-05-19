@@ -136,3 +136,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-19T06:35Z
+duration_min: 25
+issue: 14
+focus: drop_issue_n_ships_framing_plus_extend_snapshot
+delta:
+  files_changed: 1   # README.md
+  files_changed_tests: 1   # tests/test_regression_demo_snapshot.py
+  tests_added: 3
+  test_pass_rate: "121/121"
+context_for_next_session:
+  - readme_what_this_is_paragraph_2_rewritten_to_six_bullet_past_tense
+  - demo_section_replaces_bare_pending_with_two_command_path_plus_followup_15
+  - snapshot_test_extended_with_3_new_drift_lock_invariants
+  - tamper_verified_reinjecting_issue_n_ships_fires_snapshot
+decisions_made: []
+followups: ["#15"]
+---

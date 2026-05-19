@@ -4,6 +4,19 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #14: drop "Issue [#N] ships" framing + drift lock
+**Duration:** ~25 min · **Branch:** `session/2026-05-19-issue-14`
+
+- Rewrote "What this is" paragraph 2 from "Issue [#1] ships the schema and the loader/saver; issue [#2] adds the embedding-similarity..." to a six-bullet past-tense list covering every shipped issue (#1 schema, #2 similarity diff, #3 HTML report, #4 caught regression, #5 CLI, #10 per-snapshot tolerance).
+- Demo section: replaced "A 60-second video pending; the static HTML demo is runnable today." with today's two-command path (`scripts/render_regression_demo.py` + opening the HTML) plus the captured-asset follow-up filed as #15.
+- Extended `tests/test_regression_demo_snapshot.py` with three drift-lock tests (5 total): all six (#N) refs appear in "What this is", no `Issue [#N] ships|adds|documents` framing remains, Demo section names a follow-up + references the renderer script.
+
+**Why this work, this session:** Sister to the portfolio-wide drift-lock pattern; prompt-regression-suite still carried the present-tense issue-N-ships framing.
+
+**Open questions / blockers:** None.
+
+**Next session:** Continues with Phase A; #15 is priority:low demo capture.
+
 ## 2026-05-14 — Issue #1: snapshot YAML schema + loader/saver
 **Duration:** ~55 min · **Branch:** `session/2026-05-14-1408-issue-01`
 
