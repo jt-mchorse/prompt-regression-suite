@@ -130,3 +130,16 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Continue the multi-issue loop; next build-sequence repo is `rag-production-kit`.
+
+## 2026-05-19 — Issue #19: Public-surface snapshot test
+**Duration:** ~20 min · **Branch:** `session/2026-05-19-2336-issue-19` · **PR:** [#20](https://github.com/jt-mchorse/prompt-regression-suite/pull/20) (ready, CI green, merging)
+
+- Issue filed in-session as the third instance of the public-surface snapshot pattern in today's portfolio loop (after `llm-eval-harness` #25 and `llm-cost-optimizer` #23, both merged earlier). Same risk class: the README quotes three `from prompt_regression import …` library-use snippets but no test locked the shape, so a future submodule rename would silently drop names.
+- Adapted the pattern for *relative* imports: `__init__.py` uses `from .diff import …` rather than absolute `from prompt_regression.diff import …`, so the AST walk filters on `ImportFrom.level >= 1` instead of a module-name prefix. Otherwise the same four axes: `__all__` round-trip, all-bound-non-none, README-regex auto-discovery + guard, one anchor per submodule (diff / html_report / io / schema).
+- Tamper-verified 3-of-4. Full suite 135/135 (+10 new). Lint and format clean.
+
+**Why this work, this session:** Three-strikes confirms the pattern. Going forward the snapshot can land in the remaining six Python repos (embedding-model-shootout, chunking-strategies-lab, vector-search-at-scale, python-async-llm-pipelines, rag-production-kit, mcp-server-cookbook's Python example) without further decision overhead — same four axes, swap the package name and the submodule anchors.
+
+**Open questions / blockers:** None.
+
+**Next session:** Loop to a fresh repo or wrap up the session.

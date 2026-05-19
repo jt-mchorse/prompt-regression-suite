@@ -174,3 +174,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-19T21:25Z
+duration_min: 20
+issue: 19
+focus: public_surface_snapshot_locks_prompt_regression_top_level_init_exports
+delta:
+  files_added: 1   # tests/test_public_surface.py
+  tests_added: 10
+  test_pass_rate: "135/135"
+context_for_next_session:
+  - third_public_surface_snapshot_landed_same_session_as_eval_harness_25_and_cost_optimizer_23
+  - this_package_uses_relative_imports_from_dot_x_import_so_ast_walk_filters_on_importfrom_level_ge_1_instead_of_module_name_prefix
+  - readme_snippet_test_parametrized_via_regex_extraction_three_snippets_today_future_snippets_auto_covered
+  - guard_test_asserts_regex_non_empty
+  - parametrized_over_four_submodules_diff_html_report_io_schema_one_anchor_each
+  - tamper_verified_three_of_four_drop_snapshot_all_alias_rename_snapshot_nuke_readme_imports
+  - sister_pattern_now_in_three_python_repos_eval_harness_cost_optimizer_prompt_regression_same_session
+decisions_made: []
+followups: []
+---
