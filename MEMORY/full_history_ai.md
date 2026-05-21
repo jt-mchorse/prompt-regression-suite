@@ -195,3 +195,30 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-21T16:25Z
+duration_min: 30
+issue: 15
+focus: capture_script_for_60s_demo_three_surfaces
+delta:
+  files_added: 2   # scripts/capture_demo.sh, tests/test_capture_demo_smoke.py
+  files_changed: 1 # README.md (Demo section)
+  tests_added: 5
+  test_pass_rate: "140/140"
+context_for_next_session:
+  - capture_script_lives_at_scripts_capture_demo_sh_one_bash_entry_point_for_jt_recording
+  - three_surfaces_render_regression_demo_no_screenshot_then_open_html_then_prompt_snap_diff_pass_then_fail
+  - committed_examples_snapshots_refund_window_v1_yml_has_8_dim_illustrative_embedding_incompatible_with_default_128_dim_hash_embedder_so_script_copies_then_prompt_snap_update_force_in_tempdir
+  - threshold_flip_demo_threshold_0_9_passes_cosine_0_9645_threshold_0_99_warn_band_0_0_fails_same_candidate
+  - capture_pace_seconds_env_default_2_smoke_test_sets_0
+  - capture_open_html_env_default_1_smoke_test_sets_0_macos_open_linux_xdg_open
+  - smoke_test_slices_stdout_from_surface_3_banner_to_avoid_surface_1_verdict_fail_poisoning_pass_then_fail_order_check
+  - smoke_test_pins_byte_equality_of_docs_regression_demo_html_before_and_after_capture_render_is_deterministic
+  - readme_demo_section_updated_still_names_15_no_pending_until_language
+  - acceptance_criterion_3_capture_script_under_scripts_satisfied_acceptance_1_gif_and_2_readme_embed_remain_blocked_on_human_recording
+  - pr_21_draft_issue_15_stays_open_until_jt_records_gif
+  - third_capture_demo_script_landed_this_session_eval_harness_26_cost_optimizer_24_prompt_regression_21_same_pattern
+decisions_made: []
+followups: []
+---

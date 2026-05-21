@@ -143,3 +143,16 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None.
 
 **Next session:** Loop to a fresh repo or wrap up the session.
+
+## 2026-05-21 — Issue #15: Capture script for the three-surface 60s demo
+**Duration:** ~30 min · **Branch:** `session/2026-05-21-1625-issue-15` · **PR:** [#21](https://github.com/jt-mchorse/prompt-regression-suite/pull/21) (draft — issue stays open for JT's GIF recording)
+
+- `scripts/capture_demo.sh` lands as the deterministic driver for the 60-second README demo. Three surfaces in sequence on a fresh clone with no API key: (1) `python scripts/render_regression_demo.py --no-screenshot` regenerates `docs/regression_demo.html` and prints verdict + cosine; (2) OS default opener launches the HTML for the browser tour (toggle via `CAPTURE_OPEN_HTML`); (3) `prompt-snap diff` twice on a tempdir snapshot — the committed `examples/snapshots/refund_window_v1.yml` carries an 8-dim illustrative embedding the default 128-dim hash embedder can't compare to, so the script copies it + re-baselines with `prompt-snap update --force` first, then diffs the same near-paraphrase candidate at `--threshold 0.9` (cosine 0.96 → pass) and `--threshold 0.99 --warn-band 0.0` (same candidate → fail). That last pair is the literal "tighter tolerance makes benign drift fail" surface the issue scope calls for.
+- `tests/test_capture_demo_smoke.py` (5 tests, module-scoped fixture) asserts exit 0, each surface's distinctive output appears, pass-then-fail ordering within surface 3 (the test slices stdout from "3/3 · prompt-snap diff" to keep surface-1's own `verdict: fail` line out of the ordering check — the first cut got correctly caught by that), and `docs/regression_demo.html` is byte-equal before and after (deterministic regen — the same property `test_regression_demo_snapshot.py` pins via the script directly, asserted here at the capture-script boundary).
+- README "Demo" section rewritten to point at `scripts/capture_demo.sh` and the three surfaces; still names #15 as the follow-up for the GIF/video and avoids "pending until ..." language. Full suite: 140/140.
+
+**Why this work, this session:** Third instance of the demo-capture pattern landed in today's multi-issue session (after `llm-eval-harness` PR #26 and `llm-cost-optimizer` PR #24). All three repos had the same blocker: a single open `priority:low` issue whose three acceptance bullets included one autonomous-actionable script bullet + two human-screen-recording bullets. Landing the script in all three now means JT's recording session is one command per repo, the GIFs will be reproducible at any later point, and the smoke tests guarantee none of the three demo paths can bitrot between recordings.
+
+**Open questions / blockers:** None. Acceptance criteria 1 (`docs/demo.gif|mp4`) and 2 (README embed) remain pending JT screen capture.
+
+**Next session:** Loop should now skip the three "demo-capture only" repos for autonomous turns and pick from the next-largest priority-low open queues across the remaining nine repos.

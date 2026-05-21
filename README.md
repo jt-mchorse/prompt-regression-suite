@@ -270,18 +270,36 @@ re-runs the same script.*
 
 ## Demo
 
-The runnable surface today is two commands:
+The runnable surface today is one command:
 
 ```bash
-# Regenerate the synthetic regression report (built by #4).
-python scripts/render_regression_demo.py
-
-# Inspect the result in a browser.
-open docs/regression_demo.html
+scripts/capture_demo.sh
 ```
 
-A captured 60-second video (showing the report side-by-side with a
-`prompt-snap diff` invocation) is tracked in **#15**.
+That drives the three surfaces in sequence on a fresh clone with no
+API key:
+
+1. **`scripts/render_regression_demo.py --no-screenshot`** regenerates
+   `docs/regression_demo.html` and prints verdict + cosine for the
+   in-process synthetic snapshot (baseline keeps "14 days"; upgraded
+   drops it to "two weeks" + loses the eligibility caveat — both
+   captured by the diff layer).
+2. The OS default opener launches `docs/regression_demo.html` (off in
+   CI via `CAPTURE_OPEN_HTML=0`).
+3. **`prompt-snap diff`** twice on a tempdir snapshot re-baselined
+   with the default 128-dim hash embedder: once at `--threshold 0.9`
+   (pass on a near-paraphrase candidate) and once at `--threshold
+   0.99 --warn-band 0.0` (the same candidate now fails) — the literal
+   "tighter tolerance makes benign drift fail" surface.
+
+Knobs: `CAPTURE_PACE_SECONDS` controls section pacing (default `2`
+for recording, `0` for CI); `CAPTURE_OPEN_HTML=0` skips the browser
+launch. `tests/test_capture_demo_smoke.py` runs the whole script
+end-to-end in CI so the demo can't bitrot.
+
+The captured 60-second GIF/video that this script drives is tracked
+in **#15**; once recorded it lands at `docs/demo.gif` and gets
+embedded here.
 
 ## Why these decisions
 
