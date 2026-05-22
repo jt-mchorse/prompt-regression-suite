@@ -195,3 +195,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-22T03:45Z
+duration_min: 25
+issue: 22
+focus: broaden_snapshot_glob_to_match_committed_yml_examples_plus_yaml_plus_snapshot_yaml_convention
+delta:
+  files_changed: 2   # prompt_regression/cli.py, README.md
+  files_modified_tests: 1  # tests/test_cli.py (3 new tests + assertion tightening on empty-dir error)
+  tests_added: 3
+  test_pass_rate: "138/138"
+decisions_made: []
+context_for_next_session:
+  - cli_snapshot_glob_hard_coded_to_star_snapshot_yaml_but_committed_examples_use_bare_yml_so_prompt_snap_run_snapshots_examples_snapshots_errored_with_no_star_snapshot_yaml_files_under_path_not_silent_but_unusable
+  - broadened_to_tuple_snapshot_yaml_snapshot_yml_yml_yaml_walker_rglobs_each_dedupes_via_seen_set_sorts
+  - opinionated_snapshot_yaml_still_preferred_for_fresh_projects_but_bare_yml_yaml_now_just_work_for_pre_existing_conventions_and_for_the_committed_examples_dir
+  - error_message_now_lists_all_four_globs_considered_so_misconfigured_caller_can_verify_extension_coverage_without_reading_source
+  - dedup_invariant_tested_separately_because_foo_snapshot_yaml_matches_both_star_snapshot_yaml_and_star_yaml_walker_must_collapse
+  - sixth_post_v0_1_drift_fix_today_after_emb_shootout_chunking_lab_vector_search_at_scale_python_async_llm_pipelines_agent_orchestration_platform
+followups: []
+---

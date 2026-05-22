@@ -255,6 +255,16 @@ The candidates JSONL row shape is
 or `{"id": "<snapshot.id>", "candidate": "<text>"}`; the lookup tries
 the relative path first, then falls back to the id.
 
+`run` walks `*.snapshot.yaml`, `*.snapshot.yml`, `*.yml`, and `*.yaml`
+under the supplied dir, merging the matches deduped. The opinionated
+`*.snapshot.yaml` convention is preferred for fresh projects (clearly
+distinguishes snapshot files from other yaml in the repo), but the
+plain `.yml` / `.yaml` extensions also work — the committed
+`examples/snapshots/*.yml` files are picked up by either convention.
+If the walk finds zero snapshots the command exits 2 with the
+considered-globs list in the error, so a pointed-at-the-wrong-dir run
+fails loud instead of silently scanning nothing.
+
 `run` and `diff` accept `--format json` for downstream tooling, and
 both honor the embedder-vs-snapshot-model guard (D-006); pass
 `--force-embedder` to override. `update` defends against accidental

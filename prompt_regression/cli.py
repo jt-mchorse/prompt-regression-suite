@@ -42,7 +42,18 @@ from .diff import (
 from .io import load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
 
-_SNAPSHOT_GLOB = "*.snapshot.yaml"
+# `run` walks any of these globs under the snapshots dir, deduped + sorted.
+# The opinionated `*.snapshot.yaml` convention is preferred for fresh
+# projects (clearly distinguishes snapshot files from other yaml in the
+# repo), but the plain `.yml` / `.yaml` extensions are also accepted so
+# the committed `examples/snapshots/*.yml` files and any pre-existing
+# convention an operator already uses just work without renames.
+_SNAPSHOT_GLOBS: tuple[str, ...] = (
+    "*.snapshot.yaml",
+    "*.snapshot.yml",
+    "*.yml",
+    "*.yaml",
+)
 _RESERVED_EMBEDDERS = frozenset({"voyage", "openai", "cohere"})
 
 
@@ -71,7 +82,15 @@ def make_embedder(name: str) -> Embedder:
 
 
 def _iter_snapshot_paths(snapshots_dir: Path) -> list[Path]:
-    return sorted(snapshots_dir.rglob(_SNAPSHOT_GLOB))
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for pattern in _SNAPSHOT_GLOBS:
+        for p in snapshots_dir.rglob(pattern):
+            if p not in seen:
+                seen.add(p)
+                out.append(p)
+    out.sort()
+    return out
 
 
 def _load_candidates(path: Path) -> dict[str, str]:
@@ -129,7 +148,11 @@ def _run_command(args: argparse.Namespace) -> int:
         return 2
     snapshot_paths = _iter_snapshot_paths(snapshots_dir)
     if not snapshot_paths:
-        print(f"error: no {_SNAPSHOT_GLOB} files under {snapshots_dir}", file=sys.stderr)
+        patterns = ", ".join(_SNAPSHOT_GLOBS)
+        print(
+            f"error: no snapshot files under {snapshots_dir} (patterns considered: {patterns})",
+            file=sys.stderr,
+        )
         return 2
 
     candidates = _load_candidates(Path(args.candidates))
