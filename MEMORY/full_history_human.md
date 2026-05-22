@@ -143,3 +143,13 @@ cosine vs. a new response's embedding, enforce slot extraction.
 **Open questions / blockers:** None.
 
 **Next session:** Loop to a fresh repo or wrap up the session.
+
+## 2026-05-22 — Broaden `prompt-snap run` glob to find committed examples (#22)
+
+**Duration:** ~25 min. **Issue:** [#22](https://github.com/jt-mchorse/prompt-regression-suite/issues/22). **PR:** TBD.
+
+`prompt-snap run --snapshots ./examples/snapshots` exited 2 with `error: no *.snapshot.yaml files under ...` — but the directory the README quickstart sends a reader to contains two committed examples (`refund_window_v1.yml`, `creative_kite_v1.yml`). The CLI's `_SNAPSHOT_GLOB = "*.snapshot.yaml"` hard-coded one opinionated convention; the committed examples followed a different one. The README's Python API section uses the `.yml` files happily; the CLI section's example output uses `.snapshot.yaml`. Inconsistency between (a) what the README shows, (b) what's committed, and (c) what the CLI accepts.
+
+The fix broadens `_SNAPSHOT_GLOBS` to a tuple of four patterns (`*.snapshot.yaml`, `*.snapshot.yml`, `*.yml`, `*.yaml`) — `_iter_snapshot_paths` rglob's each, dedupes via a seen-set, and sorts. The opinionated `*.snapshot.yaml` convention is still preferred for fresh projects (clearly distinguishes snapshot files from other yaml), but the bare extensions now just work for pre-existing conventions and for the committed examples. The zero-find error message now lists every glob the walker considered, so a pointed-at-the-wrong-dir caller can verify extension coverage without reading the source. Three new tests in `tests/test_cli.py` lock the surface: the walker finds both committed examples in `examples/snapshots/`, all four patterns are individually covered on a synthetic fixture, and `foo.snapshot.yaml` (which matches both `*.snapshot.yaml` and `*.yaml`) deduplicates to a single entry. The pre-existing `test_run_empty_snapshots_dir_exits_2` is tightened to assert every glob name appears in the error message.
+
+Why prioritized: this is the sixth post-v0.1 drift fix today across the portfolio (after embedding-model-shootout #17, chunking-strategies-lab #19, vector-search-at-scale #19, python-async-llm-pipelines #21, agent-orchestration-platform #21). All six different shapes, same family — README/docs/contracts that drift from code behavior; promote to runtime + source locks so they can't drift again. Open questions / followups: none. The new globs cover both old and new naming conventions; operators choose.
