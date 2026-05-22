@@ -228,7 +228,13 @@ def test_run_empty_snapshots_dir_exits_2(tmp_path: Path, capsys: pytest.CaptureF
     cands = _write_candidates(tmp_path / "cands.jsonl", [{"snapshot": "x", "candidate": "y"}])
     rc = main(["run", "--snapshots", str(snaps), "--candidates", str(cands)])
     assert rc == 2
-    assert "no *.snapshot.yaml" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "no snapshot files" in err
+    # Error message must enumerate every glob the walker considered, so an
+    # operator who pointed at the wrong directory can confirm extension
+    # coverage without reading the source.
+    for pattern in ("*.snapshot.yaml", "*.snapshot.yml", "*.yml", "*.yaml"):
+        assert pattern in err, f"error message missing glob {pattern!r}; got: {err!r}"
 
 
 def test_run_candidates_invalid_json_raises():
@@ -390,3 +396,57 @@ def test_diff_candidate_stdin(
     )
     assert rc == 0
     assert "verdict: pass" in capsys.readouterr().out
+
+
+# ----------------------------------------------------------------------
+# #22: _SNAPSHOT_GLOBS covers committed example files (.yml) AND the
+# opinionated .snapshot.yaml convention
+# ----------------------------------------------------------------------
+
+
+def test_iter_snapshot_paths_finds_yml_examples():
+    # The repo's committed examples use the bare `.yml` extension, not the
+    # opinionated `*.snapshot.yaml`. Before #22 the walker hard-coded
+    # `*.snapshot.yaml` and found zero of them, so `prompt-snap run
+    # --snapshots examples/snapshots ...` errored out on the very dir
+    # the README quickstart sent the reader to.
+    from prompt_regression.cli import _iter_snapshot_paths
+
+    examples = Path(__file__).resolve().parent.parent / "examples" / "snapshots"
+    found = _iter_snapshot_paths(examples)
+    names = sorted(p.name for p in found)
+    assert "creative_kite_v1.yml" in names, names
+    assert "refund_window_v1.yml" in names, names
+
+
+def test_iter_snapshot_paths_covers_all_four_extensions(tmp_path: Path):
+    # Synthetic dir with one file per supported extension. Walker must
+    # find all four and dedupe (a file matching multiple globs shouldn't
+    # appear twice).
+    from prompt_regression.cli import _iter_snapshot_paths
+
+    for name in (
+        "a.snapshot.yaml",
+        "b.snapshot.yml",
+        "c.yml",
+        "d.yaml",
+    ):
+        (tmp_path / name).write_text("id: t\nprompt: { model: x, user: y }\n", encoding="utf-8")
+    found = _iter_snapshot_paths(tmp_path)
+    names = sorted(p.name for p in found)
+    assert names == ["a.snapshot.yaml", "b.snapshot.yml", "c.yml", "d.yaml"], names
+    # Dedup invariant: each unique path appears at most once.
+    assert len(found) == len(set(found))
+
+
+def test_iter_snapshot_paths_dedup_when_filename_matches_multiple_globs(tmp_path: Path):
+    # `foo.snapshot.yaml` matches both `*.snapshot.yaml` and `*.yaml`.
+    # The walker must merge those into a single entry.
+    from prompt_regression.cli import _iter_snapshot_paths
+
+    (tmp_path / "foo.snapshot.yaml").write_text(
+        "id: t\nprompt: { model: x, user: y }\n", encoding="utf-8"
+    )
+    found = _iter_snapshot_paths(tmp_path)
+    assert [p.name for p in found] == ["foo.snapshot.yaml"]
+    assert len(found) == 1
