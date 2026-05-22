@@ -150,8 +150,7 @@ def _run_command(args: argparse.Namespace) -> int:
     if not snapshot_paths:
         patterns = ", ".join(_SNAPSHOT_GLOBS)
         print(
-            f"error: no snapshot files under {snapshots_dir} "
-            f"(patterns considered: {patterns})",
+            f"error: no snapshot files under {snapshots_dir} (patterns considered: {patterns})",
             file=sys.stderr,
         )
         return 2
