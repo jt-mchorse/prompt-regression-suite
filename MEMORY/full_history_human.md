@@ -171,3 +171,15 @@ Fifteenth post-v0.1 drift fix in the portfolio pattern, sixth architecture-doc l
 **Open questions / blockers:** None — PR opened ready for review.
 
 **Next session:** No remaining architecture-doc drift in the portfolio. Loop forward into another hygiene pattern or wrap session within the cap.
+
+## 2026-05-23 — Architecture-doc active-decision-range axis + 7-decision backfill (#26)
+
+**Duration:** ~18 min. **Issue:** [#26](https://github.com/jt-mchorse/prompt-regression-suite/issues/26). **PR:** [#27](https://github.com/jt-mchorse/prompt-regression-suite/pull/27).
+
+Eighth of twelve repos to ship the active-decision-range upper-bound axis. `docs/architecture.md` had **zero** D-NNN citations before this PR — all 7 active non-baseline decisions were governing real shipped surfaces (dataclasses-not-pydantic, inline embedding in YAML, two-channel ANDed diff, Embedder Protocol, embedder model-name refusal, single-file no-JS HTML, honestly-labeled synthetic demo) but none were cited inline. Backfilled. Tamper-verified three axes.
+
+**Why this work, this session:** Fourth issue in today's multi-issue loop. Pattern is rolling cleanly across the Python half of the portfolio — three of the four backfilled-on-first-run repos this session (vector-search-at-scale, prompt-regression-suite, plus partial backfill in llm-eval-harness) caught real omissions the first time the test ran.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Apply same pattern to `agent-orchestration-platform` (last remaining arch-doc test lacking the D-axis).
