@@ -41,7 +41,13 @@ flowchart LR
 ## Layer 1 — Snapshot schema (#1)
 
 `Snapshot` / `Prompt` / `ResponseShape` / `CanonicalResponse`
-dataclasses with strict YAML load/save semantics. Round-trip identity
+dataclasses with strict YAML load/save semantics (D-002 — stdlib
+`dataclasses` plus a manual validation pass, deliberately not
+pydantic; the schema is small enough that a runtime dep buys
+nothing and complicates the optional-extras story). The canonical
+response embedding is stored inline in the snapshot YAML as a
+list of floats (D-003 — one file is the whole snapshot, no
+sidecar `.npy` blob to forget to commit). Round-trip identity
 guaranteed by `tests/test_io.py`. The schema captures everything the
 diff layer needs at runtime:
 
@@ -63,15 +69,24 @@ See [`docs/schema.md`](schema.md) for the field-by-field spec.
 ## Layer 2 — Diff (#2, #10)
 
 `diff.py` consumes a Snapshot + a new response and returns
-`{score, slot_deltas, verdict}`. Two axes:
+`{score, slot_deltas, verdict}`. Two axes, ANDed for the final
+verdict (D-004 — both channels must pass; a slot mismatch fails
+the verdict even when cosine looks fine, and a soft-similarity
+drop fails it even when slots happen to align):
 
 - **Structured slot diff** — typed extraction against
   `structured_slots`. A slot mismatch is *hard*: any slot diff fails
   the verdict regardless of similarity.
 - **Semantic similarity** — embedding cosine between the canonical
-  text and the new response. Default global threshold 0.85; per-
-  snapshot tolerance override (#10) lets you tighten or relax per
-  case.
+  text and the new response. The `Embedder` is a single-method
+  Protocol (D-005 — `embed(text) -> list[float]`, parallel to the
+  portfolio-wide one-seam-one-method pattern). The diff refuses
+  to compare when `canonical.embedding_model` doesn't match the
+  current embedder's model name (D-006 — silent model mismatch
+  produces meaningless cosine scores; better to fail loud with the
+  two names quoted than to ship a green verdict on apples-vs-oranges
+  vectors). Default global threshold 0.85; per-snapshot tolerance
+  override (#10) lets you tighten or relax per case.
 
 The diff is pure-function: no IO, no global state. Tests in
 `tests/test_diff.py` and `tests/test_tolerance.py`.
@@ -79,11 +94,16 @@ The diff is pure-function: no IO, no global state. Tests in
 ## Layer 3 — HTML report (#3)
 
 `html_report.py` renders a `DiffResult` into a single self-contained
-HTML file: inline SVG sparklines, inline styles, no CDN. The
+HTML file: inline SVG sparklines, inline styles, no CDN, no JS
+(D-007 — one file an operator can drop into a PR comment, email,
+or static-site bucket; no asset pipeline to maintain). The
 committed worked regression at `docs/regression_demo.html` (#4)
 demonstrates a synthetic-but-realistic drift surfacing through the
-toolchain; an operator swaps the two strings in
-`scripts/render_regression_demo.py` to swap in a real model upgrade.
+toolchain (D-008 — responses are synthetic and the demo HTML
+labels them as such; an operator swaps the two strings in
+`scripts/render_regression_demo.py` for a real captured
+before/after when a real model upgrade lands, no other change
+required).
 
 `tests/test_html_report.py` covers the renderer. The committed HTML
 itself is locked to the renderer output by

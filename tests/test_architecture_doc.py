@@ -3,7 +3,7 @@ the actual shipped surface of the repo.
 
 Fourth Python sister of the architecture-doc lock pattern this session
 (after `embedding-model-shootout` PR #20, `vector-search-at-scale` PR
-#22, `llm-eval-harness` PR #30). Three invariants pinned:
+#22, `llm-eval-harness` PR #30). Four invariants pinned:
 
 1. Path-token reachability — every backtick-quoted token starting with
    one of `RESOLVABLE_PREFIXES` resolves on disk. Placeholders (`<...>`,
@@ -12,11 +12,17 @@ Fourth Python sister of the architecture-doc lock pattern this session
 2. Closed-feature-issue coverage — every issue in `KNOWN_SHIPPED_ISSUES`
    is referenced at least once.
 
-3. Banned-phrase absence — phrases that characterized the pre-#24 drift
+3. Active-decision coverage — every non-superseded `D-NNN` in
+   `MEMORY/core_decisions_ai.md` whose numeric id is
+   `>= MIN_ACTIVE_DECISION_ID` is referenced at least once. The next
+   `D-NNN` landing without a doc update fails this test loud.
+
+4. Banned-phrase absence — phrases that characterized the pre-#24 drift
    are absent (case-insensitive).
 
-Three hard-pin tests lock `BANNED_PHRASES`, `KNOWN_SHIPPED_ISSUES`,
-and `RESOLVABLE_PREFIXES` to their exact contents.
+Hard-pin tests lock `BANNED_PHRASES`, `KNOWN_SHIPPED_ISSUES`,
+`RESOLVABLE_PREFIXES`, and `MIN_ACTIVE_DECISION_ID` to their exact
+values so a future loose edit can't silently weaken the guard.
 """
 
 from __future__ import annotations
@@ -28,6 +34,12 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOC = REPO_ROOT / "docs" / "architecture.md"
+DECISIONS = REPO_ROOT / "MEMORY" / "core_decisions_ai.md"
+
+# D-001 is the scope baseline (handoff §2) and isn't tied to a shipped
+# code surface; it doesn't need to be cited in architecture.md. Every
+# active D-NNN with id >= MIN_ACTIVE_DECISION_ID does.
+MIN_ACTIVE_DECISION_ID = 2
 
 # Closed feature issues whose work the architecture doc should
 # enumerate. Each represents a shipped surface with a code/artifact
@@ -69,6 +81,27 @@ def doc_text() -> str:
     return DOC.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def active_decisions() -> tuple[int, ...]:
+    """Parse `MEMORY/core_decisions_ai.md` for non-superseded `D-NNN`
+    entries whose numeric id is `>= MIN_ACTIVE_DECISION_ID`.
+    """
+    text = DECISIONS.read_text(encoding="utf-8")
+    blocks = re.split(r"\n(?=- id:)", text)
+    active: list[int] = []
+    for block in blocks:
+        id_match = re.search(r"- id:\s*D-(\d+)", block)
+        if not id_match:
+            continue
+        sup_match = re.search(r"superseded_by:\s*(\S+)", block)
+        is_active = (sup_match is None) or (sup_match.group(1).strip().lower() == "null")
+        if is_active:
+            n = int(id_match.group(1))
+            if n >= MIN_ACTIVE_DECISION_ID:
+                active.append(n)
+    return tuple(sorted(active))
+
+
 def _extract_backtick_paths(text: str) -> set[str]:
     """Collect every backtick-quoted token starting with a resolvable
     prefix. Placeholder shapes (`<...>`, `{...}`, `*`) are skipped.
@@ -97,6 +130,10 @@ def test_doc_exists() -> None:
     assert DOC.exists(), f"missing {DOC}"
 
 
+def test_decisions_file_exists() -> None:
+    assert DECISIONS.exists(), f"missing {DECISIONS}"
+
+
 def test_backtick_paths_resolve_on_disk(doc_text: str) -> None:
     tokens = _extract_backtick_paths(doc_text)
     unresolved = sorted(t for t in tokens if not _resolves_on_disk(t))
@@ -116,6 +153,19 @@ def test_every_shipped_issue_referenced(doc_text: str) -> None:
         + "\n".join(f"  - #{n}" for n in missing)
         + "\n(every shipped surface should have its origin issue annotated "
         "in the doc; add a `(#NN)` to the relevant component bullet or diagram node)"
+    )
+
+
+def test_every_active_decision_referenced(doc_text: str, active_decisions: tuple[int, ...]) -> None:
+    referenced = {int(m.group(1)) for m in re.finditer(r"\bD-0*(\d+)\b", doc_text)}
+    missing = sorted(set(active_decisions) - referenced)
+    assert not missing, (
+        "docs/architecture.md doesn't reference these active "
+        "(non-superseded) core decisions even once:\n"
+        + "\n".join(f"  - D-{n:03d}" for n in missing)
+        + "\n(every shipped layer / posture in MEMORY/core_decisions_ai.md "
+        "should be annotated in the doc where the relevant code lives; "
+        "add a `D-NNN` reference to the relevant bullet)"
     )
 
 
@@ -150,3 +200,7 @@ def test_resolvable_prefixes_hard_pin_set() -> None:
         "docs/",
         ".github/",
     )
+
+
+def test_min_active_decision_id_hard_pin() -> None:
+    assert MIN_ACTIVE_DECISION_ID == 2
