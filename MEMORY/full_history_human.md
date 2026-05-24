@@ -221,3 +221,19 @@ The README's HTML-report section gains a one-line CLI alternative directly under
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop to build-sequence #4 (`rag-production-kit`). Survey its CLI / scripts surface for similar gaps.
+
+## 2026-05-24 — Issue #31: `diff` gains `--format html` and `--out` for parity with `run`
+
+**Duration:** ~15 min. **Issue:** [#31](https://github.com/jt-mchorse/prompt-regression-suite/issues/31). **Branch:** `session/2026-05-24-1519-issue-31`.
+
+`prompt-snap diff` had `--format text|json` and stdout-only output, while sibling `run` (post-#29) already supported `text|json|html` with a generic `--out PATH` and a loud-failure stance for `--format html` without `--out`. A user wanting a one-snapshot HTML report had to glue `render_report` together by hand or fabricate a one-row candidates JSONL to detour through `run`. This PR finishes the parity.
+
+`_diff_command` refactored from inline `print()` calls to a string-builder + shared `--out`-or-stdout sink, mirroring `_run_command`. The HTML branch constructs a single-entry `ReportEntry` list and calls `render_report()` — the same call `_run_command` uses. The loud-failure guard for `--format html` without `--out` is the same stderr message shape #29 introduced for `run` (reused verbatim, not a new policy). Inline text rendering extracted into `_format_diff_text` so the sink decision lives in one place and the text shape is exercisable from tests without `capsys`.
+
+New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr message; html `--out` happy path against a nested tmpdir (asserts doctype + snapshot anchor); text `--out` with stdout silent; json `--out` with parseable JSON body; stdout-only regression guard for the no-`--out` text path. Tail: 161 / 161 pass, ruff clean.
+
+**Why this work, this session:** Second Phase B+C target of a 180-min day session, after `llm-eval-harness` #37 brought `list` in line on the `--out` axis. This is the same shape of fix but for a `--format html` axis on this repo. After both: every public CLI subcommand on `llm-eval-harness` and `prompt-regression-suite` accepts `--out` and the full set of advertised formats, with no surprise terminal dumps and no shell-redirect detours.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop. Build-sequence position #5 (`embedding-model-shootout`), #6 (`chunking-strategies-lab`), or #10 (`mcp-server-cookbook`) are good next pick-ups. Survey their CLIs for the same parity shape; if nothing surfaces, drop to the per-script defaults-bug audit pattern that landed `llm-cost-optimizer` #31 this morning.
