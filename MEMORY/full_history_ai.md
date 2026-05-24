@@ -321,3 +321,24 @@ context_for_next_session:
   - portfolio_pattern_second_in_day_session_loop_after_llm_eval_harness_37_list_out_addition
 followups: []
 ---
+
+---
+session: 2026-05-24T20:30Z
+duration_min: 20
+issue: 33
+focus: snapshot_from_dict_missing_id_raises_canonical_validation_error
+delta:
+  files_changed: 1   # prompt_regression/schema.py
+  files_added: 0
+  tests_added: 4   # parametrize lock over four top-level required keys
+  test_pass_rate: "165/165"
+decisions_made: []
+context_for_next_session:
+  - schema_from_dict_data_id_was_accessed_outside_try_block_at_line_276_so_missing_id_raised_raw_keyerror_not_canonical_snapshot_validation_error
+  - asymmetric_existing_coverage_only_canonical_was_tested_for_missing_top_level_key_so_the_id_path_was_silently_broken
+  - fix_hoists_snapshot_id_data_id_inside_existing_try_existing_keyerror_arm_catches_with_same_message_shape
+  - tests_pin_with_parametrize_over_four_required_keys_id_prompt_response_shape_canonical_locks_symmetry
+  - load_snapshot_at_io_py_42_relies_on_this_contract_callers_that_catch_only_snapshot_validation_error_were_letting_keyerror_propagate
+  - fifth_phase_bc_target_in_today_180_min_day_session_pattern_now_three_repos_in_a_row_value_domain_or_exception_contract_uniformity_guards
+followups: []
+---
