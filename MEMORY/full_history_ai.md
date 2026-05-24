@@ -301,3 +301,23 @@ context_for_next_session:
   - portfolio_pattern_third_in_night_session_loop_after_llm_eval_harness_34_and_llm_cost_optimizer_30_all_three_were_cli_surface_parity_fixes
 followups: []
 ---
+
+---
+session: 2026-05-24T15:30Z
+duration_min: 15
+issue: 31
+focus: diff_subcommand_format_html_and_out_for_parity_with_run
+delta:
+  files_changed: 1   # prompt_regression/cli.py
+  files_added: 1     # tests/test_cli_diff_html.py
+  tests_added: 5
+  test_pass_rate: "161/161"
+decisions_made: []
+context_for_next_session:
+  - diff_was_text_json_stdout_only_after_29_brought_html_plus_out_to_run_diff_still_lacked_both
+  - same_render_report_call_works_for_one_entry_just_construct_a_single_reportentry_with_snap_id_diff_candidate_baseline
+  - guard_format_html_without_out_exits_2_with_same_stderr_message_shape_as_29_no_new_policy
+  - format_diff_text_helper_extracted_so_sink_decision_lives_in_one_place_and_text_shape_exercisable_without_capsys
+  - portfolio_pattern_second_in_day_session_loop_after_llm_eval_harness_37_list_out_addition
+followups: []
+---
