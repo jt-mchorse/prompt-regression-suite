@@ -203,3 +203,21 @@ Third issue in the day-session multi-issue loop, after [`llm-eval-harness#33`](h
 **Open questions / blockers:** AC1 + AC2 are operator-only (screen recorder + README embed). The PR is ready for review on AC3 standalone — issue #15 stays open until JT records.
 
 **Next session:** Two remaining repos with AC3 still open — `rag-production-kit` #25 (build-sequence pos 4) and `mcp-server-cookbook` #16 (pos 10). Build-sequence picks rag-production-kit next.
+
+## 2026-05-24 — Issue #29: `prompt-snap run --format html --out` for direct CI HTML artifacts
+
+**Duration:** ~30 min. **Issue:** [#29](https://github.com/jt-mchorse/prompt-regression-suite/issues/29). **Branch:** `session/2026-05-24-0324-issue-29`.
+
+`prompt-snap run` supported `--format text|json` only, even though `render_report()` was a public surface (#3) and the HTML report is the repo's headline deliverable. CI that wanted an HTML artifact had to detour through the Python API — reconstruct a `ReportEntry` list, call `render_report`, write to file — instead of running the CLI as one shell line.
+
+Added `html` to `--format` and a generic `--out <path>` flag (which now works for every format, not just HTML). The HTML path reuses the library-level `render_report` directly, so the CLI is dispatch only. A guard refuses `--format html` without `--out` and exits 2 with a clear stderr message — mirrors the `update --force` loud-failure pattern; dumping a multi-KB HTML payload into a terminal is a UX bug we'd rather refuse than commit. Renamed `_print_text_table` to `_format_text_table` so it returns a string instead of printing — that lets the dispatch to stdout-vs-file be uniform across all three formats.
+
+Skipped entries (no candidate supplied) don't have a `DiffResult` and are intentionally omitted from the HTML report; one of the five new tests pins that behavior. The other four cover the html-without-out error path, HTML written to a nested tmpdir asserting `<!doctype html>` + inline styles + per-snapshot anchors, and `--out` parity for text and json.
+
+The README's HTML-report section gains a one-line CLI alternative directly under the existing Python snippet — the Python stays as the library entry point.
+
+**Why this work, this session:** Third issue in the night-session multi-issue loop after `llm-eval-harness` #34 and `llm-cost-optimizer` #30. All three are surface-parity CLI fixes — same shape of work, different repos. The pattern surfaces by reading each repo's CLI source for "advertised in README but missing as a flag" gaps.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop to build-sequence #4 (`rag-production-kit`). Survey its CLI / scripts surface for similar gaps.
