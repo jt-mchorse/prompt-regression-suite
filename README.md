@@ -185,6 +185,18 @@ results = [
 Path("report.html").write_text(render_report(results), encoding="utf-8")
 ```
 
+CI doesn't need the Python detour — `prompt-snap run` takes `--format html` and `--out` directly:
+
+```bash
+prompt-snap run \
+    --snapshots tests/snapshots \
+    --candidates tests/candidates.jsonl \
+    --format html \
+    --out report.html
+```
+
+`--format html` requires `--out` (HTML writes to a file, not stdout); `--out` works for `text` and `json` too.
+
 Verdict colors mirror the diff layer's vocabulary (D-007): `pass` green,
 `warn` amber, `fail` red. Passing sections collapse to a one-line note —
 the report stays scannable when most snapshots are green.

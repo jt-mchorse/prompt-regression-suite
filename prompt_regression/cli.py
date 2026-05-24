@@ -39,6 +39,7 @@ from .diff import (
     HashEmbedder,
     diff_response,
 )
+from .html_report import ReportEntry, render_report
 from .io import load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
 
@@ -158,7 +159,18 @@ def _run_command(args: argparse.Namespace) -> int:
     candidates = _load_candidates(Path(args.candidates))
     embedder = make_embedder(args.embedder)
 
+    # `--format html` writes a non-trivial multi-KB payload; refuse to
+    # dump it into a terminal. Mirrors the loud-failure stance the
+    # `update --force` flag takes elsewhere in this CLI.
+    if args.format == "html" and not args.out:
+        print(
+            "error: --format html requires --out: HTML writes to a file, not stdout.",
+            file=sys.stderr,
+        )
+        return 2
+
     rows: list[dict] = []
+    entries: list[ReportEntry] = []  # collected for --format html
     failed = 0
     skipped = 0
     for path in snapshot_paths:
@@ -207,25 +219,49 @@ def _run_command(args: argparse.Namespace) -> int:
             )
             continue
         rows.append(_row_for(path, snap, result))
+        entries.append(
+            ReportEntry(
+                snapshot_id=snap.id,
+                diff=result,
+                candidate_text=candidate,
+                baseline_text=snap.canonical.text,
+            )
+        )
         if result.verdict == "fail":
             failed += 1
 
+    rendered: str
     if args.format == "json":
-        print(json.dumps({"rows": rows, "failed": failed, "skipped": skipped}, indent=2))
+        rendered = json.dumps({"rows": rows, "failed": failed, "skipped": skipped}, indent=2) + "\n"
+    elif args.format == "html":
+        rendered = render_report(entries)
     else:
-        _print_text_table(rows, failed=failed, skipped=skipped, total=len(snapshot_paths))
+        rendered = _format_text_table(
+            rows, failed=failed, skipped=skipped, total=len(snapshot_paths)
+        )
+
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    else:
+        # text/json keep their trailing newline; print() would add a second one.
+        sys.stdout.write(rendered)
     return 1 if failed > 0 else 0
 
 
-def _print_text_table(rows: Sequence[dict], *, failed: int, skipped: int, total: int) -> None:
-    print(f"# prompt-snap run  total={total} failed={failed} skipped={skipped}")
-    print(f"{'verdict':8} {'cosine':>7}  snapshot")
-    print(f"{'-' * 8} {'-' * 7}  {'-' * 24}")
+def _format_text_table(rows: Sequence[dict], *, failed: int, skipped: int, total: int) -> str:
+    lines: list[str] = [
+        f"# prompt-snap run  total={total} failed={failed} skipped={skipped}",
+        f"{'verdict':8} {'cosine':>7}  snapshot",
+        f"{'-' * 8} {'-' * 7}  {'-' * 24}",
+    ]
     for row in rows:
         cosine = "  -.-- " if row["cosine"] is None else f"{row['cosine']:>6.3f} "
-        print(f"{row['verdict']:8} {cosine}  {row['snapshot_path']}")
+        lines.append(f"{row['verdict']:8} {cosine}  {row['snapshot_path']}")
         for note in row["notes"]:
-            print(f"    - {note}")
+            lines.append(f"    - {note}")
+    return "\n".join(lines) + "\n"
 
 
 # ----------------------------------------------------------------------
@@ -370,7 +406,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Width of the warn band immediately below the threshold.",
     )
     run_p.add_argument(
-        "--format", choices=("text", "json"), default="text", help="Output format (default: text)."
+        "--format",
+        choices=("text", "json", "html"),
+        default="text",
+        help="Output format (default: text). `html` renders the same report as render_report() and requires --out.",
+    )
+    run_p.add_argument(
+        "--out",
+        default=None,
+        help="Write the rendered output to this path (parent dirs created). Required for --format html.",
     )
     run_p.add_argument(
         "--force-embedder",

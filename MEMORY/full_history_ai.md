@@ -278,3 +278,26 @@ context_for_next_session:
   - portfolio_demo_script_coverage_now_eval_harness_done_cost_optimizer_done_prompt_regression_suite_done_nextjs_already_done_ai_app_already_done_remaining_rag_production_kit_25_mcp_server_cookbook_16
 followups: []
 ---
+
+---
+session: 2026-05-24T03:30Z
+duration_min: 30
+issue: 29
+focus: prompt_snap_run_format_html_and_out_flag_for_direct_ci_html_artifacts
+delta:
+  files_changed: 2   # prompt_regression/cli.py, README.md
+  files_added: 1     # tests/test_cli_html_format.py
+  tests_added: 5
+  test_pass_rate: "156/156"
+decisions_made: []
+context_for_next_session:
+  - run_subcommand_supported_text_and_json_only_render_report_was_public_api_but_unreachable_from_cli
+  - ci_that_wanted_an_html_artifact_had_to_detour_through_python_reconstruct_reportentry_list_call_render_report_write_to_file
+  - fix_adds_format_html_plus_a_generic_out_flag_that_works_for_every_format_html_reuses_render_report_directly
+  - guard_format_html_without_out_exits_2_with_stderr_message_mirrors_update_force_loud_failure_pattern_refuse_to_surprise_a_terminal_with_multi_kb_payload
+  - _print_text_table_renamed_to_format_text_table_returns_string_for_uniform_dispatch_to_stdout_or_file
+  - skipped_entries_no_candidate_have_no_diffresult_so_omitted_from_html_test_pins_this
+  - readme_html_report_section_gains_a_one_line_cli_alternative_under_the_python_snippet_python_stays_as_library_entry_point
+  - portfolio_pattern_third_in_night_session_loop_after_llm_eval_harness_34_and_llm_cost_optimizer_30_all_three_were_cli_surface_parity_fixes
+followups: []
+---
