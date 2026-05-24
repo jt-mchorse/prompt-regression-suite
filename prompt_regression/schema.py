@@ -261,7 +261,14 @@ class Snapshot:
             raise SnapshotValidationError(
                 f"Snapshot payload must be a mapping, got {type(data).__name__}"
             )
+        # All required top-level key reads stay inside the try so the
+        # `except KeyError` arm catches every missing-required-field case
+        # with the canonical SnapshotValidationError contract documented
+        # above. Moving `data["id"]` out of the try would surface missing-id
+        # as a raw KeyError and break loader callers (load_snapshot in io.py)
+        # that catch only SnapshotValidationError.
         try:
+            snapshot_id = data["id"]
             prompt = Prompt(**data["prompt"])
             response_shape = ResponseShape(**data["response_shape"])
             canonical = CanonicalResponse(**data["canonical"])
@@ -273,7 +280,7 @@ class Snapshot:
             raise SnapshotValidationError(f"Snapshot section has unexpected fields: {e}") from e
 
         return cls(
-            id=data["id"],
+            id=snapshot_id,
             prompt=prompt,
             response_shape=response_shape,
             canonical=canonical,

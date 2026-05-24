@@ -237,3 +237,16 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop. Build-sequence position #5 (`embedding-model-shootout`), #6 (`chunking-strategies-lab`), or #10 (`mcp-server-cookbook`) are good next pick-ups. Survey their CLIs for the same parity shape; if nothing surfaces, drop to the per-script defaults-bug audit pattern that landed `llm-cost-optimizer` #31 this morning.
+
+## 2026-05-24 — Issue #33: Snapshot.from_dict raises SnapshotValidationError for missing id
+**Duration:** ~20 min · **Branch:** `session/2026-05-24-issue-33`
+
+- `Snapshot.from_dict` at `schema.py:255` documents itself as raising `SnapshotValidationError` for any structural problem, and `load_snapshot` in `io.py` propagates that contract upward. The implementation wrapped only the nested-section constructors inside `try / except KeyError`; the top-level `data["id"]` read at line 276 sat outside. A snapshot YAML missing `id` surfaced as a raw `KeyError("id")`, breaking the docstring contract and any loader that catches only the canonical exception type.
+- Hoisted `snapshot_id = data["id"]` inside the existing try block so the same `except KeyError as e: raise SnapshotValidationError(...)` arm catches the missing-id case with the same `Snapshot missing required section: 'id'` message shape. Inline comment documents why all required top-level reads must stay inside the try.
+- Converted the missing-section test coverage into a `@pytest.mark.parametrize` lock over `("id", "prompt", "response_shape", "canonical")` — every required top-level key now provably surfaces the same exception type, and any future required field gets the same lock for free. The original `_missing_section` test stays as a focused regression pin on `canonical`.
+
+**Why this work, this session:** Asymmetric existing coverage (only `canonical` tested for missing-top-level-key) hid the bug. Sister to today's `llm-cost-optimizer` #32 (`UncertaintyRouter` signal-name uniqueness) and `llm-eval-harness` #38 (`diff_runs` negative-threshold-drop). Three repos in a row in the same day-session, same family — "the public boundary's contract isn't enforced uniformly across all inputs."
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop. With three iterations behind, time check before picking the next. `rag-production-kit` (build sequence #4) is the next reasonable target.
