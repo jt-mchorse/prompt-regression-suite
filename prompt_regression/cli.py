@@ -324,6 +324,16 @@ def _read_text_arg(literal: str | None, from_stdin: bool) -> str:
 
 
 def _diff_command(args: argparse.Namespace) -> int:
+    # `--format html` writes a non-trivial multi-KB payload; refuse to
+    # dump it into a terminal. Mirrors the loud-failure stance `run`
+    # takes on the same arg (post-#29) and `update --force` elsewhere.
+    if args.format == "html" and not args.out:
+        print(
+            "error: --format html requires --out: HTML writes to a file, not stdout.",
+            file=sys.stderr,
+        )
+        return 2
+
     snap = load_snapshot(Path(args.snapshot).resolve())
     embedder = make_embedder(args.embedder)
     candidate = _read_text_arg(args.candidate, args.candidate_stdin)
@@ -339,22 +349,58 @@ def _diff_command(args: argparse.Namespace) -> int:
     except EmbedderModelMismatchError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+
+    rendered: str
     if args.format == "json":
-        print(json.dumps(_serialize_diff(result), indent=2))
+        rendered = json.dumps(_serialize_diff(result), indent=2) + "\n"
+    elif args.format == "html":
+        rendered = render_report(
+            [
+                ReportEntry(
+                    snapshot_id=snap.id,
+                    diff=result,
+                    candidate_text=candidate,
+                    baseline_text=snap.canonical.text,
+                )
+            ]
+        )
     else:
-        print(f"verdict: {result.verdict}")
-        print(f"cosine:  {result.cosine_score:.4f} (threshold {result.threshold})")
-        print(f"embedder: {result.embedder_model}  (snapshot: {result.snapshot_embedding_model})")
-        if result.slot_deltas:
-            print("slots:")
-            for d in result.slot_deltas:
-                marker = "FAIL" if d.is_failure else "ok"
-                print(f"  [{marker}] {d.name}: {d.status}")
-        if result.notes:
-            print("notes:")
-            for note in result.notes:
-                print(f"  - {note}")
+        rendered = _format_diff_text(result)
+
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    else:
+        # text/json keep their trailing newline; sys.stdout.write avoids
+        # the doubled newline `print()` would add.
+        sys.stdout.write(rendered)
     return 0 if result.verdict != "fail" else 1
+
+
+def _format_diff_text(result: DiffResult) -> str:
+    """Render the human-readable text shape of a single `diff_response` result.
+
+    Pre-#31 this was inlined as a sequence of `print()` calls in
+    `_diff_command`. Extracted into a string-returning helper so the
+    sink decision (`--out` vs. stdout) lives in one place and the text
+    shape is exercisable from tests without `capsys`.
+    """
+    lines: list[str] = [
+        f"verdict: {result.verdict}",
+        f"cosine:  {result.cosine_score:.4f} (threshold {result.threshold})",
+        f"embedder: {result.embedder_model}  (snapshot: {result.snapshot_embedding_model})",
+    ]
+    if result.slot_deltas:
+        lines.append("slots:")
+        for d in result.slot_deltas:
+            marker = "FAIL" if d.is_failure else "ok"
+            lines.append(f"  [{marker}] {d.name}: {d.status}")
+    if result.notes:
+        lines.append("notes:")
+        for note in result.notes:
+            lines.append(f"  - {note}")
+    return "\n".join(lines) + "\n"
 
 
 def _serialize_diff(result: DiffResult) -> dict:
@@ -459,7 +505,21 @@ def build_parser() -> argparse.ArgumentParser:
     diff_p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     diff_p.add_argument("--warn-band", type=float, default=DEFAULT_WARN_BAND)
     diff_p.add_argument(
-        "--format", choices=("text", "json"), default="text", help="Output format (default: text)."
+        "--format",
+        choices=("text", "json", "html"),
+        default="text",
+        help=(
+            "Output format (default: text). `html` renders a one-entry "
+            "report via render_report() and requires --out."
+        ),
+    )
+    diff_p.add_argument(
+        "--out",
+        default=None,
+        help=(
+            "Write the rendered output to this path (parent dirs created). "
+            "Required for --format html. Parity with `run --out`."
+        ),
     )
     diff_p.add_argument(
         "--force-embedder",
