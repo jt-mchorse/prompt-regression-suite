@@ -256,3 +256,25 @@ context_for_next_session:
   - one_remaining_repo_for_this_axis_agent_orchestration_platform
 followups: []
 ---
+
+---
+session: 2026-05-23T23:40Z
+duration_min: 25
+issue: 15
+focus: demo_capture_script_three_stages_ac3_only_operator_blocked_ac1_ac2
+delta:
+  files_added: 2   # scripts/capture_demo.py, tests/test_capture_demo_smoke.py
+  files_changed: 1  # .gitignore (docs/demo-artifacts/)
+  tests_added: 3
+  test_pass_rate: "154/154"
+decisions_made: []
+context_for_next_session:
+  - third_in_day_session_loop_after_llm_eval_harness_33_and_llm_cost_optimizer_29
+  - kite_snapshot_used_for_stage_3_not_refund_window_because_refund_window_embedded_with_text_embedding_3_small_truncated_8d_which_triggers_d_006_embedder_model_mismatch_guard_against_hash_embedder_default
+  - stage_1_does_not_clobber_committed_docs_regression_demo_html_separate_test_asserts_bytes_unchanged_after_running
+  - stage_3_cli_invoked_via_python_m_prompt_regression_cli_diff_not_prompt_snap_console_script_works_on_fresh_clone_before_editable_install
+  - cli_returns_1_on_failing_diff_capture_script_treats_that_as_demo_outcome_not_script_error
+  - issue_15_now_1_of_3_ac_complete_ac1_gif_mp4_and_ac2_readme_embed_remain_operator_only
+  - portfolio_demo_script_coverage_now_eval_harness_done_cost_optimizer_done_prompt_regression_suite_done_nextjs_already_done_ai_app_already_done_remaining_rag_production_kit_25_mcp_server_cookbook_16
+followups: []
+---

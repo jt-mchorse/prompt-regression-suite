@@ -183,3 +183,23 @@ Eighth of twelve repos to ship the active-decision-range upper-bound axis. `docs
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Apply same pattern to `agent-orchestration-platform` (last remaining arch-doc test lacking the D-axis).
+
+## 2026-05-23 — 60-second demo capture script (#15, AC3 of 3)
+
+**Duration:** ~25 min. **Issue:** [#15](https://github.com/jt-mchorse/prompt-regression-suite/issues/15). **PR:** [#28](https://github.com/jt-mchorse/prompt-regression-suite/pull/28).
+
+Third issue in the day-session multi-issue loop, after [`llm-eval-harness#33`](https://github.com/jt-mchorse/llm-eval-harness/pull/33) and [`llm-cost-optimizer#29`](https://github.com/jt-mchorse/llm-cost-optimizer/pull/29). Three stages match the three sub-flows the issue specified:
+
+- **STAGE 1 (auto, hermetic).** `scripts/capture_demo.py` calls `render_regression_demo.main(["--out-html", <tmp>, "--no-screenshot"])` in-process so the recording shows the synthetic regression report being regenerated under controllable conditions. The committed `docs/regression_demo.html` is **not** clobbered — a separate test (`test_capture_demo_does_not_clobber_committed_html`) asserts the committed file's bytes are unchanged after running.
+
+- **STAGE 2 (browser).** `webbrowser.open()` on the fresh HTML so the rendered side-by-side diff + slot delta table appears in the operator's pre-positioned tab. `--no-open` suppresses for CI.
+
+- **STAGE 3 (auto, hermetic).** Subprocess `python -m prompt_regression.cli diff --snapshot examples/snapshots/creative_kite_v1.yml --candidate <divergent-text> --threshold 0.9 --format text`. The **kite** snapshot is used (not refund-window) because it ships embedded with `hash-embedder-128d-ngram2`, matching the CLI's default `--embedder hash`. The refund-window snapshot was embedded with `text-embedding-3-small-truncated-8d`, which trips the D-006 embedder-model-vs-snapshot guard and demands a `--force-embedder` override — that would have made the stage non-hermetic-by-default. The kite-snapshot path keeps the recording reproducible with no override flags. The CLI exits **1** on the failing diff; the capture script treats that as the visible demo outcome.
+
+`tests/test_capture_demo_smoke.py` adds three tests under the same hermetic contract as `tests/test_render_regression_demo.py`. Pass count: 151 → 154.
+
+**Why this work, this session:** Third loop iteration. AC3 is the only Claude-actionable row across the seven `[demo]` issues in the portfolio; this PR moves issue #15 from 0/3 to 1/3 and gives the remaining two demo issues (rag-production-kit #25 and mcp-server-cookbook #16) a third worked example to mirror.
+
+**Open questions / blockers:** AC1 + AC2 are operator-only (screen recorder + README embed). The PR is ready for review on AC3 standalone — issue #15 stays open until JT records.
+
+**Next session:** Two remaining repos with AC3 still open — `rag-production-kit` #25 (build-sequence pos 4) and `mcp-server-cookbook` #16 (pos 10). Build-sequence picks rag-production-kit next.
