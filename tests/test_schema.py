@@ -187,6 +187,28 @@ def test_snapshot_from_dict_rejects_missing_section():
         Snapshot.from_dict(bad)
 
 
+@pytest.mark.parametrize("missing", ["id", "prompt", "response_shape", "canonical"])
+def test_snapshot_from_dict_missing_required_top_level_key_raises_validation_error(missing):
+    """Every required top-level key must surface the same exception type (#33).
+
+    Before #33, `data["id"]` was accessed outside the `try` block so a missing
+    `id` raised a raw `KeyError`, breaking the docstring's "raises
+    SnapshotValidationError for any structural problem" contract and any
+    loader (e.g. `load_snapshot` in io.py) that catches only the canonical
+    type. This parametrized lock fires for any future required top-level key.
+    """
+    s = Snapshot(
+        id="x",
+        prompt=_valid_prompt(),
+        response_shape=_valid_shape(),
+        canonical=_valid_canonical(),
+    )
+    bad = s.to_dict()
+    del bad[missing]
+    with pytest.raises(SnapshotValidationError, match=missing):
+        Snapshot.from_dict(bad)
+
+
 def test_snapshot_from_dict_rejects_unknown_field():
     s = Snapshot(
         id="x",
