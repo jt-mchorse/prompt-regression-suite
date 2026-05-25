@@ -342,3 +342,27 @@ context_for_next_session:
   - fifth_phase_bc_target_in_today_180_min_day_session_pattern_now_three_repos_in_a_row_value_domain_or_exception_contract_uniformity_guards
 followups: []
 ---
+
+---
+session: 2026-05-25T03:25Z
+duration_min: 25
+issue: 35
+focus: diff_response_validates_warn_band_upper_bound_at_effective_threshold
+delta:
+  files_changed: 1   # prompt_regression/diff.py
+  files_added: 0
+  tests_added: 9   # 5 parametrized rejection + 3 parametrized acceptance + 1 tolerance-override
+  test_pass_rate: "174/174"
+decisions_made: []
+context_for_next_session:
+  - diff_response_warn_band_lacked_upper_bound_threshold_was_bounded_(0,1]_but_warn_band_only_non_negative
+  - cosine_warn_floor_max_0_threshold_minus_warn_band_silently_clamps_at_zero_when_warn_band_gt_threshold_collapsing_fail_warn_distinction
+  - same_harm_class_as_d_006_suite_looks_fine_but_regressions_can_no_longer_trip_verdict
+  - guard_added_immediately_below_existing_warn_band_non_negative_check_at_diff_py_363_inclusive_upper_bound_warn_band_eq_effective_threshold_accepted_warn_floor_exactly_zero
+  - critical_subtlety_guard_checks_effective_threshold_not_kwarg_so_tight_tolerance_snapshot_with_loose_warn_band_fails_loud_test_pins_this_via_tolerance_override_case
+  - tests_use_parametrize_pattern_across_bad_values_just_above_well_above_gt_1_and_good_values_zero_mid_equal_to_threshold
+  - mirrors_portfolio_contract_tightening_sweep_eval_harness_40_cost_optimizer_34_rag_kit_36_emb_shootout_29_vector_search_27_chunking_lab_27
+  - test_count_prompt_regression_now_174_was_165_after_33_added_9_new_collected_cases
+  - first_phase_bc_target_in_360_min_night_session_after_phase_a_5_pr_merge_including_4_fixup_rescued_prs
+followups: []
+---

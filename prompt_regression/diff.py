@@ -361,6 +361,19 @@ def diff_response(
         raise ValueError(f"threshold must be in (0, 1]; got {effective_threshold}")
     if warn_band < 0:
         raise ValueError(f"warn_band must be non-negative; got {warn_band}")
+    # Upper bound matches the existing `(0, 1]` contract on `effective_threshold`.
+    # When `warn_band > effective_threshold`, the warn floor `effective_threshold
+    # - warn_band` is negative; the `max(0.0, ...)` clamp at the cosine_warn site
+    # silently rewrites the floor as `0.0`, collapsing the fail/warn distinction
+    # on the cosine channel — sub-threshold cosines become "warn" indistinguishably.
+    # Reject at the entry site (#35) so the misconfig fails loud, matching D-006's
+    # "no silent degradation" posture and the contract-tightening sweep in
+    # llm-eval-harness #40 / llm-cost-optimizer #34 / rag-production-kit #36 /
+    # embedding-model-shootout #29 / vector-search-at-scale #27.
+    if warn_band > effective_threshold:
+        raise ValueError(
+            f"warn_band must be <= effective_threshold ({effective_threshold}); got {warn_band}"
+        )
 
     if not force and embedder.model_name != snapshot.canonical.embedding_model:
         raise EmbedderModelMismatchError(
