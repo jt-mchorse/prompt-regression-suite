@@ -250,3 +250,16 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop. With three iterations behind, time check before picking the next. `rag-production-kit` (build sequence #4) is the next reasonable target.
+
+## 2026-05-25 — Issue #35: diff_response validates warn_band upper bound at effective_threshold
+**Duration:** ~25 min · **Branch:** `session/2026-05-24-issue-35`
+
+- `diff_response` at `prompt_regression/diff.py:362-363` validated `warn_band` only as `>= 0`. The cosine warn-band logic at `:387` is `cosine_score >= max(0.0, effective_threshold - warn_band)` — so when `warn_band > effective_threshold`, the warn floor silently clamps to `0.0` and every sub-threshold cosine becomes `"warn"` indistinguishably. The fail/warn distinction on the cosine channel collapses without any signal. Same harm class as D-006's "suite looks fine but a class of regressions can no longer trip the verdict."
+- Added an upper-bound guard immediately after the existing `warn_band < 0` check: `warn_band > effective_threshold` raises `ValueError("warn_band must be <= effective_threshold ({effective_threshold}); got {warn_band}")`. Inclusive at the boundary — `warn_band == effective_threshold` is accepted (warn floor exactly `0.0`, which is meaningful). The guard validates against the *effective* threshold (snapshot.tolerance override per #10), not the kwarg, so a tight-tolerance snapshot with a loose default `warn_band` fails loud rather than slipping by.
+- Nine new tests in `tests/test_diff.py` under a `#35` comment header: parametrized rejection over `[0.51, 0.6, 0.9, 1.01, 5.0]` with `threshold=0.5`; parametrized acceptance over `[0.0, 0.25, 0.5]` (strict, mid, equal-to-threshold); one tolerance-override test that pins the "effective, not kwarg" semantics. Full suite 174/174 (was 165 after #33).
+
+**Why this work, this session:** First Phase B+C target in the 360-min night session. Continues the contract-tightening sweep that landed across the portfolio on 2026-05-24 in PRs #35 (cost-optimizer), #37 (rag-kit), #41 (eval-harness), #28 (chunking-lab), #30 (emb-shootout), #28 (vector-search). Same harm shape (silent degeneracy from operator-supplied numeric input out of contract range), same fix shape (validate at construction/entry, loud error).
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `agent-orchestration-platform` (build seq #9) and `mcp-server-cookbook` (build seq #10) are the natural next pickups — both have zero open issues and haven't been touched in the contract-tightening sweep yet.
