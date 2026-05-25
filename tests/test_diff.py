@@ -246,6 +246,48 @@ def test_warn_band_validated():
         diff_response(snap, "x", embedder=e, warn_band=-0.1)
 
 
+# Issue #35: warn_band > effective_threshold silently collapses the fail/warn
+# distinction on the cosine channel because the warn floor `max(0.0, threshold
+# - warn_band)` clamps at zero, so every non-passing cosine becomes "warn".
+# The upper-bound guard rejects the misconfig at the entry site, matching the
+# existing (0, 1] threshold contract.
+@pytest.mark.parametrize(
+    "bad_warn_band",
+    [0.51, 0.6, 0.9, 1.01, 5.0],  # all > effective_threshold = 0.5
+)
+def test_warn_band_rejected_above_threshold(bad_warn_band: float):
+    e = HashEmbedder()
+    snap = _make_snapshot("anything", embedder=e)
+    with pytest.raises(ValueError, match=r"warn_band must be <= effective_threshold \(0\.5\); got"):
+        diff_response(snap, "x", embedder=e, threshold=0.5, warn_band=bad_warn_band)
+
+
+@pytest.mark.parametrize(
+    "good_warn_band",
+    [0.0, 0.25, 0.5],  # 0.0 = strict pass/fail; 0.5 = equal-to-threshold inclusive bound
+)
+def test_warn_band_accepted_at_or_below_threshold(good_warn_band: float):
+    e = HashEmbedder()
+    snap = _make_snapshot("anything", embedder=e)
+    # Use canonical text so cosine == 1.0 — the verdict path isn't what's under test,
+    # we're only proving the guard accepts these values without raising.
+    result = diff_response(snap, "anything", embedder=e, threshold=0.5, warn_band=good_warn_band)
+    assert result.verdict in ("pass", "warn", "fail")
+
+
+def test_warn_band_guard_uses_effective_threshold_when_tolerance_overrides():
+    # Snapshot.tolerance overrides the kwarg threshold per #10. The guard must
+    # fire against the *effective* value (the tolerance), not the kwarg — otherwise
+    # a tight-tolerance snapshot with a loose-default warn_band silently slips by.
+    e = HashEmbedder()
+    snap = _make_snapshot("anything", embedder=e)
+    snap.tolerance = 0.3  # tighter than the kwarg below
+    with pytest.raises(
+        ValueError, match=r"warn_band must be <= effective_threshold \(0\.3\); got 0\.4"
+    ):
+        diff_response(snap, "x", embedder=e, threshold=0.9, warn_band=0.4)
+
+
 # ----------------------------------------------------------------------
 # Embedder model mismatch (D-006)
 # ----------------------------------------------------------------------
