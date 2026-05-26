@@ -276,3 +276,17 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the multi-issue loop. `chunking-strategies-lab` (build seq #6) and `vector-search-at-scale` (build seq #7) are the natural next pickups — both had only one PR earlier today and may have un-swept construction sites in the same shape.
+
+## 2026-05-26 — Issue #39: Atomic snapshot saves and --out writes (the load-bearing repo for this arc)
+**Duration:** ~30 min · **Branch:** `session/2026-05-26-1523-issue-39`
+
+- `save_snapshot` is the load-bearing helper for the entire repo — round-trip identity (`load_snapshot(save_snapshot(s)) == s`) is the documented contract that the diff layer relies on. Pre-fix it used `p.open("w") + yaml.safe_dump(stream=f)`, which is non-atomic: SIGINT during a long-running `prompt-snap update --force` invocation (the very command meant to be safe to re-run) could leave the snapshot YAML zero-length or partial.
+- Added `atomic_write_text(path, text)` to `prompt_regression/io.py` — natural home, since the module already owns snapshot file IO. Same shape as the helpers in `llm-eval-harness/eval_harness/cli.py` (#48) and `llm-cost-optimizer/scripts/_io.py` (#42), filed and merged earlier this session.
+- `save_snapshot` now renders YAML to a string via `yaml.safe_dump(payload, None, ...)` (yaml returns a string when stream is None) and routes through the helper, preserving `sort_keys=False` / `default_flow_style=False` / `allow_unicode=True` flags. The three other call sites — `cli.py:246` (`prompt-snap run --out`), `cli.py:373` (`prompt-snap diff --out`), `scripts/render_regression_demo.py:183` (`docs/regression_demo.html`) — also route through it.
+- 10 new tests in `tests/test_atomic_write.py`: six unit tests on the helper (happy path / parent-dir create / overwrite / `os.replace`-raises destination-absent / temp-cleanup-on-failure / overwrite-fails destination-unchanged) plus four integration tests. The load-bearing integration test is `test_save_snapshot_overwrite_failure_preserves_existing_snapshot`: save a snapshot, capture bytes, mutate the in-memory snapshot, simulate `os.replace` failure on second save, assert disk bytes are bitwise identical to the pre-failure save **and** `load_snapshot` still returns the original (not the mutated copy). The other three integration tests cover `save_snapshot` first-write failure (destination absent), `prompt-snap run --out` failure, and `prompt-snap diff --out` failure. Full suite 217 → 227. Lint + format green.
+
+**Why this work, this session:** Third Phase B+C target in today's 180-min DAY session, third PR in the portfolio-wide atomicity arc. `llm-eval-harness#48` opened the arc; `llm-cost-optimizer#42` propagated the pattern to a second repo; this repo's load-bearing surface is the YAML snapshot itself, so the harm class lands at the most consequential layer of the repo (corruption breaks the round-trip-identity contract the entire diff layer rests on).
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** `rag-production-kit` cost-telemetry rollup is the natural fourth — same pattern, fourth repo. Or pivot to a different harm class on a TypeScript repo. Three consecutive same-shape PRs in one session is plenty of compounding evidence that the helper shape is settled.
