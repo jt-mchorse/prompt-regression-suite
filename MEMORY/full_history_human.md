@@ -263,3 +263,16 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `agent-orchestration-platform` (build seq #9) and `mcp-server-cookbook` (build seq #10) are the natural next pickups — both have zero open issues and haven't been touched in the contract-tightening sweep yet.
+
+## 2026-05-26 — Issue #37: HashEmbedder.ngram + CanonicalResponse.embedding finiteness extension
+**Duration:** ~30 min · **Branch:** `session/2026-05-25-2100-issue-37`
+
+- `HashEmbedder.__init__(ngram)` at `prompt_regression/diff.py:61` upgraded from sign-only `ngram < 1` to the portfolio positive-int contract (`not isinstance(int) or isinstance(bool) or <= 0`). Closes three silent failure modes — `ngram=True` silently bound and made `model_name="hash-embedder-128d-ngramTrue"` which tripped the D-006 model-name-mismatch refusal at diff time *far* from the construction bug; `ngram=1.5/2.0` silently bound, then `range(len - ngram + 1)` raised `TypeError` deep in `embed()`; `ngram=NaN/Inf` silently bound (NaN < 1 is False), surfaced as range() errors at embed time. New error shape `"ngram must be a positive integer; got {ngram!r}"` is uniform with the rag-production-kit #43 and embedding-model-shootout #36 sweeps.
+- `CanonicalResponse.embedding` element loop at `prompt_regression/schema.py:178-183` extended with `math.isnan(v)` / `math.isinf(v)` rejection per element, kept *below* the existing `bool` / non-numeric reject so the upstream diagnostic shape stays stable. Index-bearing error `"CanonicalResponse.embedding[{i}] must be a finite number; got {v!r}"`. Closes the silent failure where a YAML snapshot with `embedding: [.nan, ...]` (which YAML parses as `math.nan`) loaded successfully, propagated NaN through `cosine()` (dot, na, nb all NaN), and surfaced as verdict `"fail"` with no diagnostic about the malformed source — same harm class as D-006.
+- 33 new parametrize tests in `tests/test_deferred_validation_sweep.py`: HashEmbedder.ngram 15-value reject matrix plus 5-value acceptance plus default-ngram pin; CanonicalResponse.embedding parametrized over `(bad ∈ {NaN, +Inf, -Inf}) × (position ∈ {head, middle, tail})` plus index-in-error pin plus bool-precedes-finiteness pin plus a finiteness-NOT-non-negativity pin (negative components in a unit vector remain accepted). Full suite 174 → 207. Ruff clean.
+
+**Why this work, this session:** Second Phase B+C target in the 360-min night session. Direct continuation of today's portfolio-wide validation sweep — Phase A rescued and merged four format-failing PRs (`rag-production-kit#43`, `embedding-model-shootout#36`, `llm-eval-harness#45`, `llm-eval-harness#47`) earlier in this session; the prompt-regression-suite gaps were the unexamined symmetric sites in this repo. Picked via build-sequence order (#3) among repos not yet targeted in this night's sweep.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the multi-issue loop. `chunking-strategies-lab` (build seq #6) and `vector-search-at-scale` (build seq #7) are the natural next pickups — both had only one PR earlier today and may have un-swept construction sites in the same shape.
