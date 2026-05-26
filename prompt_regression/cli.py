@@ -40,7 +40,7 @@ from .diff import (
     diff_response,
 )
 from .html_report import ReportEntry, render_report
-from .io import load_snapshot, save_snapshot
+from .io import atomic_write_text, load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
@@ -241,9 +241,7 @@ def _run_command(args: argparse.Namespace) -> int:
         )
 
     if args.out:
-        out_path = Path(args.out)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(rendered, encoding="utf-8")
+        atomic_write_text(args.out, rendered)
     else:
         # text/json keep their trailing newline; print() would add a second one.
         sys.stdout.write(rendered)
@@ -368,9 +366,7 @@ def _diff_command(args: argparse.Namespace) -> int:
         rendered = _format_diff_text(result)
 
     if args.out:
-        out_path = Path(args.out)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(rendered, encoding="utf-8")
+        atomic_write_text(args.out, rendered)
     else:
         # text/json keep their trailing newline; sys.stdout.write avoids
         # the doubled newline `print()` would add.
