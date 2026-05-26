@@ -17,6 +17,7 @@ portfolio repo. Validation is manual and lives in __post_init__.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -180,7 +181,17 @@ class CanonicalResponse:
                 raise SnapshotValidationError(
                     f"CanonicalResponse.embedding[{i}] must be a number, got {type(v).__name__}"
                 )
-            clean.append(float(v))
+            # NaN / Inf in a stored embedding propagates through cosine() (dot,
+            # na, nb all become NaN; verdict falls to "fail" with no diagnostic
+            # about the malformed vector). Same harm class as D-006: the suite
+            # looks fine but the failure shape buries the source. Reject at
+            # construction so the malformed YAML surfaces here.
+            fv = float(v)
+            if math.isnan(fv) or math.isinf(fv):
+                raise SnapshotValidationError(
+                    f"CanonicalResponse.embedding[{i}] must be a finite number; got {v!r}"
+                )
+            clean.append(fv)
         self.embedding = clean
 
 
