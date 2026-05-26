@@ -37,6 +37,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from prompt_regression.diff import HashEmbedder, diff_response  # noqa: E402
 from prompt_regression.html_report import ReportEntry, render_report  # noqa: E402
+from prompt_regression.io import atomic_write_text  # noqa: E402
 from prompt_regression.schema import (  # noqa: E402
     CanonicalResponse,
     Prompt,
@@ -179,8 +180,7 @@ def main(argv: list[str] | None = None) -> int:
         [entry], title="Regression demo — refund-window prompt across model versions"
     )
     out_html = Path(args.out_html)
-    out_html.parent.mkdir(parents=True, exist_ok=True)
-    out_html.write_text(html, encoding="utf-8")
+    atomic_write_text(out_html, html)
     print(f"html wrote {out_html} (verdict: {diff.verdict}, cosine: {diff.cosine_score:.3f})")
 
     if not args.no_screenshot:
