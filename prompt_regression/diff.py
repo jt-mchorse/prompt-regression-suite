@@ -59,8 +59,15 @@ class HashEmbedder:
     """
 
     def __init__(self, *, ngram: int = 2) -> None:
-        if ngram < 1:
-            raise ValueError("ngram must be >= 1")
+        # Extends sign-only `ngram < 1` to the portfolio positive-int contract
+        # (`rag-production-kit#43`, `embedding-model-shootout#36`). Sign-only
+        # accepted `True` (silently bound; `model_name` became
+        # `"hash-embedder-128d-ngramTrue"` which then tripped the D-006
+        # embedder-model-mismatch refusal at diff time, masking the construction
+        # bug) and `1.5` / `math.nan` (silently bound; `range(len - ngram + 1)`
+        # raised `TypeError` / `ValueError` deep in `embed()`).
+        if not isinstance(ngram, int) or isinstance(ngram, bool) or ngram <= 0:
+            raise ValueError(f"ngram must be a positive integer; got {ngram!r}")
         self.ngram = ngram
 
     @property
