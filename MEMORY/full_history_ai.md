@@ -436,3 +436,21 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-27T03:35Z
+duration_min: 15
+issue: 43
+focus: drop_stale_this_pr_from_four_readme_section_headers_plus_banned_phrase_lock
+delta:
+  files_changed: 2   # README.md, tests/test_readme_banned_phrases.py
+  tests_added: 3     # 1 existence + 1 parametrized over banned-phrases tuple + 1 hard-pin
+context_for_next_session:
+  - four_readme_section_headers_carried_pre_shipping_this_pr_framing_for_surface_that_shipped_weeks_ago_same_drift_class_architecture_doc_had_at_issue_24_which_seeded_test_architecture_doc_banned_phrases_at_line_63
+  - lock_pattern_test_readme_banned_phrases_py_pytest_parametrize_over_banned_phrases_tuple_case_insensitive_substring_match_plus_hard_pin_test_that_tuple_is_exactly_what_was_committed_to_prevent_silent_loose_edit_weakening
+  - banned_phrases_intentionally_minimal_only_this_pr_because_no_other_phrases_have_actual_drift_in_this_repos_readme_speculative_additions_would_be_premature
+  - lock_verified_to_fire_on_synthetic_reintroduction_of_suffix_single_failure_with_clear_message_and_pass_on_restore_full_suite_221_of_221_pass
+  - portfolio_lock_inventory_for_prompt_regression_suite_now_six_test_architecture_doc_test_readme_defaults_snapshot_test_readme_decision_range_test_regression_demo_snapshot_test_render_regression_demo_test_readme_banned_phrases
+decisions_made: []
+followups: []
+---

@@ -302,3 +302,18 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none.
 
 **Next session:** Continue propagation to rag-production-kit (next per build sequence).
+
+## 2026-05-27 — Issue #43: drop stale "· this PR" from four README section headers + banned-phrase lock
+**Duration:** ~15 min · **Branch:** `session/2026-05-27-0321-issue-43`
+
+- Four section headers in `README.md` still carried pre-shipping framing ("· this PR") for surface that's been shipped for weeks: `Diff layer (#2 · this PR)`, `HTML report (#3 · this PR)`, `Regression demo (#4 · this PR)`, `CLI: prompt-snap (#5 · this PR)`. Same drift class `docs/architecture.md` had at issue #24, which seeded that file's `BANNED_PHRASES` lock at `tests/test_architecture_doc.py:63`.
+- Rewrote the four headers to steady-state form (drop the suffix).
+- New lock: `tests/test_readme_banned_phrases.py` with `BANNED_PHRASES = ("this pr",)` — pytest-parametrized case-insensitive substring match against `README.md`, plus a hard-pin test asserting the tuple is exactly what got committed (prevents a future loose edit from silently weakening the guard). Mirrors the architecture-doc lock's tuple-pin shape but applies it to README rather than `docs/architecture.md`.
+- Tuple intentionally minimal — only `"this pr"` because that's the only drift this README actually had; speculative additions would be premature.
+- Verified: lock fires loudly on a synthetic reintroduction of one suffix (single failure with the assertion's "rewrite to steady-state form" message); restored README passes; full suite **221/221** pass.
+
+**Why this work, this session:** Iteration 3 of an autonomous NIGHT session. Validation arc is saturated; per-repo doc-hygiene gaps are now where the high-ROI quick wins live.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Loop continues across portfolio repos this NIGHT session.

@@ -97,7 +97,7 @@ The committed example at `examples/snapshots/refund_window_v1.yml` is the
 working reference for the schema — see [`docs/schema.md`](docs/schema.md)
 for the field-by-field spec.
 
-## Diff layer (#2 · this PR)
+## Diff layer (#2)
 
 `diff_response(snapshot, candidate, *, embedder, threshold=0.85)` compares
 a new response against a stored snapshot along two channels:
@@ -161,7 +161,7 @@ applied. Absent / `null` means "use the run-level default."
 
 `examples/snapshots/creative_kite_v1.yml` ships as a worked example.
 
-## HTML report (#3 · this PR)
+## HTML report (#3)
 
 A self-contained HTML report renders one section per snapshot, with the
 embedding-cosine score, a semantic-category table, per-slot deltas, and
@@ -201,7 +201,7 @@ Verdict colors mirror the diff layer's vocabulary (D-007): `pass` green,
 `warn` amber, `fail` red. Passing sections collapse to a one-line note —
 the report stays scannable when most snapshots are green.
 
-## Regression demo (#4 · this PR)
+## Regression demo (#4)
 
 `scripts/render_regression_demo.py` runs an end-to-end demo: a baseline
 snapshot for a "refund window for the Pro plan" prompt versus an
@@ -228,7 +228,7 @@ captured regression is "replace the two text constants in the script
 with recorded responses and re-run". A future operator-run version
 against real Anthropic API output drops in the same way.
 
-## CLI: `prompt-snap` (#5 · this PR)
+## CLI: `prompt-snap` (#5)
 
 `pip install -e .` installs the `prompt-snap` console script with
 three subcommands. The dep-free `HashEmbedder` is the default; the
