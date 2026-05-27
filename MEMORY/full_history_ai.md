@@ -421,3 +421,18 @@ context_for_next_session:
   - three_repos_in_one_session_pattern_proves_portfolio_wide_uniformity_is_executing_not_aspirational
 followups: []
 ---
+
+---
+session: 2026-05-26T23:35Z
+duration_min: 7
+issue: 41
+focus: readme_decision_range_upper_bound_lock_propagation_3_of_10
+delta:
+  files_changed: 2
+  tests_added: 1
+context_for_next_session:
+  - readme_decision_range_lock_pattern_now_four_repos_chunking_lab_eval_harness_cost_optimizer_prompt_regression
+  - eight_more_repos_pending_rag_kit_emb_shootout_vector_search_async_pipelines_agent_orch_mcp_cookbook_nextjs_streaming_ai_integration_tests
+decisions_made: []
+followups: []
+---

@@ -290,3 +290,15 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** `rag-production-kit` cost-telemetry rollup is the natural fourth — same pattern, fourth repo. Or pivot to a different harm class on a TypeScript repo. Three consecutive same-shape PRs in one session is plenty of compounding evidence that the helper shape is settled.
+
+## 2026-05-26 — Issue #41: README decision-range upper-bound lock
+**Duration:** ~7 min · **Branch:** `session/2026-05-26-2324-issue-41`
+
+- Added `tests/test_readme_decision_range.py` with the active-decision-range upper-bound invariant.
+- Bumped README's architecture-section to cite `D-002…D-008`.
+
+**Why this work, this session:** Propagation 3 of 10 of the cross-portfolio drift class authored in chunking-strategies-lab.
+
+**Open questions / blockers:** none.
+
+**Next session:** Continue propagation to rag-production-kit (next per build sequence).
