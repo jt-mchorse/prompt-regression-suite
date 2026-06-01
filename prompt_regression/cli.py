@@ -43,6 +43,7 @@ from .html_report import ReportEntry, render_report
 from .io import atomic_write_text, load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
 from .stats import StatsError, collect_stats, render_summary
+from .validate import validate_snapshots
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
 # The opinionated `*.snapshot.yaml` convention is preferred for fresh
@@ -440,6 +441,38 @@ def _stats_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _validate_command(args: argparse.Namespace) -> int:
+    """Lint a snapshots directory; exit 0 clean / 1 findings / 2 missing-dir.
+
+    Mirrors ``eval-harness validate`` exit-code shape so CI consumers
+    can chain validators uniformly. Findings print one per stderr line
+    (with the file's path relative to the validated directory and the
+    code); a one-line totals row goes to stdout. ``--json`` emits the
+    full ``ValidationReport`` dict instead of the human-readable
+    summary.
+    """
+    try:
+        report = validate_snapshots(args.snapshots)
+    except FileNotFoundError as e:
+        print(f"error: snapshots directory not found: {e}", file=sys.stderr)
+        return 2
+    except OSError as e:
+        print(f"error: failed to walk snapshots directory: {e}", file=sys.stderr)
+        return 2
+
+    if args.as_json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        for finding in report.findings:
+            print(f"{finding.path} [{finding.code}]: {finding.reason}", file=sys.stderr)
+        status = "ok" if report.ok else "fail"
+        print(
+            f"{status}: {args.snapshots} files={report.n_files} valid={report.n_valid} "
+            f"findings={len(report.findings)}"
+        )
+    return 0 if report.ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="prompt-snap",
@@ -564,6 +597,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the report as JSON instead of the human-readable summary.",
     )
 
+    validate_p = sub.add_parser(
+        "validate",
+        help="Lint a snapshots dir in collecting mode; report every malformed file in one pass.",
+        description=(
+            "Walk a snapshots directory and surface every malformed file (parse / "
+            "schema_version / schema / duplicate_id) plus the empty-dir case in a "
+            "single pass. Pre-flight before `run`. Exit codes: 0 clean / 1 findings "
+            "/ 2 missing directory."
+        ),
+    )
+    validate_p.add_argument("snapshots", help="Directory of snapshot files to lint (recursive).")
+    validate_p.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the report as JSON instead of the human-readable summary.",
+    )
+
     return parser
 
 
@@ -578,6 +629,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return _diff_command(args)
     if args.command == "stats":
         return _stats_command(args)
+    if args.command == "validate":
+        return _validate_command(args)
     parser.error(f"unknown command {args.command!r}")
     return 2  # unreachable
 
