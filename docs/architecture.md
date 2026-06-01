@@ -120,6 +120,7 @@ and renderer:
 prompt-snap run    [SNAPSHOT]...    # run snapshots, exit non-zero on regression
 prompt-snap update [SNAPSHOT]...    # re-baseline (requires --force)
 prompt-snap diff   SNAPSHOT INPUT   # one-off diff against a candidate text
+prompt-snap stats  DIRECTORY        # population-level summary (#47)
 ```
 
 `update --force` is the accidental-rebaseline guard: `update` without
@@ -145,6 +146,13 @@ locked by the matching test in `tests/test_cli.py`.
 - **CLI glob fix (#22).** Tightened `prompt-snap run`'s default
   glob so committed example snapshots are findable from any
   working directory; locked by `tests/test_cli.py`.
+- **Stats (#47).** `prompt_regression.stats.collect_stats(directory)`
+  walks a snapshots dir (same globs `run` uses) and returns a
+  `StatsReport` with per-`prompt.model` / per-`canonical.embedding_model`
+  / per-`schema_version` / per-`structured_slots`-count histograms plus
+  a `ToleranceDistribution` summary (count_default + count_explicit +
+  count_always_pass + min/median/max). Exposed as `prompt-snap stats`;
+  locked by `tests/test_stats.py`.
 
 ## What's deliberately not in the suite
 

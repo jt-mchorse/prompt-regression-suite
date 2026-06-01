@@ -31,8 +31,11 @@ to today's surface:
   surfacing through the toolchain. An operator-recorded real
   regression swaps the two strings in
   `scripts/render_regression_demo.py` and re-runs the same script.
-- **CLI** (#5) — `prompt-snap run | update | diff`, with `--force` on
-  `update` to defend against accidental re-baselining.
+- **CLI** (#5) — `prompt-snap run | update | diff | stats`, with
+  `--force` on `update` to defend against accidental re-baselining.
+  `stats` (#47) walks a snapshots dir and emits a population-level
+  summary (per-model / per-embedder / per-tolerance histograms) so an
+  operator can audit the snapshot population before a big upgrade.
 - **Per-snapshot tolerance** (#10) — `Snapshot.tolerance` overrides
   the global default; bumped to `1.0` (always-pass) for snapshots that
   are intentionally allowed to drift, lowered for the ones you want
