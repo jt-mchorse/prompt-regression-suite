@@ -328,3 +328,18 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none.
 
 **Next session:** continue portfolio propagation.
+
+## 2026-06-01 — Issue #47: `prompt-snap stats` directory-wide summary
+**Duration:** ~45 min · **Branch:** `session/2026-06-01-1533-issue-47`
+
+- Added `prompt_regression/stats.py`: `collect_stats(directory) -> StatsReport` walks the same `*.yml` / `*.yaml` glob `prompt-snap run` uses, returns a frozen `StatsReport` with per-`prompt.model` / per-`canonical.embedding_model` / per-`schema_version` / per-`structured_slots`-count `HistogramEntry` tuples (descending by count, alphabetical tiebreak so the JSON is deterministic across Python builds), plus a `ToleranceDistribution` summary (count_default + count_explicit + count_always_pass + min/median/max over explicit values, `None` when no explicit tolerance is present so the dict shape is well-defined on directories that don't use the per-snapshot override).
+- Wired `prompt-snap stats DIRECTORY [--json]` in `prompt_regression/cli.py`. Exit 0 / 2 matches the `run` / `diff` / `update` convention. `StatsError` carries the two failure modes (missing directory, empty directory) so the CLI can render a clear `error:` line on stderr and exit cleanly.
+- Re-exported `StatsReport`, `StatsError`, `ToleranceDistribution`, `HistogramEntry`, `collect_stats`, `render_summary` from `prompt_regression/__init__.py` so external consumers can build their own surfaces without the CLI module dep.
+- 11 new tests in `tests/test_stats.py` cover the committed-examples happy path, mixed-tolerance distribution math (synthetic directory: default + 0.7 + 1.0 → min=0.7 / max=1.0 / median=0.85 / always_pass=1), histogram descending-then-alphabetical ordering (model-a×2, model-b, model-c → [(a,2),(b,1),(c,1)]), missing- and empty-directory error paths, `to_dict` shape lock, `render_summary` surface, CLI text + json + missing-dir end-to-end, and a glob-parity lock between the stats walker and `prompt-snap run`'s globs.
+- README CLI bullet (#5) extended; `docs/architecture.md` Layer 4 CLI block + cross-cutting surface section name the new shape. `test_architecture_doc.py::KNOWN_SHIPPED_ISSUES` + its hard-pin assertion both bumped to include 47. The `test_readme_defaults_snapshot.py` lock caught the README drift on first pytest run — validation arc is doing its job.
+
+**Why this work, this session:** Third DAY-session iteration of 2026-06-01. Build sequence selected `prompt-regression-suite` next after `llm-cost-optimizer`. All 12 portfolio repos sit at zero open priority:high; the right pattern when there's no actionable backlog is the build-sequence "file a real feature issue per §2 spec" fallback. The CLI's `run/update/diff` covers per-snapshot regression signal but nothing surfaced aggregate population shape — useful for any team running a regression suite over dozens of snapshots before a model upgrade.
+
+**Open questions / blockers:** none — pytest 256 pass, ruff clean, live CLI smoke (`prompt-snap stats examples/snapshots`) returns the expected 2-snapshot summary with the 0.75 explicit tolerance from `refund_window_v1.yml` visible in the tolerance line.
+
+**Next session:** a natural follow-up would be `prompt-snap stats --since DAYS` so an operator can isolate snapshots created in the last week (the `created_at` field is already on every snapshot). Out of scope for #47; would be a clean follow-up.
