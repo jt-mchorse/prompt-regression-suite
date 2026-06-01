@@ -1,0 +1,226 @@
+"""Directory-wide snapshot summary (issue #47).
+
+``prompt-snap stats`` walks a snapshots directory and emits a
+population-level summary the operator can scan at a glance: how many
+snapshots total, which models cover which slots, what tolerance
+distribution is in play, how structured-slot vs. plain-text use
+breaks down. Closes the gap between per-snapshot regression signal
+(``prompt-snap run``) and per-snapshot HTML reporting (``--format
+html``) — neither tells you the shape of the snapshot population
+itself.
+
+The library entry point is ``collect_stats(directory) -> StatsReport``.
+Operators wanting their own summary shape build it on top of the
+frozen ``StatsReport.to_dict`` output rather than re-walking the
+directory.
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass
+from pathlib import Path
+from statistics import median
+from typing import Any
+
+from prompt_regression.io import load_snapshot
+
+# Mirror the globs ``cli._iter_snapshot_paths`` uses so a snapshot file
+# the runner would pick up is also one the stats walker sees. Keep in
+# sync if either ever extends — the test pins the values verbatim.
+_STATS_SNAPSHOT_GLOBS: tuple[str, ...] = ("*.yml", "*.yaml")
+
+
+@dataclass(frozen=True)
+class HistogramEntry:
+    """One bin in a categorical histogram (model name → count, etc.).
+
+    Sorted descending by ``count`` with alphabetical tiebreak when
+    emitted, so the JSON shape is deterministic for downstream
+    snapshot tests.
+    """
+
+    key: str
+    count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"key": self.key, "count": self.count}
+
+
+@dataclass(frozen=True)
+class ToleranceDistribution:
+    """Summary of per-snapshot ``tolerance`` field across the directory.
+
+    ``count_default`` is the number of snapshots that omit ``tolerance``
+    entirely and inherit the per-run default. ``count_always_pass`` is
+    the number explicitly pinned to ``1.0`` (always-pass — useful for
+    intentionally-drifting prompts). ``min`` / ``median`` / ``max`` are
+    over the explicit numeric values only; ``None`` when no snapshot in
+    the directory carries an explicit tolerance.
+    """
+
+    count_default: int
+    count_explicit: int
+    count_always_pass: int
+    min: float | None
+    median: float | None
+    max: float | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "count_default": self.count_default,
+            "count_explicit": self.count_explicit,
+            "count_always_pass": self.count_always_pass,
+            "min": self.min,
+            "median": self.median,
+            "max": self.max,
+        }
+
+
+@dataclass(frozen=True)
+class StatsReport:
+    """Aggregate stats across one snapshots directory."""
+
+    directory: str
+    n_snapshots: int
+    prompt_model_histogram: tuple[HistogramEntry, ...]
+    embedding_model_histogram: tuple[HistogramEntry, ...]
+    schema_version_histogram: tuple[HistogramEntry, ...]
+    structured_slot_count_histogram: tuple[HistogramEntry, ...]
+    tolerance_distribution: ToleranceDistribution
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "directory": self.directory,
+            "n_snapshots": self.n_snapshots,
+            "prompt_model_histogram": [h.to_dict() for h in self.prompt_model_histogram],
+            "embedding_model_histogram": [h.to_dict() for h in self.embedding_model_histogram],
+            "schema_version_histogram": [h.to_dict() for h in self.schema_version_histogram],
+            "structured_slot_count_histogram": [
+                h.to_dict() for h in self.structured_slot_count_histogram
+            ],
+            "tolerance_distribution": self.tolerance_distribution.to_dict(),
+        }
+
+
+def _iter_snapshot_paths(snapshots_dir: Path) -> list[Path]:
+    """Same shape as ``cli._iter_snapshot_paths``; duplicated here so
+    importing ``stats`` doesn't pull the CLI module's argparse setup."""
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for pattern in _STATS_SNAPSHOT_GLOBS:
+        for p in snapshots_dir.rglob(pattern):
+            if p not in seen:
+                seen.add(p)
+                out.append(p)
+    out.sort()
+    return out
+
+
+def _hist(counter: Counter[Any]) -> tuple[HistogramEntry, ...]:
+    """Render a ``Counter`` as a descending-by-count histogram tuple.
+
+    Tiebreak by alpha on the string representation of the key so the
+    JSON snapshot is deterministic across Python builds.
+    """
+    return tuple(
+        HistogramEntry(key=str(k), count=c)
+        for k, c in sorted(counter.items(), key=lambda kv: (-kv[1], str(kv[0])))
+    )
+
+
+class StatsError(RuntimeError):
+    """Raised when the stats walker can't produce a report.
+
+    Today's two cases: directory is missing, or directory contains no
+    matching snapshot files. The CLI converts this into exit 2.
+    """
+
+
+def collect_stats(directory: str | Path) -> StatsReport:
+    """Walk ``directory`` and return aggregate stats over its snapshots.
+
+    Raises :class:`StatsError` if the directory is missing, not a
+    directory, or empty of matching files. Schema-validation errors
+    from ``load_snapshot`` propagate as ``SnapshotValidationError`` so
+    the operator sees the same loud failure ``prompt-snap run`` would
+    surface — one fixed snapshot, one re-run.
+    """
+    path = Path(directory)
+    if not path.exists() or not path.is_dir():
+        raise StatsError(f"snapshots directory not found: {path}")
+    snapshot_paths = _iter_snapshot_paths(path)
+    if not snapshot_paths:
+        patterns = ", ".join(_STATS_SNAPSHOT_GLOBS)
+        raise StatsError(f"no snapshot files under {path} (patterns considered: {patterns})")
+
+    prompt_models: Counter[str] = Counter()
+    embedding_models: Counter[str] = Counter()
+    schema_versions: Counter[str] = Counter()
+    slot_counts: Counter[int] = Counter()
+    explicit_tolerances: list[float] = []
+    count_default = 0
+    count_always_pass = 0
+
+    for p in snapshot_paths:
+        snap = load_snapshot(p)
+        prompt_models[snap.prompt.model] += 1
+        embedding_models[snap.canonical.embedding_model] += 1
+        schema_versions[snap.schema_version] += 1
+        slot_counts[len(snap.response_shape.structured_slots)] += 1
+        if snap.tolerance is None:
+            count_default += 1
+        else:
+            explicit_tolerances.append(snap.tolerance)
+            if snap.tolerance == 1.0:
+                count_always_pass += 1
+
+    tol = ToleranceDistribution(
+        count_default=count_default,
+        count_explicit=len(explicit_tolerances),
+        count_always_pass=count_always_pass,
+        min=min(explicit_tolerances) if explicit_tolerances else None,
+        median=float(median(explicit_tolerances)) if explicit_tolerances else None,
+        max=max(explicit_tolerances) if explicit_tolerances else None,
+    )
+
+    return StatsReport(
+        directory=str(path),
+        n_snapshots=len(snapshot_paths),
+        prompt_model_histogram=_hist(prompt_models),
+        embedding_model_histogram=_hist(embedding_models),
+        schema_version_histogram=_hist(schema_versions),
+        structured_slot_count_histogram=_hist(slot_counts),
+        tolerance_distribution=tol,
+    )
+
+
+def render_summary(report: StatsReport) -> str:
+    """Human-readable one-paragraph rendering of ``report``.
+
+    Surfaces the totals + each histogram + the tolerance distribution.
+    Stable line ordering so a future snapshot test can lock it.
+    """
+    lines: list[str] = []
+    lines.append(f"snapshots: {report.n_snapshots} under {report.directory}")
+    if report.prompt_model_histogram:
+        bits = ", ".join(f"{h.key}={h.count}" for h in report.prompt_model_histogram)
+        lines.append(f"prompt.model: {bits}")
+    if report.embedding_model_histogram:
+        bits = ", ".join(f"{h.key}={h.count}" for h in report.embedding_model_histogram)
+        lines.append(f"canonical.embedding_model: {bits}")
+    if report.schema_version_histogram:
+        bits = ", ".join(f"v{h.key}={h.count}" for h in report.schema_version_histogram)
+        lines.append(f"schema_version: {bits}")
+    if report.structured_slot_count_histogram:
+        bits = ", ".join(f"{h.key}={h.count}" for h in report.structured_slot_count_histogram)
+        lines.append(f"structured_slots count: {bits}")
+    tol = report.tolerance_distribution
+    tol_summary = (
+        f"tolerance: default={tol.count_default} explicit={tol.count_explicit} "
+        f"always_pass={tol.count_always_pass}"
+    )
+    if tol.count_explicit:
+        tol_summary += f" min={tol.min} median={tol.median} max={tol.max}"
+    lines.append(tol_summary)
+    return "\n".join(lines)

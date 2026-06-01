@@ -35,6 +35,14 @@ from .schema import (
     Snapshot,
     SnapshotValidationError,
 )
+from .stats import (
+    HistogramEntry,
+    StatsError,
+    StatsReport,
+    ToleranceDistribution,
+    collect_stats,
+    render_summary,
+)
 
 __all__ = [
     # Schema (#1)
@@ -63,4 +71,11 @@ __all__ = [
     # HTML report (#3)
     "ReportEntry",
     "render_report",
+    # Stats (#47)
+    "HistogramEntry",
+    "StatsError",
+    "StatsReport",
+    "ToleranceDistribution",
+    "collect_stats",
+    "render_summary",
 ]

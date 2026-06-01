@@ -42,6 +42,7 @@ from .diff import (
 from .html_report import ReportEntry, render_report
 from .io import atomic_write_text, load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
+from .stats import StatsError, collect_stats, render_summary
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
 # The opinionated `*.snapshot.yaml` convention is preferred for fresh
@@ -417,6 +418,28 @@ def _serialize_diff(result: DiffResult) -> dict:
 # ----------------------------------------------------------------------
 
 
+def _stats_command(args: argparse.Namespace) -> int:
+    """Aggregate stats over a snapshots directory.
+
+    Exit codes mirror the ``run`` subcommand convention:
+    - ``0`` on a populated directory.
+    - ``2`` on a missing directory or one with no matching files.
+    Schema-validation errors propagate from ``load_snapshot`` as
+    ``SnapshotValidationError`` — same loud failure ``run`` would
+    surface, so a single fix-and-rerun cycle resolves both surfaces.
+    """
+    try:
+        report = collect_stats(args.snapshots)
+    except StatsError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    if args.as_json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(render_summary(report))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="prompt-snap",
@@ -523,6 +546,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the embedder-model-vs-snapshot-model mismatch guard (D-006).",
     )
 
+    stats_p = sub.add_parser(
+        "stats",
+        help="Aggregate population stats over a snapshots directory.",
+        description=(
+            "Walk a snapshots directory and emit per-model, per-embedder, per-tolerance, "
+            "and per-slot-count summaries. Useful before a big model upgrade."
+        ),
+    )
+    stats_p.add_argument(
+        "snapshots", help="Directory of *.yml / *.yaml snapshot files (recursive)."
+    )
+    stats_p.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the report as JSON instead of the human-readable summary.",
+    )
+
     return parser
 
 
@@ -535,6 +576,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return _update_command(args)
     if args.command == "diff":
         return _diff_command(args)
+    if args.command == "stats":
+        return _stats_command(args)
     parser.error(f"unknown command {args.command!r}")
     return 2  # unreachable
 
