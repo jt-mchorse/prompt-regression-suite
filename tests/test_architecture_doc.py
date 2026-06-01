@@ -55,7 +55,7 @@ MIN_ACTIVE_DECISION_ID = 2
 #          tests/test_readme_defaults_snapshot.py
 #   - #19  Public surface lock — locked by tests/test_public_surface.py
 #   - #22  CLI glob fix — locked by tests/test_cli.py
-KNOWN_SHIPPED_ISSUES = (1, 2, 3, 4, 5, 10, 47)
+KNOWN_SHIPPED_ISSUES = (1, 2, 3, 4, 5, 10, 47, 49)
 
 # Drift shapes specific to issue #24's pre-fix state. Lowercase
 # substring match. Pinned in a tuple so a future loose edit of the
@@ -189,7 +189,7 @@ def test_banned_phrases_hard_pin_set() -> None:
 
 
 def test_known_shipped_issues_hard_pin_set() -> None:
-    assert KNOWN_SHIPPED_ISSUES == (1, 2, 3, 4, 5, 10, 47)
+    assert KNOWN_SHIPPED_ISSUES == (1, 2, 3, 4, 5, 10, 47, 49)
 
 
 def test_resolvable_prefixes_hard_pin_set() -> None:

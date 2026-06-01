@@ -31,11 +31,15 @@ to today's surface:
   surfacing through the toolchain. An operator-recorded real
   regression swaps the two strings in
   `scripts/render_regression_demo.py` and re-runs the same script.
-- **CLI** (#5) — `prompt-snap run | update | diff | stats`, with
-  `--force` on `update` to defend against accidental re-baselining.
+- **CLI** (#5) — `prompt-snap run | update | diff | stats | validate`,
+  with `--force` on `update` to defend against accidental re-baselining.
   `stats` (#47) walks a snapshots dir and emits a population-level
   summary (per-model / per-embedder / per-tolerance histograms) so an
   operator can audit the snapshot population before a big upgrade.
+  `validate` (#49) walks the same dir in *collecting* mode and surfaces
+  every malformed file in one pass (codes `parse | schema_version |
+  schema | duplicate_id | empty`); pre-flight before `run` so a bad
+  snapshot doesn't abort the run partway through.
 - **Per-snapshot tolerance** (#10) — `Snapshot.tolerance` overrides
   the global default; bumped to `1.0` (always-pass) for snapshots that
   are intentionally allowed to drift, lowered for the ones you want
@@ -52,6 +56,7 @@ snapshot-style only.
 [#4]: https://github.com/jt-mchorse/prompt-regression-suite/issues/4
 [#5]: https://github.com/jt-mchorse/prompt-regression-suite/issues/5
 [#10]: https://github.com/jt-mchorse/prompt-regression-suite/issues/10
+[#49]: https://github.com/jt-mchorse/prompt-regression-suite/issues/49
 
 ## Architecture
 
