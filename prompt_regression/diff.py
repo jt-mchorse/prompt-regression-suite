@@ -140,6 +140,17 @@ class SlotDelta:
     def is_failure(self) -> bool:
         return self.status != "ok"
 
+    def to_dict(self) -> dict[str, Any]:
+        # Four-field contract (#51) — replaces `asdict(d)` in cli.py's
+        # `_serialize_diff` so a future internal-only field on SlotDelta
+        # can't silently leak into the `prompt-snap diff --json` shape.
+        return {
+            "name": self.name,
+            "expected_type": self.expected_type,
+            "actual_value": self.actual_value,
+            "status": self.status,
+        }
+
 
 _INTEGER_RE = re.compile(r"-?\b\d+\b")
 _NUMBER_RE = re.compile(r"-?\b\d+\.?\d*\b")
@@ -303,6 +314,13 @@ class SemanticCategoryScore:
     name: str
     cosine_to_response: float
 
+    def to_dict(self) -> dict[str, Any]:
+        # Two-field contract (#51).
+        return {
+            "name": self.name,
+            "cosine_to_response": self.cosine_to_response,
+        }
+
 
 def score_semantic_categories(
     candidate_text: str,
@@ -338,6 +356,22 @@ class DiffResult:
     embedder_model: str
     snapshot_embedding_model: str
     notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        # Eight-field contract (#51) — replaces cli.py `_serialize_diff`'s
+        # asdict-based render. Nests `slot_deltas[*].to_dict()` and
+        # `semantic_category_scores[*].to_dict()` so the nested shapes
+        # are owned by the nested classes' own contracts.
+        return {
+            "verdict": self.verdict,
+            "cosine_score": self.cosine_score,
+            "threshold": self.threshold,
+            "embedder_model": self.embedder_model,
+            "snapshot_embedding_model": self.snapshot_embedding_model,
+            "slot_deltas": [d.to_dict() for d in self.slot_deltas],
+            "semantic_category_scores": [s.to_dict() for s in self.semantic_category_scores],
+            "notes": list(self.notes),
+        }
 
 
 class EmbedderModelMismatchError(ValueError):

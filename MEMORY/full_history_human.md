@@ -357,3 +357,21 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — full pytest pass, ruff check + format clean, live CLI smoke against `examples/snapshots`, missing path, and `--json` all behave as expected.
 
 **Next session:** the validator currently treats embedding vectors as opaque lists in the schema check. A future hardening could cross-check dimensionality consistency across the dir (e.g., flag a snapshot whose canonical vector has a different length than its siblings under the same embedder). Out of scope here; would be a clean follow-up if embedding-shape drift ever surfaces in practice.
+
+## 2026-06-02 — Issue #51: explicit .to_dict() field contracts
+**Duration:** ~30 min · **Branch:** `session/2026-06-02-0348-issue-51`
+
+- Replaced `dataclasses.asdict`-based JSON shapes with explicit field-by-field `.to_dict()` methods on **seven** dataclasses across `diff.py` and `schema.py`:
+  - `SlotDelta` (4-field), `SemanticCategoryScore` (2-field), `DiffResult` (8-field, nests `slot_deltas` / `semantic_category_scores`).
+  - `Prompt` (6-field), `ResponseShape` (2-field), `CanonicalResponse` (3-field), `Snapshot` (8-field, nests `prompt` / `response_shape` / `canonical`).
+- `cli.py` `_serialize_diff` collapses to `result.to_dict()` — the field-by-field contract now lives on `DiffResult` itself. Dropped the `asdict` import; no `dataclasses.asdict` reference remains in `diff.py`, `schema.py`, or `cli.py`.
+- Shallow-copy safety: `extra` mapping in `Prompt`, embedding list in `CanonicalResponse`, lists/mappings in `ResponseShape` — all copied so caller mutation of the returned dict can't bleed back into the frozen dataclass. Three guard tests pin this.
+- `Snapshot.to_dict` preserves the existing `None`-drop tidy-up for `notes`/`tolerance` so committed `snapshots/*.yaml` stay clean (no explicit `notes: null` lines on snapshots that don't use them). The round-trip identity test `Snapshot.from_dict(s.to_dict()) == s` is preserved.
+- 21 new tests (10 in `test_diff.py`, 11 in `test_schema.py`) covering per-class field-set pins, nested-shape ownership, shallow-copy safety, and the CLI acceptance regression `cli._serialize_diff(result) == result.to_dict()`. Full suite 268/268 pass (was 258). Ruff check + format clean.
+- `docs/architecture.md` Layer 2 section gains a paragraph citing #51 alongside the four sister-repo PRs in the same observability-parity arc. `KNOWN_SHIPPED_ISSUES` arch-doc pin extended from `(1,2,3,4,5,10,47,49)` to include `51`.
+
+**Why this work, this session:** Iteration 5 of the night session loop. Audit of the recently-touched Python repos surfaced `prompt-regression-suite` as the only one in the observability-parity arc (closed across `python-async-llm-pipelines`, `rag-production-kit`, `llm-cost-optimizer` ×2, and `vector-search-at-scale` earlier tonight) with remaining `asdict` reliance — both in `cli.py`'s `_serialize_diff` and `schema.py`'s `Snapshot.to_dict`. Closing both saturates the Python side of the arc at five repos.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Future iterations should pivot to either operator-blocked items (demo-capture issues, trending workflow secrets) or look for novel parity opportunities outside the observability-parity arc, which is now saturated across all Python JSON-emitting repos.

@@ -91,6 +91,23 @@ drop fails it even when slots happen to align):
 The diff is pure-function: no IO, no global state. Tests in
 `tests/test_diff.py` and `tests/test_tolerance.py`.
 
+`DiffResult` / `SlotDelta` / `SemanticCategoryScore` each carry an
+explicit `.to_dict()` (#51) with a field-by-field contract — no
+`dataclasses.asdict` reliance — so a future internal-only field on
+any of them can't silently leak into the `prompt-snap diff --json`
+or `prompt-snap run --json` output that CI annotators and ad-hoc
+scripts bind to. Same observability-parity shape shipped in
+`llm-cost-optimizer`, `rag-production-kit`, `python-async-llm-pipelines`,
+and `vector-search-at-scale`.
+
+`Snapshot.to_dict()` is also explicit-field (#51): preserves the
+existing None-drop tidy-up for `notes` / `tolerance` (kept absent
+in YAML when unused) while pinning the eight-field surface that
+committed `snapshots/*.yaml` consumers depend on. Nested sections
+(`prompt`, `response_shape`, `canonical`) delegate to their own
+`to_dict` so the nested shapes are pinned by the nested classes'
+contracts.
+
 ## Layer 3 — HTML report (#3)
 
 `html_report.py` renders a `DiffResult` into a single self-contained
