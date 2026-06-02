@@ -247,3 +247,118 @@ def test_snapshot_notes_round_trip_when_present():
 def test_snapshot_rejects_non_mapping_payload():
     with pytest.raises(SnapshotValidationError):
         Snapshot.from_dict("not a mapping")  # type: ignore[arg-type]
+
+
+# ----------------------------------------------------------------------
+# #51: observability-parity — explicit .to_dict() field contracts on
+# Snapshot + nested dataclasses (Prompt / ResponseShape / CanonicalResponse).
+# Round-trip identity through from_dict is preserved.
+# ----------------------------------------------------------------------
+
+
+class TestPromptToDict:
+    def test_field_set_is_pinned(self):
+        d = _valid_prompt().to_dict()
+        assert sorted(d.keys()) == [
+            "extra",
+            "max_tokens",
+            "model",
+            "system",
+            "temperature",
+            "user",
+        ]
+
+    def test_extra_is_shallow_copied(self):
+        p = Prompt(model="claude-haiku-4-5", user="hi", extra={"top_p": 0.9})
+        out = p.to_dict()
+        out["extra"]["leaked"] = "yes"
+        assert "leaked" not in p.extra
+
+
+class TestResponseShapeToDict:
+    def test_field_set_is_pinned(self):
+        d = _valid_shape().to_dict()
+        assert sorted(d.keys()) == ["semantic_categories", "structured_slots"]
+
+    def test_lists_and_mappings_are_copied(self):
+        rs = _valid_shape()
+        out = rs.to_dict()
+        out["semantic_categories"].append("leaked")
+        assert "leaked" not in rs.semantic_categories
+
+
+class TestCanonicalResponseToDict:
+    def test_field_set_is_pinned(self):
+        d = _valid_canonical().to_dict()
+        assert sorted(d.keys()) == ["embedding", "embedding_model", "text"]
+
+    def test_embedding_is_copied(self):
+        c = _valid_canonical()
+        out = c.to_dict()
+        out["embedding"].append(99.0)
+        assert 99.0 not in c.embedding
+
+
+class TestSnapshotToDictExplicitContract:
+    def test_field_set_is_pinned_when_optional_fields_present(self):
+        s = Snapshot(
+            id="x",
+            prompt=_valid_prompt(),
+            response_shape=_valid_shape(),
+            canonical=_valid_canonical(),
+            notes="hello",
+            tolerance=0.9,
+        )
+        d = s.to_dict()
+        assert sorted(d.keys()) == [
+            "canonical",
+            "created_at",
+            "id",
+            "notes",
+            "prompt",
+            "response_shape",
+            "schema_version",
+            "tolerance",
+        ]
+
+    def test_none_optional_fields_dropped(self):
+        # The to_dict tidy-up drops notes/tolerance when None so the
+        # YAML on disk doesn't carry explicit `notes: null` lines on
+        # snapshots that don't use them.
+        s = Snapshot(
+            id="x",
+            prompt=_valid_prompt(),
+            response_shape=_valid_shape(),
+            canonical=_valid_canonical(),
+        )
+        d = s.to_dict()
+        assert "notes" not in d
+        assert "tolerance" not in d
+
+    def test_nested_shapes_owned_by_nested_to_dicts(self):
+        d = _valid_snapshot().to_dict()
+        assert sorted(d["prompt"].keys()) == [
+            "extra",
+            "max_tokens",
+            "model",
+            "system",
+            "temperature",
+            "user",
+        ]
+        assert sorted(d["response_shape"].keys()) == ["semantic_categories", "structured_slots"]
+        assert sorted(d["canonical"].keys()) == ["embedding", "embedding_model", "text"]
+
+    def test_round_trip_identity_preserved(self):
+        # The same round-trip Snapshot.from_dict(s.to_dict()) == s
+        # contract the asdict-based shape provided.
+        s = _valid_snapshot()
+        assert Snapshot.from_dict(s.to_dict()) == s
+
+
+def _valid_snapshot() -> Snapshot:
+    return Snapshot(
+        id="snap-x",
+        prompt=_valid_prompt(),
+        response_shape=_valid_shape(),
+        canonical=_valid_canonical(),
+    )

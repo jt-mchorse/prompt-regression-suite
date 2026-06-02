@@ -26,7 +26,6 @@ import argparse
 import json
 import sys
 from collections.abc import Iterable, Sequence
-from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -402,16 +401,10 @@ def _format_diff_text(result: DiffResult) -> str:
 
 
 def _serialize_diff(result: DiffResult) -> dict:
-    return {
-        "verdict": result.verdict,
-        "cosine_score": result.cosine_score,
-        "threshold": result.threshold,
-        "embedder_model": result.embedder_model,
-        "snapshot_embedding_model": result.snapshot_embedding_model,
-        "slot_deltas": [asdict(d) for d in result.slot_deltas],
-        "semantic_category_scores": [asdict(s) for s in result.semantic_category_scores],
-        "notes": list(result.notes),
-    }
+    # Field-by-field contract now lives on DiffResult.to_dict (#51) so
+    # downstream consumers of `prompt-snap diff --json` bind to the
+    # dataclass's explicit shape, not whatever asdict happens to emit.
+    return result.to_dict()
 
 
 # ----------------------------------------------------------------------

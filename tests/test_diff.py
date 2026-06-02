@@ -20,6 +20,7 @@ from prompt_regression import (
     HashEmbedder,
     Prompt,
     ResponseShape,
+    SemanticCategoryScore,
     SlotDelta,
     Snapshot,
     cosine,
@@ -332,3 +333,110 @@ def test_diff_result_shape_contract():
         assert d.status in ("ok", "missing", "type_mismatch", "type_unknown")
     # The semantic-category scores are surfaced too.
     assert hasattr(result, "semantic_category_scores")
+
+
+# ----------------------------------------------------------------------
+# #51: observability-parity — explicit .to_dict() field contracts
+# (no dataclasses.asdict). Same pattern as
+# python-async-llm-pipelines#45, rag-production-kit#51,
+# llm-cost-optimizer#51/#53, vector-search-at-scale#40.
+# ----------------------------------------------------------------------
+
+
+class TestSlotDeltaToDict:
+    def test_field_set_is_pinned(self):
+        d = SlotDelta(name="x", expected_type="string", actual_value="hello", status="ok").to_dict()
+        assert sorted(d.keys()) == ["actual_value", "expected_type", "name", "status"]
+
+    def test_values_round_trip(self):
+        d = SlotDelta(name="customer_id", expected_type="string", actual_value="C-42", status="ok")
+        assert d.to_dict() == {
+            "name": "customer_id",
+            "expected_type": "string",
+            "actual_value": "C-42",
+            "status": "ok",
+        }
+
+    def test_actual_value_can_be_none_when_missing(self):
+        d = SlotDelta(name="x", expected_type="integer", actual_value=None, status="missing")
+        out = d.to_dict()
+        assert out["actual_value"] is None
+        assert out["status"] == "missing"
+
+
+class TestSemanticCategoryScoreToDict:
+    def test_field_set_is_pinned(self):
+        d = SemanticCategoryScore(name="refund", cosine_to_response=0.42).to_dict()
+        assert sorted(d.keys()) == ["cosine_to_response", "name"]
+
+    def test_values_round_trip(self):
+        s = SemanticCategoryScore(name="refund-eligibility", cosine_to_response=0.81)
+        assert s.to_dict() == {
+            "name": "refund-eligibility",
+            "cosine_to_response": 0.81,
+        }
+
+
+def _diff_result_for_contract() -> DiffResult:
+    e = HashEmbedder()
+    canonical = "The Pro plan has a 14-day refund window."
+    snap = Snapshot(
+        id="t",
+        prompt=Prompt(model="claude-3-haiku-20240307", user="What is the refund window?"),
+        response_shape=ResponseShape(
+            semantic_categories=["refund-eligibility"],
+            structured_slots={"days": {"type": "integer", "description": "days"}},
+        ),
+        canonical=CanonicalResponse(
+            text=canonical, embedding=e.embed(canonical), embedding_model=e.model_name
+        ),
+    )
+    return diff_response(snap, canonical, embedder=e)
+
+
+class TestDiffResultToDict:
+    def test_field_set_is_pinned(self):
+        d = _diff_result_for_contract().to_dict()
+        assert sorted(d.keys()) == [
+            "cosine_score",
+            "embedder_model",
+            "notes",
+            "semantic_category_scores",
+            "slot_deltas",
+            "snapshot_embedding_model",
+            "threshold",
+            "verdict",
+        ]
+
+    def test_nested_shapes_owned_by_nested_to_dicts(self):
+        d = _diff_result_for_contract().to_dict()
+        if d["slot_deltas"]:
+            assert sorted(d["slot_deltas"][0].keys()) == [
+                "actual_value",
+                "expected_type",
+                "name",
+                "status",
+            ]
+        if d["semantic_category_scores"]:
+            assert sorted(d["semantic_category_scores"][0].keys()) == [
+                "cosine_to_response",
+                "name",
+            ]
+
+    def test_notes_is_a_list_copy(self):
+        # Mutating the returned dict's notes list must not bleed back
+        # into the frozen DiffResult instance.
+        result = _diff_result_for_contract()
+        out = result.to_dict()
+        out["notes"].append("leaked")
+        assert "leaked" not in result.notes
+
+
+class TestCliSerializeDiffMatchesToDict:
+    """Acceptance regression: cli._serialize_diff delegates to to_dict (#51)."""
+
+    def test_cli_serialize_diff_equals_to_dict(self):
+        from prompt_regression.cli import _serialize_diff  # type: ignore[attr-defined]
+
+        result = _diff_result_for_contract()
+        assert _serialize_diff(result) == result.to_dict()

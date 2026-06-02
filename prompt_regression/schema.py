@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -90,6 +90,19 @@ class Prompt:
             raise SnapshotValidationError("Prompt.extra must be a mapping")
         self.extra = dict(self.extra)
 
+    def to_dict(self) -> dict[str, Any]:
+        # Explicit six-field contract (#51) — no `asdict`. `extra` is
+        # shallow-copied so callers can't mutate the dataclass through
+        # the returned dict.
+        return {
+            "model": self.model,
+            "user": self.user,
+            "system": self.system,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "extra": dict(self.extra),
+        }
+
 
 @dataclass
 class ResponseShape:
@@ -151,6 +164,14 @@ class ResponseShape:
             clean_slots[name] = spec
         self.structured_slots = clean_slots
 
+    def to_dict(self) -> dict[str, Any]:
+        # Two-field contract (#51). Nested `structured_slots` values
+        # are passed through as-is — they're already plain mappings.
+        return {
+            "semantic_categories": list(self.semantic_categories),
+            "structured_slots": {k: dict(v) for k, v in self.structured_slots.items()},
+        }
+
 
 @dataclass
 class CanonicalResponse:
@@ -193,6 +214,15 @@ class CanonicalResponse:
                 )
             clean.append(fv)
         self.embedding = clean
+
+    def to_dict(self) -> dict[str, Any]:
+        # Three-field contract (#51). Embedding is copied to a new list
+        # so caller mutation can't reach back into the dataclass.
+        return {
+            "text": self.text,
+            "embedding": list(self.embedding),
+            "embedding_model": self.embedding_model,
+        }
 
 
 def _utcnow_iso() -> str:
@@ -251,8 +281,20 @@ class Snapshot:
         """Render the snapshot as a plain dict suitable for YAML/JSON dump.
 
         Round-trip identity: ``Snapshot.from_dict(s.to_dict()) == s``.
+        Explicit eight-field contract (#51) — no `asdict`; nested
+        sections (prompt, response_shape, canonical) delegate to their
+        own `to_dict` so the nested shapes are also pinned.
         """
-        data = asdict(self)
+        data: dict[str, Any] = {
+            "id": self.id,
+            "prompt": self.prompt.to_dict(),
+            "response_shape": self.response_shape.to_dict(),
+            "canonical": self.canonical.to_dict(),
+            "schema_version": self.schema_version,
+            "created_at": self.created_at,
+            "notes": self.notes,
+            "tolerance": self.tolerance,
+        }
         # Drop None-valued optional fields so YAML stays tidy on snapshots
         # that don't use them. Same pattern for `tolerance` (issue #10) as
         # `notes` — absence in YAML means "fall back to the per-run default".
