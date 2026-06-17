@@ -375,3 +375,17 @@ New `tests/test_cli_diff_html.py` (5 tests): html-without-out exit-2 with stderr
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Future iterations should pivot to either operator-blocked items (demo-capture issues, trending workflow secrets) or look for novel parity opportunities outside the observability-parity arc, which is now saturated across all Python JSON-emitting repos.
+
+## 2026-06-17 — Issue #53: Workflow YAML-parseability lock
+**Duration:** ~8 min · **Branch:** `session/2026-06-17-1921-issue-53`
+
+Added `tests/test_workflows_yaml_parseable.py` (3 tests for `ci.yml`).
+`pyyaml` is already a runtime dep, so no `pyproject.toml` change
+needed.
+
+**Why this work, this session:** Sixth hop of the `portfolio-ops#30`
+propagation arc.
+
+**Open questions / blockers:** none — PR #54 open.
+
+**Next session:** continue propagation to the remaining 6 repos.
