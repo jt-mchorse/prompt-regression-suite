@@ -389,3 +389,15 @@ propagation arc.
 **Open questions / blockers:** none — PR #54 open.
 
 **Next session:** continue propagation to the remaining 6 repos.
+
+## 2026-06-17 — Issue #55: timeout-minutes guard for ci.yml
+**Duration:** ~12 min · **Branch:** `session/2026-06-17-2326-issue-55`
+
+- `timeout-minutes: 15` on each ci.yml job.
+- `tests/test_workflows_timeout_minutes.py` — 10 new tests, same shape as the canonical lock.
+
+**Why this work, this session:** third propagation of `llm-eval-harness#62` in the multi-issue day-session loop, after llm-cost-optimizer#58.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue propagation across remaining 9 repos.
