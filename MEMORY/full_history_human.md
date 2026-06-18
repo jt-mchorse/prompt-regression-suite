@@ -401,3 +401,17 @@ propagation arc.
 **Open questions / blockers:** none.
 
 **Next session:** continue propagation across remaining 9 repos.
+
+## 2026-06-18 — Issue #57: concurrency guard + lock test
+**Duration:** ~9 min · **Branch:** `session/2026-06-18-1528-issue-57`
+
+- Added top-level `concurrency:` to `ci.yml`.
+- Copied lock test from llm-eval-harness; docstring origin updated.
+
+**Why this work, this session:** sixth per-repo hop in the
+concurrency-lock arc; first non-tier repo after the priority tier
+completed 5/5 this session.
+
+**Open questions / blockers:** none. Test count 278 → 285.
+
+**Next session:** continue propagation to remaining 6 repos.
