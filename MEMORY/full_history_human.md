@@ -415,3 +415,27 @@ completed 5/5 this session.
 **Open questions / blockers:** none. Test count 278 → 285.
 
 **Next session:** continue propagation to remaining 6 repos.
+
+## 2026-06-19 — Issue #59: prompt-snap validate --out for sink-parity
+**Duration:** ~22 min · **Branch:** `session/2026-06-19-0327-issue-59`
+
+- Added `--out PATH` to `prompt-snap validate` so its output (human
+  summary or `--json` payload) atomic-writes to disk instead of stdout.
+  Third hop in the validate-CLI sink-parity propagation arc (after
+  llm-eval-harness#66 and chunking-strategies-lab#45).
+- `_validate_command` builds the rendered string once, then routes
+  through `prompt_regression/io.atomic_write_text` when `--out` is set,
+  else `print(rendered, end="")`. Findings continue to print to stderr
+  in human-readable mode regardless of `--out`.
+- 6 new tests; README unchanged.
+
+**Why this work, this session:** sibling-of-#66 / sibling-of-#45 propagation.
+After this PR, three of the four Python validate CLIs in the portfolio
+share one shape; one more hop remains (embedding-model-shootout
+`emb_shootout.validate.validate_corpus`).
+
+**Open questions / blockers:** none. 285 → 291 pytest passes. PR #60
+open and ready.
+
+**Next session:** continue the arc into embedding-model-shootout to
+close it out across all four repos.

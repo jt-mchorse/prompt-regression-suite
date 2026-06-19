@@ -598,3 +598,24 @@ context_for_next_session:
 decisions_made: []
 followups: [#57]
 ---
+
+---
+session: 2026-06-19T04:30Z
+duration_min: 22
+issue: 59
+focus: prompt_snap_validate_out_flag_for_sink_parity_propagation_of_llm_eval_harness_66
+phase: night_session_phase_b_iteration_4
+delta:
+  files_changed: 2 # prompt_regression/cli.py + tests/test_validate.py
+  tests_added: 6   # 2 modes (human+json) + parent-dir + atomic-overwrite + stderr + exit-2
+context_for_next_session:
+  - third_hop_in_validate_cli_sink_parity_propagation_arc_after_llm_eval_harness_66_pr_67_and_chunking_strategies_lab_45_pr_46
+  - validate_p_already_had_json_for_format_choice_added_out_path_for_sink_destination_run_already_had_out_so_two_subcommands_now_consistent
+  - validate_command_routes_through_prompt_regression_io_atomic_write_text_when_out_set_else_print_rendered_end_empty_string
+  - findings_still_print_to_stderr_in_human_mode_regardless_of_out_canonical_contract_across_all_three_validate_clis
+  - exit_2_missing_dir_path_raises_before_rendering_so_out_leaves_no_zero_byte_sentinel
+  - test_count_285_to_291_six_new_full_pytest_clean_ruff_check_plus_format_check_clean
+  - canonical_pattern_now_one_shape_one_atomic_write_helper_across_three_repos_one_more_hop_remaining_embedding_model_shootout_emb_shootout_validate_validate_corpus
+decisions_made: []
+followups: []
+---
