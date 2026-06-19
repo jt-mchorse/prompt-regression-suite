@@ -454,15 +454,22 @@ def _validate_command(args: argparse.Namespace) -> int:
         return 2
 
     if args.as_json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        rendered = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
     else:
+        # Findings go to stderr regardless of --out so the operator's diagnostic
+        # channel is preserved even when stdout is captured to a file. Parity
+        # with llm-eval-harness validate (#66) and chunking_lab.validate (#45).
         for finding in report.findings:
             print(f"{finding.path} [{finding.code}]: {finding.reason}", file=sys.stderr)
         status = "ok" if report.ok else "fail"
-        print(
+        rendered = (
             f"{status}: {args.snapshots} files={report.n_files} valid={report.n_valid} "
-            f"findings={len(report.findings)}"
+            f"findings={len(report.findings)}\n"
         )
+    if args.out:
+        atomic_write_text(args.out, rendered)
+    else:
+        print(rendered, end="")
     return 0 if report.ok else 1
 
 
@@ -606,6 +613,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="as_json",
         help="Emit the report as JSON instead of the human-readable summary.",
+    )
+    validate_p.add_argument(
+        "--out",
+        default=None,
+        help=(
+            "Write the rendered output to this path instead of stdout. Parent dirs "
+            "are auto-created via prompt_regression/io.atomic_write_text. Parity with "
+            "`run --out`, llm-eval-harness `validate --out` (#66), chunking-strategies-lab "
+            "`validate --out` (#45). Findings still print to stderr in human-readable mode "
+            "even when --out is set, so the operator's diagnostic channel is preserved."
+        ),
     )
 
     return parser

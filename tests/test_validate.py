@@ -292,3 +292,96 @@ def test_cli_missing_dir_exits_two() -> None:
     result = _run_cli("/this/path/does/not/exist")
     assert result.returncode == 2
     assert "snapshots directory not found" in result.stderr
+
+
+# --- CLI: --out sink parity (#59) — propagation of llm-eval-harness#66 -----
+
+
+def test_cli_out_writes_human_summary_to_file_not_stdout(tmp_path: Path) -> None:
+    """``--out`` writes the human-readable summary to disk; stdout stays
+    silent (parity with llm-eval-harness validate --out #66 and
+    chunking-strategies-lab validate --out #45)."""
+    out = tmp_path / "report.txt"
+    result = _run_cli(str(EXAMPLES_DIR), "--out", str(out))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "", f"stdout must be silent when --out is set; got {result.stdout!r}"
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("ok:"), body
+    assert body.endswith("\n"), "trailing newline required for parity"
+
+
+def test_cli_out_writes_json_payload_to_file(tmp_path: Path) -> None:
+    """``--out`` + ``--json`` writes the report dict as JSON to disk;
+    stdout silent; the file parses cleanly and carries the expected shape."""
+    base = load_snapshot(EXAMPLES_DIR / "refund_window_v1.yml")
+    bad_dir = tmp_path / "bad"
+    bad_dir.mkdir()
+    save_snapshot(base, bad_dir / "a.yml")
+    save_snapshot(base, bad_dir / "b.yml")  # duplicate id
+
+    out = tmp_path / "report.json"
+    result = _run_cli(str(bad_dir), "--json", "--out", str(out))
+    assert result.returncode == 1
+    assert result.stdout == ""
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["ok"] is False
+    assert payload["findings"][0]["code"] == "duplicate_id"
+
+
+def test_cli_out_creates_parent_dirs(tmp_path: Path) -> None:
+    """``atomic_write_text`` does ``parent.mkdir(parents=True)``; confirm
+    the validate path inherits that behavior so nested observability
+    dirs don't need pre-creation."""
+    out = tmp_path / "nested" / "sink" / "report.txt"
+    result = _run_cli(str(EXAMPLES_DIR), "--out", str(out))
+    assert result.returncode == 0
+    assert out.exists()
+    assert out.parent.is_dir()
+
+
+def test_cli_out_overwrites_atomically(tmp_path: Path) -> None:
+    """Two successive writes to the same path leave the second payload —
+    not the concatenation, not a half-written file. No tempfile leftovers."""
+    out = tmp_path / "report.txt"
+    _run_cli(str(EXAMPLES_DIR), "--out", str(out))
+    body1 = out.read_text(encoding="utf-8")
+
+    base = load_snapshot(EXAMPLES_DIR / "refund_window_v1.yml")
+    bad_dir = tmp_path / "bad"
+    bad_dir.mkdir()
+    save_snapshot(base, bad_dir / "a.yml")
+    save_snapshot(base, bad_dir / "b.yml")
+    _run_cli(str(bad_dir), "--out", str(out))
+    body2 = out.read_text(encoding="utf-8")
+    assert body1 != body2
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
+    assert leftovers == [], leftovers
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name.startswith(".report.txt.")]
+    assert leftovers == [], leftovers
+
+
+def test_cli_out_findings_still_print_to_stderr(tmp_path: Path) -> None:
+    """``--out`` covers stdout only — stderr stays the operator's
+    diagnostic channel so a CI step capturing stdout to a file still sees
+    per-finding lines on stderr."""
+    base = load_snapshot(EXAMPLES_DIR / "refund_window_v1.yml")
+    save_snapshot(base, tmp_path / "a.yml")
+    save_snapshot(base, tmp_path / "b.yml")
+
+    out = tmp_path / "report.txt"
+    result = _run_cli(str(tmp_path), "--out", str(out))
+    assert result.returncode == 1
+    assert "duplicate_id" in result.stderr
+    assert result.stdout == ""
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("fail:"), body
+
+
+def test_cli_out_not_written_on_missing_dir(tmp_path: Path) -> None:
+    """Exit-2 (missing dir) raises before rendering, so ``--out`` must
+    NOT touch disk — keeps the failure mode honest (no zero-byte
+    sentinel a CI step could mistake for "ran successfully")."""
+    out = tmp_path / "report.txt"
+    result = _run_cli("/this/path/does/not/exist", "--out", str(out))
+    assert result.returncode == 2
+    assert not out.exists(), "exit-2 must not create the --out file"
