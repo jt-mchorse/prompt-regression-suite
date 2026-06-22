@@ -296,6 +296,11 @@ def _update_command(args: argparse.Namespace) -> int:
         schema_version=snap.schema_version,
         created_at=snap.created_at,
         notes=snap.notes,
+        # Preserve the author's per-snapshot tolerance (issue #10) across a
+        # re-baseline — same "don't trample author intent" rule as notes
+        # below. Omitting it silently reverted a tuned threshold to the
+        # per-run default and quietly changed the diff verdict (#61).
+        tolerance=snap.tolerance,
     )
     # Stamp the canonical re-baseline timestamp into notes if no notes field
     # already exists; otherwise leave the user-supplied notes alone so we

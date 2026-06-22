@@ -439,3 +439,16 @@ open and ready.
 
 **Next session:** continue the arc into embedding-model-shootout to
 close it out across all four repos.
+
+## 2026-06-22 — Issue #61: CLI — preserve per-snapshot tolerance across update
+**Duration:** ~20 min · **Branch:** `session/2026-06-22-1135-issue-61`
+
+- Found during Phase A (Explore subagent over cli/schema/validate/io/html_report after I'd cleared diff.py and stats.py): `_update_command` rebuilt the `Snapshot` on re-baseline copying every field forward except `tolerance`. Since the field defaults to `None`, `prompt-snap update --force` silently reverted an author's tuned per-snapshot threshold (issue #10) to the per-run default, quietly changing the diff verdict on subsequent runs. Reproduced 0.75 → None.
+- Fix: one line — `tolerance=snap.tolerance` in the rebuild, mirroring the existing `notes` preservation.
+- 2 new tests (explicit tolerance preserved; None stays None). Verified the first fails pre-fix. Suite 291 → 293, ruff clean. PR #62 ready.
+
+**Why this work, this session:** the repo had no open priority issues (saturated); this was a real, high-confidence data-loss bug in a user-facing CLI command, found by reading the update path. Higher value than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** no specific lead — diff/stats/cli/schema are well-hardened, and the other Snapshot fields are all verified to be copied on update. If a future session needs work here, the HTML report escaping path and the validate module are the remaining surfaces to audit.
