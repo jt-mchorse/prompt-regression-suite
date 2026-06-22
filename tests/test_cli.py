@@ -289,6 +289,42 @@ def test_update_with_force_rewrites_canonical(snapshots_dir: Path):
     assert after.canonical.embedding_model == embedder.model_name
 
 
+def test_update_preserves_explicit_tolerance(tmp_path: Path):
+    # Re-baselining must not silently drop a per-snapshot tolerance (#10/#61):
+    # an author who pinned a tight/loose threshold keeps it across `update`.
+    embedder = HashEmbedder()
+    snap = Snapshot(
+        id="tight-prompt",
+        prompt=Prompt(model="claude-haiku-4-5", user="Describe tight-prompt"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text="original canonical text",
+            embedding=embedder.embed("original canonical text"),
+            embedding_model=embedder.model_name,
+        ),
+        tolerance=0.95,
+    )
+    path = tmp_path / "tight-prompt.snapshot.yaml"
+    save_snapshot(snap, path)
+    assert load_snapshot(path).tolerance == 0.95
+
+    rc = main(["update", "--snapshot", str(path), "--canonical", "brand new canonical", "--force"])
+    assert rc == 0
+    after = load_snapshot(path)
+    assert after.canonical.text == "brand new canonical"
+    assert after.tolerance == 0.95  # preserved, not reverted to the per-run default
+
+
+def test_update_leaves_default_tolerance_as_none(snapshots_dir: Path):
+    # A snapshot with no explicit tolerance stays at None — the fix must not
+    # inject a spurious default.
+    path = snapshots_dir / "refund-policy.snapshot.yaml"
+    assert load_snapshot(path).tolerance is None
+    rc = main(["update", "--snapshot", str(path), "--canonical", "rebaselined text", "--force"])
+    assert rc == 0
+    assert load_snapshot(path).tolerance is None
+
+
 def test_update_canonical_stdin(snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch):
     path = snapshots_dir / "shipping-policy.snapshot.yaml"
     new_text = "Shipping now takes one business day for Pro plan customers.\n"
