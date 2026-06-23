@@ -452,3 +452,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** no specific lead — diff/stats/cli/schema are well-hardened, and the other Snapshot fields are all verified to be copied on update. If a future session needs work here, the HTML report escaping path and the validate module are the remaining surfaces to audit.
+
+## 2026-06-23 — Issue #63: empty candidate silently skipped (missed regression)
+**Duration:** ~20 min · **Branch:** `session/2026-06-23-0336-issue-63`
+
+- Fixed a silent-regression-escape in `prompt-snap run`. The candidate lookup used `candidates.get(rel) or candidates.get(snap.id)`; an empty-string candidate (the model returned nothing — itself a severe regression) is falsy, so the `or` fell through and the snapshot was counted "skipped", the run exited 0, and CI went green on the exact failure the suite exists to catch. The loader already stored `""`, so the value was present — the `or`-chain discarded it.
+- Switched to explicit key-membership (rel precedence preserved) so a present empty candidate is diffed to a `fail`. Added a `--format json` CLI test (verdict fail, exit 1). Red pre-fix, green post-fix. Suite 293 → 294, ruff clean.
+
+**Why this work, this session:** found by the night session's Phase A dogfood wave; a real correctness/safety bug on the primary CI entry point, where the most severe regression was passing silently.
+
+**Open questions / blockers:** none.
+
+**Next session:** the sibling `or` in `_load_candidates`'s key resolution is safe (keys are non-empty by validation) and was left out of scope.
