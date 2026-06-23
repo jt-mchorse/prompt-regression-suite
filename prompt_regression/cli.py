@@ -178,7 +178,16 @@ def _run_command(args: argparse.Namespace) -> int:
     for path in snapshot_paths:
         snap = load_snapshot(path)
         rel = path.relative_to(snapshots_dir).as_posix()
-        candidate = candidates.get(rel) or candidates.get(snap.id)
+        # `rel` takes precedence over `snap.id`, but check key membership
+        # explicitly: an `or` chain treats a present empty-string candidate
+        # (the model returned nothing — itself a regression) as missing and
+        # silently skips it, letting the worst regression pass CI green.
+        if rel in candidates:
+            candidate = candidates[rel]
+        elif snap.id in candidates:
+            candidate = candidates[snap.id]
+        else:
+            candidate = None
         if candidate is None:
             skipped += 1
             rows.append(
