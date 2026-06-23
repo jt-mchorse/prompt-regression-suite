@@ -215,6 +215,34 @@ def test_run_json_format_emits_valid_payload(
     assert any(r["verdict"] == "pass" for r in payload["rows"])
 
 
+def test_run_empty_candidate_is_diffed_not_skipped(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    # An empty-string candidate means the model returned nothing — itself one
+    # of the worst regressions. It must be diffed to a `fail` (exit 1), not
+    # silently skipped (which let it pass CI green via the old `or` lookup).
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [{"snapshot": "refund-policy.snapshot.yaml", "candidate": ""}],
+    )
+    rc = main(
+        [
+            "run",
+            "--snapshots",
+            str(snapshots_dir),
+            "--candidates",
+            str(candidates),
+            "--format",
+            "json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    row = next(r for r in payload["rows"] if r["snapshot_id"] == "refund-policy")
+    assert row["verdict"] == "fail"  # was "skipped" pre-fix
+    assert payload["failed"] >= 1  # was 0 pre-fix
+    assert rc == 1  # was 0 pre-fix
+
+
 def test_run_missing_snapshots_dir_exits_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     cands = _write_candidates(tmp_path / "cands.jsonl", [{"snapshot": "x", "candidate": "y"}])
     rc = main(["run", "--snapshots", str(tmp_path / "no-such-dir"), "--candidates", str(cands)])
