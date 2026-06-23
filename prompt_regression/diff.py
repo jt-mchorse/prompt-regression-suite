@@ -380,6 +380,15 @@ class EmbedderModelMismatchError(ValueError):
     footgun-prevention guard (D-006)."""
 
 
+class EmbeddingDimensionMismatchError(ValueError):
+    """Raised when the candidate embedding's dimension doesn't match the
+    snapshot's stored canonical embedding. The D-006 model-name guard is a
+    string compare and is dimension-blind, so a snapshot whose embedding_model
+    matches the active embedder but whose stored vector is a different length
+    (older embedder build, hand-edited YAML) would otherwise crash `cosine()`
+    with a raw ValueError and abort the whole `run` batch mid-iteration."""
+
+
 def diff_response(
     snapshot: Snapshot,
     candidate_text: str,
@@ -430,6 +439,19 @@ def diff_response(
             f"{threshold:.3f}"
         )
     candidate_vec = embedder.embed(candidate_text)
+    # The D-006 model-name guard above is a string compare and dimension-blind.
+    # A snapshot whose embedding_model matches the active embedder but whose
+    # stored vector is a different length (older build, hand-edited YAML) would
+    # otherwise hit cosine()'s raw "length mismatch" ValueError, which escapes
+    # the `run` batch loop and aborts every remaining snapshot. Raise a
+    # catchable error so the loop records this one row as `error` and continues.
+    if len(candidate_vec) != len(snapshot.canonical.embedding):
+        raise EmbeddingDimensionMismatchError(
+            f"candidate embedding has {len(candidate_vec)} dims but snapshot "
+            f"{snapshot.canonical.embedding_model!r} stored "
+            f"{len(snapshot.canonical.embedding)}. Re-embed the snapshot with the "
+            "current embedder (prompt-snap update --force)."
+        )
     cosine_score = cosine(candidate_vec, snapshot.canonical.embedding)
 
     category_scores = score_semantic_categories(

@@ -464,3 +464,18 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** the sibling `or` in `_load_candidates`'s key resolution is safe (keys are non-empty by validation) and was left out of scope.
+
+---
+## 2026-06-23 — Issue #65: dimension-mismatched embedding crashed the whole run batch
+**Duration:** ~25 min · **Branch:** `session/2026-06-23-0426-issue-65`
+
+- Fixed a batch-abort bug. The D-006 embedder guard compares only the `embedding_model` string and is dimension-blind, so a snapshot whose model name matches but whose stored vector is a different length (older build, hand-edited YAML) reached `cosine()` and raised a raw `ValueError: vector length mismatch`. In `prompt-snap run` that escaped the per-snapshot loop and aborted the whole batch.
+- Added a catchable `EmbeddingDimensionMismatchError` raised in `diff_response`, handled per-row in `run` and `diff` like the model-name case. Added diff + CLI tests. Behavioral red pre-fix, green post-fix. Suite 293 → 295, ruff clean.
+
+**Why this work, this session:** found by a different-angle second pass in the night session's Phase A dogfood wave; a real correctness bug on the primary CI entry point where one bad snapshot took down the whole run.
+
+**Open questions / blockers:** none.
+
+**Process note:** I initially staged this on `main` and skipped filing the issue first — caught it before any push, reset `main` to origin, moved the work to a proper branch, filed #65, posted the plan, then recommitted. No push to `main` occurred.
+
+**Next session:** none specific.

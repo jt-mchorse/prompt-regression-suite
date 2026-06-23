@@ -17,6 +17,7 @@ from prompt_regression import (
     CanonicalResponse,
     DiffResult,
     EmbedderModelMismatchError,
+    EmbeddingDimensionMismatchError,
     HashEmbedder,
     Prompt,
     ResponseShape,
@@ -29,6 +30,27 @@ from prompt_regression import (
     extract_slots,
     score_semantic_categories,
 )
+
+
+def test_diff_response_dimension_mismatch_raises():
+    # A snapshot whose embedding_model matches the active embedder (so the
+    # D-006 name guard passes) but whose stored vector is a different length
+    # must raise a catchable EmbeddingDimensionMismatchError, not crash cosine()
+    # with a raw ValueError that would abort a whole `run` batch.
+    e = HashEmbedder()  # produces 128-dim vectors
+    snap = Snapshot(
+        id="dim-mismatch-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text="hello world",
+            embedding=[0.1] * 64,  # 64 dims — half what HashEmbedder emits
+            embedding_model=e.model_name,  # but the model name still matches
+        ),
+    )
+    with pytest.raises(EmbeddingDimensionMismatchError, match="64"):
+        diff_response(snap, "hello world", embedder=e)
+
 
 # ----------------------------------------------------------------------
 # cosine + HashEmbedder

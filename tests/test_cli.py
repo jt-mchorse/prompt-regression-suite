@@ -215,6 +215,49 @@ def test_run_json_format_emits_valid_payload(
     assert any(r["verdict"] == "pass" for r in payload["rows"])
 
 
+def test_run_dimension_mismatch_is_per_row_error_not_batch_crash(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    # A snapshot whose stored embedding is the wrong dimension (but whose
+    # embedding_model still matches) used to crash cosine() with a raw
+    # ValueError that escaped the per-snapshot loop and aborted the whole run.
+    # It must instead land as a per-row `error` while other snapshots still diff.
+    d = tmp_path / "snaps"
+    d.mkdir()
+    embedder = HashEmbedder()
+    good = _make_snapshot("good-policy", "Refunds are available within fourteen days.")
+    bad = Snapshot(
+        id="bad-dim",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text="anything",
+            embedding=[0.1] * 64,  # wrong dimension (HashEmbedder emits 128)
+            embedding_model=embedder.model_name,  # name still matches → D-006 passes
+        ),
+    )
+    save_snapshot(good, d / "good-policy.snapshot.yaml")
+    save_snapshot(bad, d / "bad-dim.snapshot.yaml")
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [
+            {
+                "snapshot": "good-policy.snapshot.yaml",
+                "candidate": "Refunds are available within fourteen days.",
+            },
+            {"snapshot": "bad-dim.snapshot.yaml", "candidate": "anything"},
+        ],
+    )
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(candidates), "--format", "json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 1  # the error row fails the run
+    by_id = {r["snapshot_id"]: r for r in payload["rows"]}
+    assert len(by_id) == 2  # both snapshots were processed — no batch abort
+    assert by_id["bad-dim"]["verdict"] == "error"
+    # The good snapshot was still diffed (a real verdict, not skipped/crashed).
+    assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
+
+
 def test_run_empty_candidate_is_diffed_not_skipped(
     snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):

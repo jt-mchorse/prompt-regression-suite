@@ -35,6 +35,7 @@ from .diff import (
     DiffResult,
     Embedder,
     EmbedderModelMismatchError,
+    EmbeddingDimensionMismatchError,
     HashEmbedder,
     diff_response,
 )
@@ -212,7 +213,10 @@ def _run_command(args: argparse.Namespace) -> int:
                 warn_band=args.warn_band,
                 force=args.force_embedder,
             )
-        except EmbedderModelMismatchError as e:
+        except (EmbedderModelMismatchError, EmbeddingDimensionMismatchError) as e:
+            # A dimension mismatch (dimension-blind D-006 guard passes, stored
+            # vector length differs) must land as a per-row error like the
+            # model-name mismatch, not crash the whole batch.
             failed += 1
             rows.append(
                 {
@@ -359,7 +363,7 @@ def _diff_command(args: argparse.Namespace) -> int:
             warn_band=args.warn_band,
             force=args.force_embedder,
         )
-    except EmbedderModelMismatchError as e:
+    except (EmbedderModelMismatchError, EmbeddingDimensionMismatchError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
