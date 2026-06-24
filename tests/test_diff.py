@@ -11,6 +11,8 @@ Coverage:
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from prompt_regression import (
@@ -19,6 +21,7 @@ from prompt_regression import (
     EmbedderModelMismatchError,
     EmbeddingDimensionMismatchError,
     HashEmbedder,
+    NonFiniteEmbeddingError,
     Prompt,
     ResponseShape,
     SemanticCategoryScore,
@@ -50,6 +53,65 @@ def test_diff_response_dimension_mismatch_raises():
     )
     with pytest.raises(EmbeddingDimensionMismatchError, match="64"):
         diff_response(snap, "hello world", embedder=e)
+
+
+class _NonFiniteEmbedder:
+    """BYO embedder (Protocol) that returns a candidate vector with one
+    non-finite component — simulating an API hiccup / 0-division in a
+    custom wrapper. Dimension matches HashEmbedder so the dimension guard
+    passes and we exercise the finiteness guard specifically."""
+
+    def __init__(self, model_name: str, dims: int, bad: float) -> None:
+        self._model_name = model_name
+        self._dims = dims
+        self._bad = bad
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name  # matches the stored snapshot so the D-006 guard passes
+
+    def embed(self, text: str) -> list[float]:
+        vec = [0.0] * self._dims
+        vec[0] = self._bad
+        return vec
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_diff_response_non_finite_candidate_raises(bad: float):
+    # The stored embedding's finiteness is enforced at schema load; a BYO
+    # embedder returning a non-finite candidate component would otherwise
+    # produce a `nan` cosine_score (silently a misleading `fail`). It must
+    # raise a catchable NonFiniteEmbeddingError instead.
+    e = HashEmbedder()
+    text = "The Pro plan has a 14-day refund window."
+    snap = Snapshot(
+        id="nonfinite-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+    )
+    bad_embedder = _NonFiniteEmbedder(e.model_name, len(e.embed(text)), bad)
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        diff_response(snap, text, embedder=bad_embedder)
+
+
+def test_diff_response_finite_candidate_still_diffs():
+    # Regression: a normal finite embedder is unaffected by the new guard.
+    e = HashEmbedder()
+    text = "The Pro plan has a 14-day refund window."
+    snap = Snapshot(
+        id="finite-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+    )
+    result = diff_response(snap, text, embedder=e)
+    assert math.isfinite(result.cosine_score)
+    assert result.cosine_score == pytest.approx(1.0)
 
 
 # ----------------------------------------------------------------------

@@ -389,6 +389,21 @@ class EmbeddingDimensionMismatchError(ValueError):
     with a raw ValueError and abort the whole `run` batch mid-iteration."""
 
 
+class NonFiniteEmbeddingError(ValueError):
+    """Raised when a candidate embedding carries a non-finite component.
+
+    The *stored* embedding's finiteness is enforced at schema load
+    (`CanonicalResponse.__post_init__`), and the candidate's dimension is
+    checked here (`EmbeddingDimensionMismatchError`), but a BYO embedder
+    (Cohere / OpenAI / custom, per the `Embedder` Protocol) returning a
+    `NaN`/`±Inf` component would otherwise slip through `cosine()` (which
+    only guards a zero norm) into a `nan` `cosine_score`. That collapses the
+    verdict to a misleading `fail` (`nan >= threshold` is `False`) and leaks
+    `nan` into the HTML/JSON/PR-comment output. Raise a catchable error so
+    the `run` batch records this row as `error` and continues — the symmetric
+    guard to the stored-embedding finiteness check."""
+
+
 def diff_response(
     snapshot: Snapshot,
     candidate_text: str,
@@ -451,6 +466,20 @@ def diff_response(
             f"{snapshot.canonical.embedding_model!r} stored "
             f"{len(snapshot.canonical.embedding)}. Re-embed the snapshot with the "
             "current embedder (prompt-snap update --force)."
+        )
+    # The stored embedding's finiteness is enforced at schema load; the
+    # candidate comes from a BYO embedder (Protocol) and isn't, so a NaN/±Inf
+    # component here would otherwise produce a `nan` cosine_score. Fail loud as
+    # a catchable per-row error rather than emit a garbage score (#67).
+    bad = next(
+        ((i, v) for i, v in enumerate(candidate_vec) if not math.isfinite(v)),
+        None,
+    )
+    if bad is not None:
+        raise NonFiniteEmbeddingError(
+            f"candidate embedding from {embedder.model_name!r} has a non-finite "
+            f"component at index {bad[0]}: {bad[1]!r}. The embedder returned a "
+            "corrupt vector; fix the embedder or re-run."
         )
     cosine_score = cosine(candidate_vec, snapshot.canonical.embedding)
 
