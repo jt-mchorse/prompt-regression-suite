@@ -218,6 +218,77 @@ def test_score_semantic_categories_empty_returns_empty():
     assert score_semantic_categories("anything", [], embedder=HashEmbedder()) == []
 
 
+class _CategoryNonFiniteEmbedder:
+    """BYO embedder that embeds finite for most inputs but returns a
+    non-finite component for one specific text (a category label) — models a
+    custom embedder that glitches on some inputs and not others. Dimension
+    matches HashEmbedder so the dimension guard passes and we exercise the
+    finiteness guard on the semantic-category channel specifically (#69)."""
+
+    def __init__(self, model_name: str, dims: int, poison_text: str, bad: float) -> None:
+        self._model_name = model_name
+        self._dims = dims
+        self._poison_text = poison_text
+        self._bad = bad
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    def embed(self, text: str) -> list[float]:
+        vec = [0.1] * self._dims
+        if text == self._poison_text:
+            vec[0] = self._bad
+        return vec
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_score_semantic_categories_raises_on_non_finite_category(bad: float):
+    # #67's guard covers the main cosine_score path; the semantic-category
+    # channel re-embeds the candidate and each category label and called
+    # cosine() unguarded, so a non-finite category embedding produced a `nan`
+    # cosine_to_response that leaked into the report. Must raise instead.
+    dims = len(HashEmbedder().embed("x"))
+    embedder = _CategoryNonFiniteEmbedder("hash-v1", dims, poison_text="refunds", bad=bad)
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        score_semantic_categories("a finite candidate", ["plans", "refunds"], embedder=embedder)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_diff_response_non_finite_category_raises_even_when_candidate_finite(bad: float):
+    # End-to-end: the candidate embeds finite (passes the #67 main-path guard),
+    # but a category label embeds non-finite. Before the fix this slipped
+    # through to a `nan` cosine_to_response; now it raises a catchable error the
+    # `run` batch records per-row.
+    e = HashEmbedder()
+    text = "The Pro plan has a 14-day refund window."
+    snap = Snapshot(
+        id="cat-nonfinite-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(
+            semantic_categories=["plan-tier", "refunds"], structured_slots={}
+        ),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+    )
+    dims = len(e.embed(text))
+    bad_embedder = _CategoryNonFiniteEmbedder(e.model_name, dims, poison_text="refunds", bad=bad)
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        diff_response(snap, text, embedder=bad_embedder)
+
+
+def test_score_semantic_categories_finite_embedder_unchanged():
+    # Regression: a finite embedder still returns one score per category.
+    scores = score_semantic_categories(
+        "The refund window for the Pro plan is 14 days.",
+        ["refund-window", "plan-tier"],
+        embedder=HashEmbedder(),
+    )
+    assert len(scores) == 2
+    assert all(math.isfinite(s.cosine_to_response) for s in scores)
+
+
 # ----------------------------------------------------------------------
 # diff_response end-to-end
 # ----------------------------------------------------------------------

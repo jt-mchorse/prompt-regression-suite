@@ -111,6 +111,16 @@ def cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
+def _first_non_finite(vec: list[float]) -> tuple[int, float] | None:
+    """Return ``(index, value)`` of the first non-finite component, or ``None``.
+
+    Shared by every `cosine()` caller that consumes a BYO-`Embedder` vector so
+    a `NaN`/`±Inf` component is rejected before it reaches `cosine()` (which
+    only guards a zero norm) and silently yields a `nan` score (#67, #69).
+    """
+    return next(((i, v) for i, v in enumerate(vec) if not math.isfinite(v)), None)
+
+
 # ----------------------------------------------------------------------
 # Slot extraction (structural channel)
 # ----------------------------------------------------------------------
@@ -332,9 +342,29 @@ def score_semantic_categories(
     if not categories:
         return []
     response_vec = embedder.embed(candidate_text)
+    # The main cosine_score path validates candidate finiteness (#67), but this
+    # channel re-embeds the candidate and each category label and calls
+    # cosine() too. A BYO embedder returning a NaN/±Inf component here would
+    # otherwise yield a `nan` cosine_to_response that leaks into the HTML/JSON/
+    # PR-comment output. Raise the same catchable per-row error so the `run`
+    # batch records `error` and continues — symmetric with the main path (#69).
+    bad = _first_non_finite(response_vec)
+    if bad is not None:
+        raise NonFiniteEmbeddingError(
+            f"candidate embedding from {embedder.model_name!r} has a non-finite "
+            f"component at index {bad[0]}: {bad[1]!r} (semantic-category channel). "
+            "The embedder returned a corrupt vector; fix the embedder or re-run."
+        )
     out: list[SemanticCategoryScore] = []
     for cat in categories:
         cat_vec = embedder.embed(cat)
+        bad = _first_non_finite(cat_vec)
+        if bad is not None:
+            raise NonFiniteEmbeddingError(
+                f"embedding for semantic category {cat!r} from {embedder.model_name!r} "
+                f"has a non-finite component at index {bad[0]}: {bad[1]!r}. The embedder "
+                "returned a corrupt vector; fix the embedder or re-run."
+            )
         out.append(
             SemanticCategoryScore(name=cat, cosine_to_response=cosine(response_vec, cat_vec))
         )
@@ -471,10 +501,7 @@ def diff_response(
     # candidate comes from a BYO embedder (Protocol) and isn't, so a NaN/±Inf
     # component here would otherwise produce a `nan` cosine_score. Fail loud as
     # a catchable per-row error rather than emit a garbage score (#67).
-    bad = next(
-        ((i, v) for i, v in enumerate(candidate_vec) if not math.isfinite(v)),
-        None,
-    )
+    bad = _first_non_finite(candidate_vec)
     if bad is not None:
         raise NonFiniteEmbeddingError(
             f"candidate embedding from {embedder.model_name!r} has a non-finite "
