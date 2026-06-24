@@ -479,3 +479,17 @@ close it out across all four repos.
 **Process note:** I initially staged this on `main` and skipped filing the issue first — caught it before any push, reset `main` to origin, moved the work to a proper branch, filed #65, posted the plan, then recommitted. No push to `main` occurred.
 
 **Next session:** none specific.
+
+---
+## 2026-06-24 — Issue #67: non-finite candidate embedding produced a nan cosine_score
+**Duration:** ~30 min · **Branch:** `session/2026-06-24-0355-issue-67`
+
+- `diff_response` enforced the stored snapshot embedding's finiteness (schema load) and the candidate's dimension (#65), but not the candidate's finiteness. A BYO embedder (Protocol: Cohere/OpenAI/custom) returning a NaN/±Inf component slipped through `cosine()` into a `nan` cosine_score — collapsing the verdict to a misleading `fail` and leaking `nan` into the HTML/JSON/PR-comment output.
+- Added `NonFiniteEmbeddingError` + a candidate-finiteness guard after the dimension check, wired into the two run/diff except tuples so it lands as a per-row `error` and the batch continues. Symmetric to the stored-embedding guard.
+- 5 new tests (parametrized NaN/±Inf at diff_response, finite-still-diffs, cli per-row-error). Red (guard disabled) / green. Suite 296 → 301, ruff clean.
+
+**Why this work, this session:** prompt-regression-suite was the earliest non-tier repo in build sequence after the priority tier was exhausted this run; the diff/validate/cli paths were saturated, so a dogfood sweep surfaced the candidate-embedding finiteness asymmetry.
+
+**Open questions / blockers:** none. Process: cut the branch + filed issue/plan before editing this time (corrected from the prior round). Two test gotchas worth remembering: HashEmbedder's model_name is `hash-embedder-128d-ngram2` (not `hash-v1`); and the red-check can't `git stash` just diff.py because the new error symbol is imported elsewhere — neutralize the guard block instead.
+
+**Next session:** stats.py / html_report.py / io.py remain; the html_report `nan`/`inf` rendering is now unreachable from the diff path (guarded upstream) but a defensive `:.3f` formatter check is a small optional follow-up.
