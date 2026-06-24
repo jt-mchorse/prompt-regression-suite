@@ -37,6 +37,7 @@ from .diff import (
     EmbedderModelMismatchError,
     EmbeddingDimensionMismatchError,
     HashEmbedder,
+    NonFiniteEmbeddingError,
     diff_response,
 )
 from .html_report import ReportEntry, render_report
@@ -213,7 +214,11 @@ def _run_command(args: argparse.Namespace) -> int:
                 warn_band=args.warn_band,
                 force=args.force_embedder,
             )
-        except (EmbedderModelMismatchError, EmbeddingDimensionMismatchError) as e:
+        except (
+            EmbedderModelMismatchError,
+            EmbeddingDimensionMismatchError,
+            NonFiniteEmbeddingError,
+        ) as e:
             # A dimension mismatch (dimension-blind D-006 guard passes, stored
             # vector length differs) must land as a per-row error like the
             # model-name mismatch, not crash the whole batch.
@@ -363,7 +368,11 @@ def _diff_command(args: argparse.Namespace) -> int:
             warn_band=args.warn_band,
             force=args.force_embedder,
         )
-    except (EmbedderModelMismatchError, EmbeddingDimensionMismatchError) as e:
+    except (
+        EmbedderModelMismatchError,
+        EmbeddingDimensionMismatchError,
+        NonFiniteEmbeddingError,
+    ) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 

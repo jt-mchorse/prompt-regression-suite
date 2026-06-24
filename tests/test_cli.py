@@ -258,6 +258,56 @@ def test_run_dimension_mismatch_is_per_row_error_not_batch_crash(
     assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
 
 
+def test_run_non_finite_candidate_is_per_row_error_not_batch_crash(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    # A BYO embedder returning a non-finite candidate component must land as a
+    # per-row `error` (like the dimension-mismatch case), not a `nan` cosine
+    # leaking into the report or a crash aborting the batch.
+    d = tmp_path / "snaps"
+    d.mkdir()
+    real = HashEmbedder()
+    good = _make_snapshot("good-policy", "Refunds are available within fourteen days.")
+    other = _make_snapshot("other-policy", "Returns accepted within thirty days.")
+    save_snapshot(good, d / "good-policy.snapshot.yaml")
+    save_snapshot(other, d / "other-policy.snapshot.yaml")
+
+    class _OneNaNEmbedder:
+        @property
+        def model_name(self) -> str:
+            return real.model_name
+
+        def embed(self, text: str) -> list[float]:
+            vec = list(real.embed(text))
+            if "Returns accepted" in text:  # only the candidate for other-policy
+                vec[0] = float("nan")
+            return vec
+
+        # `update`/`diff` reembed; `run` only embeds candidates, which is enough here.
+
+    monkeypatch.setattr("prompt_regression.cli.make_embedder", lambda name: _OneNaNEmbedder())
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [
+            {
+                "snapshot": "good-policy.snapshot.yaml",
+                "candidate": "Refunds are available within fourteen days.",
+            },
+            {
+                "snapshot": "other-policy.snapshot.yaml",
+                "candidate": "Returns accepted within thirty days.",
+            },
+        ],
+    )
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(candidates), "--format", "json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 1  # the error row fails the run
+    by_id = {r["snapshot_id"]: r for r in payload["rows"]}
+    assert len(by_id) == 2  # both processed — no batch abort
+    assert by_id["other-policy"]["verdict"] == "error"
+    assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
+
+
 def test_run_empty_candidate_is_diffed_not_skipped(
     snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
