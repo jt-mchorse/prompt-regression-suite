@@ -708,3 +708,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-24T19:31Z
+duration_min: 25
+issue: 69
+focus: semantic_category_channel_cosine_finiteness_guard_sibling_of_67
+phase: day_session_phase_b_iteration_4
+delta:
+  files_changed: 2 # prompt_regression/diff.py + tests/test_diff.py
+  tests_added: 7   # category non-finite raises (nan/inf/-inf) x2 (unit + e2e) + finite regression
+context_for_next_session:
+  - sibling_of_67_which_guarded_only_the_main_cosine_score_path_candidate_vec_score_semantic_categories_re_embeds_candidate_and_each_category_label_and_called_cosine_unguarded
+  - byo_embedder_non_finite_component_for_a_category_label_candidate_finite_slipped_past_67_guard_produced_nan_cosine_to_response_leaked_into_html_json_pr_comment_output
+  - fix_validate_finiteness_of_response_vec_and_each_cat_vec_in_score_semantic_categories_raise_same_catchable_nonfiniteembeddingerror_run_batch_catches_at_cli_217_and_single_diff_at_371_records_row_error_continues
+  - extracted_shared_first_non_finite_helper_in_diff_py_refactored_67_candidate_check_onto_it_behavior_preserving_dry
+  - red_green_6_failing_before_fix_all_pass_after_e2e_test_finite_candidate_non_finite_category_proves_67_main_path_guard_doesnt_cover_this_channel_existing_67_tests_still_green
+  - full_suite_green_ruff_clean
+  - finiteness_arc_now_three_seams_in_this_repo_schema_stored_embedding_67_candidate_main_path_69_semantic_category_channel_all_cosine_consumers_now_covered
+  - this_was_4th_issue_of_a_multi_issue_day_run_part_of_cross_repo_cosine_embedding_finiteness_sweep_with_rag_kit_82_chunking_66_cost_optimizer_88_merged_phase_a
+decisions_made: []
+followups: []
+---

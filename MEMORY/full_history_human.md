@@ -493,3 +493,16 @@ close it out across all four repos.
 **Open questions / blockers:** none. Process: cut the branch + filed issue/plan before editing this time (corrected from the prior round). Two test gotchas worth remembering: HashEmbedder's model_name is `hash-embedder-128d-ngram2` (not `hash-v1`); and the red-check can't `git stash` just diff.py because the new error symbol is imported elsewhere — neutralize the guard block instead.
 
 **Next session:** stats.py / html_report.py / io.py remain; the html_report `nan`/`inf` rendering is now unreachable from the diff path (guarded upstream) but a defensive `:.3f` formatter check is a small optional follow-up.
+
+---
+## 2026-06-24 — Issue #69: semantic-category cosine channel wasn't finiteness-guarded
+**Duration:** ~25 min · **Branch:** `session/2026-06-24-1931-issue-69`
+
+- #67 guarded the main `cosine_score` path, but `score_semantic_categories` re-embeds the candidate and each category label and called `cosine()` unguarded. A BYO embedder returning a non-finite component for a *category label* (candidate finite) slipped past the #67 guard, producing a `nan` `cosine_to_response` that leaked into the HTML/JSON/PR-comment output.
+- Validated finiteness of the response and each category-label embedding in `score_semantic_categories`, raising the same catchable `NonFiniteEmbeddingError` the `run` batch records per-row. Extracted a shared `_first_non_finite` helper and refactored the #67 check onto it. 7 tests (red→green); existing #67 tests still green; full suite + ruff clean.
+
+**Why this work, this session:** the 4th issue of a multi-issue DAY run; explicitly hinted at by the `llm-cost-optimizer` #88 commit comment ("the sibling prompt-regression-suite"). Completes a cross-repo cosine/embedding finiteness sweep alongside rag-production-kit (#82) and chunking-strategies-lab (#66) this run; all three cosine consumers in this repo are now covered (schema-stored #67-load, main candidate #67, semantic-category #69).
+
+**Open questions / blockers:** none.
+
+**Next session:** all cosine consumers here are now finiteness-guarded; the repo is healthy.
