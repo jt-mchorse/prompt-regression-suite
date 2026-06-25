@@ -506,3 +506,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** all cosine consumers here are now finiteness-guarded; the repo is healthy.
+
+## 2026-06-25 — Issue #71: HTML report silently dropped error verdicts (failure masking)
+**Duration:** ~40 min · **Branch:** `session/2026-06-25-0330-issue-71` · **PR:** #72
+
+- The `run --format html` report — documented as the CI artifact operators read to see "which snapshots failed and why" — omitted **error verdicts** (embedder/snapshot model mismatch per D-006, dimension mismatch, non-finite embedding). The CLI counts these in `failed` and exits non-zero, and JSON/text include them, but the `run` except path appended only to `rows`, never to `entries`; HTML renders `render_report(entries)`, so erroring snapshots vanished and the summary `total` undercounted with no error stat. A failing run could read as "all pass" in the human-facing report. Reproduced e2e: exit 1 + JSON `failed: 1` but HTML `total: 1` with the bad snapshot absent.
+- Added an `ErrorEntry(snapshot_id, message)` type (error rows have no `DiffResult`; a synthetic one would fabricate numbers), rendered as a red section; `_summarize` now counts `error` and includes it in `total`; the summary header gains an `error` stat shown only when non-zero (clean runs keep the original four-stat header). Wired the CLI error path to append an `ErrorEntry`. Regenerated `docs/regression_demo.html` for the 3 new CSS rules. Full suite 312 passed, ruff clean.
+
+**Why this work, this session:** found via a NIGHT-session parallel dogfood sweep across eight repos — the only repo with a real, reproducible bug (the rest were clean; a chunking "whitespace drop" finding was a false positive, since semantic chunking is offset-recoverable, not exact-concat, by design). A failure-masking bug in a regression tool's primary artifact is high-value to close.
+
+**Open questions / blockers:** none.
+
+**Next session:** `skipped` (no-candidate) rows are still intentionally omitted from HTML (not a failure, exit 0) — if a future run wants them shown for completeness, that's a separate, lower-value follow-up.

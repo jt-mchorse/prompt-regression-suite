@@ -174,6 +174,104 @@ def test_run_format_html_skips_entries_with_no_candidate(
     assert 'id="snapshot-shipping-policy"' not in html
 
 
+def test_run_format_html_surfaces_error_verdicts_not_just_silently_drops(
+    tmp_path: Path,
+) -> None:
+    """Issue #71: an error verdict (embedder/snapshot model mismatch) is counted
+    in `failed` and exits non-zero, so the HTML artifact must show it — not read
+    as "all pass" while the run actually failed. Pre-fix the error row was
+    appended to `rows` (JSON/text) but never to `entries`, so the HTML omitted it
+    and the summary `total` undercounted."""
+    embedder = HashEmbedder()
+    d = tmp_path / "snapshots"
+    d.mkdir()
+    # One good snapshot (model matches the run embedder).
+    save_snapshot(
+        _make_snapshot("good-snap", "Refund within 14 days for Pro plan customers."),
+        d / "good.snapshot.yaml",
+    )
+    # One snapshot whose embedding_model mismatches the run embedder -> the D-006
+    # guard raises EmbedderModelMismatchError, recorded as an "error" verdict row.
+    bad = Snapshot(
+        id="bad-snap",
+        prompt=Prompt(model="claude-haiku-4-5", user="Describe bad-snap"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text="Standard shipping ships orders within three business days.",
+            embedding=embedder.embed("Standard shipping ships orders within three business days."),
+            embedding_model="some-other-embedder-v9",
+        ),
+    )
+    save_snapshot(bad, d / "bad.snapshot.yaml")
+
+    cands = tmp_path / "cands.jsonl"
+    cands.write_text(
+        json.dumps(
+            {"id": "good-snap", "candidate": "Refund within 14 days for Pro plan customers."}
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "id": "bad-snap",
+                "candidate": "Standard shipping ships orders within three business days.",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    out_path = tmp_path / "report.html"
+    rc = main(
+        [
+            "run",
+            "--snapshots",
+            str(d),
+            "--candidates",
+            str(cands),
+            "--format",
+            "html",
+            "--out",
+            str(out_path),
+        ]
+    )
+    # The mismatch is a failure: non-zero exit, same as JSON/text.
+    assert rc == 1
+    html = out_path.read_text(encoding="utf-8")
+    # The erroring snapshot must have its own section, not be silently dropped.
+    assert 'id="snapshot-bad-snap"' in html
+    assert 'id="snapshot-good-snap"' in html
+    # The error message (the mismatch reason) is surfaced in the report.
+    assert "some-other-embedder-v9" in html
+    # The summary header counts both snapshots and shows the error stat.
+    assert ">2</strong>snapshots" in html
+    assert ">1</strong>error" in html
+
+
+def test_run_format_html_clean_run_has_no_error_stat(
+    snapshots_dir: Path, candidates_passing: Path, tmp_path: Path
+) -> None:
+    """Regression guard: a run with no errors keeps the original four-stat header
+    (no spurious `error` stat). Scopes the #71 change to the error case only."""
+    out_path = tmp_path / "report.html"
+    rc = main(
+        [
+            "run",
+            "--snapshots",
+            str(snapshots_dir),
+            "--candidates",
+            str(candidates_passing),
+            "--format",
+            "html",
+            "--out",
+            str(out_path),
+        ]
+    )
+    assert rc == 0
+    html = out_path.read_text(encoding="utf-8")
+    assert "strong>error</" not in html
+    assert ">error</div>" not in html
+
+
 def test_run_text_format_with_out_writes_to_file_and_no_stdout(
     snapshots_dir: Path,
     candidates_passing: Path,

@@ -42,22 +42,46 @@ class ReportEntry:
     baseline_text: str = ""
 
 
-def render_report(entries: list[ReportEntry], *, title: str = "Prompt regression report") -> str:
+@dataclass(frozen=True)
+class ErrorEntry:
+    """A snapshot that errored before a `DiffResult` could be produced —
+    e.g. an embedder/snapshot model mismatch (D-006), a stored-vs-runtime
+    embedding dimension mismatch, or a non-finite embedding. These have no
+    cosine/threshold/category data, so they get their own entry type rather
+    than a synthetic `DiffResult` that would fabricate numbers.
+
+    The `run` CLI counts these in `failed` and exits non-zero; surfacing them
+    here keeps the HTML artifact honest — the report CI uploads must not show
+    "all pass" while the run actually failed (#71).
+    """
+
+    snapshot_id: str
+    message: str
+
+
+# A report row is either a successfully-diffed entry or an errored one.
+Entry = ReportEntry | ErrorEntry
+
+
+def render_report(entries: list[Entry], *, title: str = "Prompt regression report") -> str:
     """Render the full HTML page. Single self-contained string."""
     summary = _summarize(entries)
     sections = [_render_entry(e) for e in entries]
     return _wrap_page(title, summary, sections)
 
 
-def _summarize(entries: list[ReportEntry]) -> dict[str, int]:
-    counts = {"pass": 0, "warn": 0, "fail": 0}
+def _summarize(entries: list[Entry]) -> dict[str, int]:
+    counts = {"pass": 0, "warn": 0, "fail": 0, "error": 0}
     for e in entries:
-        counts[e.diff.verdict] = counts.get(e.diff.verdict, 0) + 1
+        verdict = "error" if isinstance(e, ErrorEntry) else e.diff.verdict
+        counts[verdict] = counts.get(verdict, 0) + 1
     counts["total"] = len(entries)
     return counts
 
 
-def _render_entry(entry: ReportEntry) -> str:
+def _render_entry(entry: Entry) -> str:
+    if isinstance(entry, ErrorEntry):
+        return _render_error_entry(entry)
     verdict = entry.diff.verdict
     klass = f"section {verdict}"
     snap_id = html.escape(entry.snapshot_id)
@@ -93,6 +117,22 @@ def _render_entry(entry: ReportEntry) -> str:
 
     parts.append("</section>")
     return "\n".join(parts)
+
+
+def _render_error_entry(entry: ErrorEntry) -> str:
+    snap_id = html.escape(entry.snapshot_id)
+    anchor = f"snapshot-{_safe_anchor(snap_id)}"
+    badge = '<span class="badge error">ERROR</span>'
+    return "\n".join(
+        [
+            f'<section class="section error" id="{anchor}">',
+            f'  <h2>{badge} <a href="#{anchor}" class="anchor">{snap_id}</a></h2>',
+            '  <ul class="notes">',
+            f"    <li>{html.escape(entry.message)}</li>",
+            "  </ul>",
+            "</section>",
+        ]
+    )
 
 
 def _render_categories(diff: DiffResult) -> str:
@@ -186,6 +226,7 @@ code { font-family: ui-monospace, "SFMono-Regular", monospace; font-size: 12px; 
 .summary .pass strong { color: #6ee7b7; }
 .summary .warn strong { color: #fcd34d; }
 .summary .fail strong { color: #fca5a5; }
+.summary .error strong { color: #fca5a5; }
 .summary .total strong { color: #93c5fd; }
 
 .section {
@@ -195,6 +236,7 @@ code { font-family: ui-monospace, "SFMono-Regular", monospace; font-size: 12px; 
 .section.pass  { border-left: 3px solid #6ee7b7; }
 .section.warn  { border-left: 3px solid #fcd34d; }
 .section.fail  { border-left: 3px solid #fca5a5; }
+.section.error { border-left: 3px solid #fca5a5; }
 .badge {
   display: inline-block; padding: 1px 8px;
   font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
@@ -203,6 +245,7 @@ code { font-family: ui-monospace, "SFMono-Regular", monospace; font-size: 12px; 
 .badge.pass { background: rgba(110,231,183,0.16); color: #6ee7b7; }
 .badge.warn { background: rgba(252,211,77,0.16); color: #fcd34d; }
 .badge.fail { background: rgba(252,165,165,0.16); color: #fca5a5; }
+.badge.error { background: rgba(252,165,165,0.16); color: #fca5a5; }
 
 .anchor { color: inherit; text-decoration: none; }
 .anchor:hover { text-decoration: underline; }
@@ -235,6 +278,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 
 def _wrap_page(title: str, summary: dict[str, int], sections: list[str]) -> str:
+    # The error stat only appears when there's at least one error row, so a
+    # clean run keeps the original four-stat header (#71).
+    error_stat = (
+        f'\n      <div class="stat error"><strong>{summary["error"]}</strong>error</div>'
+        if summary.get("error", 0)
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -249,7 +299,7 @@ def _wrap_page(title: str, summary: dict[str, int], sections: list[str]) -> str:
       <div class="stat total"><strong>{summary.get("total", 0)}</strong>snapshots</div>
       <div class="stat pass"><strong>{summary.get("pass", 0)}</strong>pass</div>
       <div class="stat warn"><strong>{summary.get("warn", 0)}</strong>warn</div>
-      <div class="stat fail"><strong>{summary.get("fail", 0)}</strong>fail</div>
+      <div class="stat fail"><strong>{summary.get("fail", 0)}</strong>fail</div>{error_stat}
     </div>
 {chr(10).join(sections)}
   </main>

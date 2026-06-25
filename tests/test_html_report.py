@@ -13,7 +13,12 @@ from __future__ import annotations
 import pytest
 
 from prompt_regression.diff import DiffResult, SemanticCategoryScore, SlotDelta
-from prompt_regression.html_report import ReportEntry, _safe_anchor, render_report
+from prompt_regression.html_report import (
+    ErrorEntry,
+    ReportEntry,
+    _safe_anchor,
+    render_report,
+)
 
 
 def _diff(
@@ -49,6 +54,30 @@ def test_summary_stats_reflect_inputs():
     assert ">1</strong>pass" in html.replace("<strong", ">")
     assert ">1</strong>warn" in html.replace("<strong", ">")
     assert ">2</strong>fail" in html.replace("<strong", ">")
+
+
+def test_error_entry_renders_section_and_counts_toward_summary():
+    # Issue #71: an ErrorEntry (no DiffResult) must render its own section and
+    # be counted in `total` + an `error` stat, so the HTML can't read "all pass"
+    # when a snapshot actually errored.
+    entries = [
+        ReportEntry("ok-one", _diff(verdict="pass"), "ok"),
+        ErrorEntry("broke", "embedder model 'x' != snapshot model 'y'"),
+    ]
+    html = render_report(entries)
+    assert '<section class="section error"' in html
+    assert 'id="snapshot-broke"' in html
+    assert "embedder model &#x27;x&#x27; != snapshot model &#x27;y&#x27;" in html
+    # total counts both; the error stat appears with count 1.
+    assert ">2</strong>snapshots" in html.replace("<strong", ">")
+    assert ">1</strong>error" in html.replace("<strong", ">")
+
+
+def test_no_error_entries_keeps_header_without_error_stat():
+    # The error stat is suppressed when there are no errors, preserving the
+    # original four-stat header.
+    html = render_report([ReportEntry("a", _diff(verdict="pass"), "ok")])
+    assert ">error</div>" not in html
 
 
 def test_fail_section_has_categories_slots_responses():
