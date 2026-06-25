@@ -40,7 +40,7 @@ from .diff import (
     NonFiniteEmbeddingError,
     diff_response,
 )
-from .html_report import ReportEntry, render_report
+from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import atomic_write_text, load_snapshot, save_snapshot
 from .schema import CanonicalResponse, Snapshot
 from .stats import StatsError, collect_stats, render_summary
@@ -173,7 +173,7 @@ def _run_command(args: argparse.Namespace) -> int:
         return 2
 
     rows: list[dict] = []
-    entries: list[ReportEntry] = []  # collected for --format html
+    entries: list[Entry] = []  # collected for --format html (ReportEntry | ErrorEntry)
     failed = 0
     skipped = 0
     for path in snapshot_paths:
@@ -236,6 +236,11 @@ def _run_command(args: argparse.Namespace) -> int:
                     "notes": [str(e)],
                 }
             )
+            # Surface the error in the HTML artifact too — it's counted in
+            # `failed` and exits non-zero, so the report must not silently omit
+            # it and read as "all pass" (#71). Error rows have no DiffResult, so
+            # they carry through as ErrorEntry rather than a fabricated one.
+            entries.append(ErrorEntry(snapshot_id=snap.id, message=str(e)))
             continue
         rows.append(_row_for(path, snap, result))
         entries.append(
