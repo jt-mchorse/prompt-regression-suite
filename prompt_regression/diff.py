@@ -454,6 +454,16 @@ def diff_response(
     effective_threshold = snapshot.tolerance if snapshot.tolerance is not None else threshold
     if not 0.0 < effective_threshold <= 1.0:
         raise ValueError(f"threshold must be in (0, 1]; got {effective_threshold}")
+    # `warn_band`'s sign checks below are NaN-blind: `NaN < 0` and
+    # `NaN > effective_threshold` are both False, so a non-finite warn_band slips
+    # past both and reaches the cosine_warn floor `max(0.0, effective_threshold -
+    # warn_band)`, where `max(0.0, NaN)` collapses to 0.0 and demotes *every*
+    # failing cosine to "warn" — silently disabling the gate, the same fail/warn
+    # collapse #35 guards against, reached through a value `>` can't catch. The
+    # sibling `threshold` range check above already rejects NaN; close the same
+    # hole here, continuing this repo's finiteness sweep (#68/#69/#70).
+    if not math.isfinite(warn_band):
+        raise ValueError(f"warn_band must be finite; got {warn_band}")
     if warn_band < 0:
         raise ValueError(f"warn_band must be non-negative; got {warn_band}")
     # Upper bound matches the existing `(0, 1]` contract on `effective_threshold`.
