@@ -518,3 +518,16 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** `skipped` (no-candidate) rows are still intentionally omitted from HTML (not a failure, exit 0) — if a future run wants them shown for completeness, that's a separate, lower-value follow-up.
+
+---
+## 2026-06-25 — Issue #73: reject a non-finite warn_band in diff_response
+**Duration:** ~18 min · **Branch:** `session/2026-06-25-2338-issue-73`
+
+- `warn_band` was validated only by sign checks (`warn_band < 0`, `warn_band > effective_threshold`). Both are `False` for `NaN`, so a non-finite `warn_band` slipped past both and reached the cosine warn floor `max(0.0, effective_threshold - warn_band)`, where `max(0.0, NaN)` collapses to `0.0` — demoting every failing cosine (down to a 0.0, off-topic answer) from "fail" to "warn", silently disabling the regression gate. Same fail/warn collapse the #35 guard prevents, reached through a value its `>` comparison can't catch; the sibling `threshold` range check already rejected NaN.
+- Fix: a `math.isfinite(warn_band)` guard ahead of the sign checks (one consistent message for NaN/±Inf). Four tests (NaN/±Inf rejected + a pin on the fail→warn demotion). Red-green verified: without the guard the NaN case did not raise (verdict was "warn"). Suite 312 → 316, ruff clean. Continues the repo's finiteness sweep (#68/#69/#70).
+
+**Why this work, this session:** third issue of a multi-issue DAY session. The priority-tier repos' real bugs were exhausted (llm-eval-harness #98, llm-cost-optimizer #93 shipped; the rag/chunking/nextjs leads were all design-choice false positives), so per the loop bias I rotated to a non-tier repo; a strict defensive-gap sweep surfaced the one float param in `diff_response` that NaN slips past.
+
+**Open questions / blockers:** none.
+
+**Next session:** `diff_response`'s float params are now all NaN-safe; future work here is more likely on verdict semantics or reporting than input validation.
