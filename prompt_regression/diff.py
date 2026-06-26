@@ -136,6 +136,13 @@ SLOT_TYPE_PYTHON = {
     "null": type(None),
 }
 
+# The slot types `extract_slots` actually has an extractor for. Schema-valid
+# types outside this set (`array`/`object`/`null`, per `schema._ALLOWED_SLOT_TYPES`)
+# are never extracted, so `diff_slots` must report them as `type_unknown` ("the
+# tool did not try") — NOT `missing` ("the model failed to produce it"), which
+# would misattribute a tool limitation as a model regression on every diff (#77).
+_EXTRACTABLE_SLOT_TYPES = frozenset({"integer", "number", "string", "boolean"})
+
 
 @dataclass(frozen=True)
 class SlotDelta:
@@ -273,7 +280,11 @@ def diff_slots(slot_specs: dict[str, dict[str, Any]], candidate_text: str) -> li
     deltas: list[SlotDelta] = []
     for name, spec in slot_specs.items():
         slot_type = spec.get("type", "string")
-        if slot_type not in SLOT_TYPE_PYTHON:
+        # Anything we don't have an extractor for — a schema-valid
+        # array/object/null, or an unrecognized type — is `type_unknown`, not a
+        # model regression. Gating on SLOT_TYPE_PYTHON (which lists array/object/
+        # null) wrongly let those fall through to the `missing` branch below (#77).
+        if slot_type not in _EXTRACTABLE_SLOT_TYPES:
             deltas.append(
                 SlotDelta(
                     name=name, expected_type=slot_type, actual_value=None, status="type_unknown"

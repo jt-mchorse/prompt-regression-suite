@@ -195,6 +195,31 @@ def test_diff_slots_reports_type_mismatch_for_unknown_type():
     assert deltas[0].status == "type_unknown"
 
 
+@pytest.mark.parametrize("slot_type", ["array", "object", "null"])
+def test_diff_slots_unextracted_schema_valid_type_is_type_unknown(slot_type):
+    # #77: array/object/null are schema-valid (schema._ALLOWED_SLOT_TYPES) but
+    # have no extractor, so diff_slots must report them as `type_unknown` ("the
+    # tool did not try") — not `missing` ("the model failed to produce it").
+    # Pre-fix they fell through to `missing` because the gate keyed on
+    # SLOT_TYPE_PYTHON, which lists these types. `missing` would mark every diff
+    # of such a snapshot as a (false) model regression, permanently.
+    deltas = diff_slots({"x": {"type": slot_type}}, "a list [1,2,3] and an object {k: v}")
+    assert len(deltas) == 1
+    assert deltas[0].status == "type_unknown"
+    assert deltas[0].status != "missing"
+
+
+def test_diff_slots_extractable_types_unaffected_by_type_unknown_gate():
+    # Guard the fix's blast radius: the extractable types still produce real
+    # verdicts — a present integer is `ok`, an absent one is `missing` (a true
+    # regression), neither swallowed by the type_unknown branch.
+    present = diff_slots({"n": {"type": "integer"}}, "the count is 42")[0]
+    absent = diff_slots({"n": {"type": "integer"}}, "no numbers here")[0]
+    assert present.status == "ok"
+    assert present.actual_value == 42
+    assert absent.status == "missing"
+
+
 def test_diff_slots_empty_returns_empty():
     assert diff_slots({}, "anything") == []
 
