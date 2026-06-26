@@ -126,6 +126,22 @@ def test_schema_version_mismatch_is_its_own_finding_code(tmp_path: Path) -> None
     assert "99.0.0" in finding.reason
 
 
+def test_unquoted_int_same_version_is_not_a_schema_version_finding(tmp_path: Path) -> None:
+    """#75: a hand-authored `schema_version: 1` (unquoted int) is the same
+    version as the quoted '1' and must validate clean — not be mis-flagged
+    as a schema_version mismatch by the validate path (which loads via
+    ``load_snapshot``)."""
+    base = load_snapshot(EXAMPLES_DIR / "refund_window_v1.yml")
+    save_snapshot(base, tmp_path / "snap.yml")
+    data = yaml.safe_load((tmp_path / "snap.yml").read_text(encoding="utf-8"))
+    data["schema_version"] = 1  # unquoted int
+    (tmp_path / "snap.yml").write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    report = validate_snapshots(tmp_path)
+    assert report.ok
+    assert not any(f.code == "schema_version" for f in report.findings)
+
+
 def test_schema_missing_required_field_is_schema_finding(tmp_path: Path) -> None:
     """A snapshot missing a required field is a ``schema`` finding
     (not ``schema_version``). Reuses the loader's reason text."""
