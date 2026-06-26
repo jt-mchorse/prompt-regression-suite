@@ -402,6 +402,35 @@ def test_warn_band_validated():
         diff_response(snap, "x", embedder=e, warn_band=-0.1)
 
 
+# A non-finite warn_band is NaN-blind to the sign checks (`NaN < 0` and
+# `NaN > threshold` are both False), so it slips past both and collapses the
+# cosine warn floor `max(0.0, threshold - NaN)` to 0.0 — demoting every failing
+# cosine to "warn" and silently disabling the gate (the #35 collapse via a value
+# `>` can't catch). Reject it loudly, like the sibling threshold range check.
+@pytest.mark.parametrize("bad_warn_band", [float("nan"), float("inf"), float("-inf")])
+def test_warn_band_rejects_non_finite(bad_warn_band: float):
+    e = HashEmbedder()
+    snap = _make_snapshot("anything", embedder=e)
+    with pytest.raises(ValueError, match="warn_band must be finite"):
+        diff_response(snap, "x", embedder=e, threshold=0.8, warn_band=bad_warn_band)
+
+
+def test_nan_warn_band_would_demote_fail_to_warn_without_the_guard():
+    # Pins the consequence the guard prevents: an off-topic candidate (cosine
+    # well below threshold) must be "fail", never "warn". With a NaN warn_band
+    # and no guard the verdict was "warn"; the guard now makes this raise.
+    e = HashEmbedder()
+    snap = _make_snapshot("The refund period is 14 days.", embedder=e)
+    with pytest.raises(ValueError, match="warn_band must be finite"):
+        diff_response(
+            snap,
+            "Completely unrelated sentence.",
+            embedder=e,
+            threshold=0.8,
+            warn_band=float("nan"),
+        )
+
+
 # Issue #35: warn_band > effective_threshold silently collapses the fail/warn
 # distinction on the cosine channel because the warn floor `max(0.0, threshold
 # - warn_band)` clamps at zero, so every non-passing cosine becomes "warn".
