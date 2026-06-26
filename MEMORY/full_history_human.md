@@ -531,3 +531,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** `diff_response`'s float params are now all NaN-safe; future work here is more likely on verdict semantics or reporting than input validation.
+
+## 2026-06-26 — Issue #75: load_snapshot accepts an unquoted-int schema_version
+**Duration:** ~25 min · **Branch:** `session/2026-06-26-2033-issue-75`
+
+- `load_snapshot` compared the YAML-parsed `schema_version` directly to the string `"1"`. YAML parses an unquoted `schema_version: 1` as the *int* `1`, so `1 != "1"` rejected the snapshot with a genuinely baffling message — *"schema_version is 1, this reader only supports '1'"* (the values look identical apart from the repr quotes). `save_snapshot` writes the quoted `'1'`, so generated snapshots round-trip fine, but the repo is built around hand-authored, PR-reviewable snapshots (D-003) plus a `validate` linter, and a human naturally omits the quotes. `validate` inherited the bug (it loads via `load_snapshot`).
+- Fixed by comparing on the string form (`str(version) != SCHEMA_VERSION`) and normalizing to the canonical string before `from_dict` (whose strict `_require_str` would otherwise re-reject the int). A genuinely-different version (`"2"`, `2`, `"1.5"`) still rejects. 3 new tests (unquoted-int loads + round-trips, different-int still rejects, validate clean on unquoted-int). Suite 316 → 319, ruff clean.
+
+**Why this work, this session:** first non-priority-tier repo of a multi-issue DAY run after the priority tier was largely worked; a Phase A code-read of the loader seam surfaced a real false-rejection on the repo's central hand-authored-snapshot workflow.
+
+**Open questions / blockers:** none.
+
+**Next session:** the loader now tolerates YAML's int/str scalar ambiguity for the version field; the schema dataclasses keep their strict in-memory `_require_str` contract (normalization stays at the IO seam).
