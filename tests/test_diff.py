@@ -423,7 +423,10 @@ def test_nan_warn_band_would_demote_fail_to_warn_without_the_guard():
     snap = _make_snapshot("The refund period is 14 days.", embedder=e)
     with pytest.raises(ValueError, match="warn_band must be finite"):
         diff_response(
-            snap, "Completely unrelated sentence.", embedder=e, threshold=0.8,
+            snap,
+            "Completely unrelated sentence.",
+            embedder=e,
+            threshold=0.8,
             warn_band=float("nan"),
         )
 
