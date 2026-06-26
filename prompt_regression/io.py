@@ -93,9 +93,17 @@ def load_snapshot(path: PathArg) -> Snapshot:
     if not isinstance(data, dict):
         raise SnapshotValidationError(f"{p}: snapshot YAML must be a mapping at the top level")
     version = data.get("schema_version", SCHEMA_VERSION)
-    if version != SCHEMA_VERSION:
+    # YAML parses an unquoted `schema_version: 1` as the int 1, not the string
+    # "1". `save_snapshot` writes the quoted '1', but a hand-authored /
+    # PR-reviewed snapshot (the D-003 use case) naturally omits the quotes —
+    # and an int-vs-str rejection here reads as a baffling "is 1 … supports
+    # '1'". Compare on the string form so `1` and `'1'` are the same version,
+    # while a genuinely-different version ("2", 2, "1.5") still rejects.
+    if str(version) != SCHEMA_VERSION:
         raise SnapshotValidationError(
             f"{p}: snapshot schema_version is {version!r}, "
             f"this reader only supports {SCHEMA_VERSION!r}"
         )
-    return Snapshot.from_dict(data)
+    # Normalize to the canonical string before `from_dict`, whose strict
+    # `_require_str(schema_version)` would otherwise re-reject the int form.
+    return Snapshot.from_dict({**data, "schema_version": SCHEMA_VERSION})

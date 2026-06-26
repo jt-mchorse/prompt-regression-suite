@@ -86,6 +86,35 @@ def test_load_rejects_unknown_schema_version(tmp_path: Path):
         load_snapshot(p)
 
 
+def test_load_accepts_unquoted_int_schema_version(tmp_path: Path):
+    # #75: YAML parses an unquoted `schema_version: 1` as the int 1, not "1".
+    # A hand-authored snapshot naturally omits the quotes; it must load
+    # identically to the quoted form save_snapshot writes (not be rejected
+    # with the baffling "is 1 … supports '1'" message).
+    s = _sample_snapshot()
+    p = save_snapshot(s, tmp_path / "snap.yml")
+    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = 1  # unquoted int, the natural hand-authored form
+    p.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    # The on-disk line is the bare int, confirming the precondition.
+    assert "schema_version: 1\n" in p.read_text(encoding="utf-8")
+    loaded = load_snapshot(p)
+    assert loaded == s
+    assert loaded.schema_version == "1"  # normalized to the canonical string
+
+
+def test_load_still_rejects_different_int_version(tmp_path: Path):
+    # The int tolerance must not swallow a genuinely-different version: an
+    # unquoted `schema_version: 2` is still a real mismatch.
+    s = _sample_snapshot()
+    p = save_snapshot(s, tmp_path / "snap.yml")
+    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = 2
+    p.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    with pytest.raises(SnapshotValidationError, match="schema_version"):
+        load_snapshot(p)
+
+
 def test_load_propagates_field_errors(tmp_path: Path):
     s = _sample_snapshot()
     p = save_snapshot(s, tmp_path / "snap.yml")
