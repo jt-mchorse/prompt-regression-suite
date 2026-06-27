@@ -543,3 +543,16 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** the loader now tolerates YAML's int/str scalar ambiguity for the version field; the schema dataclasses keep their strict in-memory `_require_str` contract (normalization stays at the IO seam).
+
+## 2026-06-26 — Issue #77: array/object/null slots mislabeled "missing" instead of "type_unknown"
+**Duration:** ~20 min · **Branch:** `session/2026-06-26-2356-issue-77`
+
+- `diff_slots` gated the `type_unknown` status on `slot_type not in SLOT_TYPE_PYTHON`, but `SLOT_TYPE_PYTHON` lists `array`/`object`/`null`. Those types are schema-valid (`schema._ALLOWED_SLOT_TYPES`) yet have no extractor in `extract_slots`, so they passed the gate and fell through to the `missing` branch. Reproduced: each of array/object/null reports `missing` while the schema-*illegal* `"blob"` correctly reports `type_unknown` — the valid types got worse (false model-regression) treatment than an invalid one.
+- Impact: `missing` is the red "the model failed to produce this slot" status across the HTML report, `diff --json`, and PR comments; any snapshot declaring an array/object/null slot failed every diff permanently regardless of the candidate, blaming the model for a tool limitation. Contradicts the `extract_slots` docstring contract.
+- Fixed by adding `_EXTRACTABLE_SLOT_TYPES` (the types the extractor actually handles) and gating `type_unknown` on it, so array/object/null — and any unrecognized type — route to `type_unknown`. 4 regression tests; suite 319 → 323, ruff clean.
+
+**Why this work, this session:** sixth issue of a multi-issue DAY run, the first non-tier repo after completing the priority-tier sweep. prompt-regression-suite had no open backlog, so I dogfooded with an Explore agent and filed #77 from a reproduced finding.
+
+**Open questions / blockers:** a transient `gh` GraphQL 401 hit during issue creation; re-exporting `GH_TOKEN=$(gh auth token)` cleared it. Two runners-up remain unfiled — `count_always_pass` mislabels `tolerance==1.0` (the strictest setting) as always-pass, and the HashEmbedder degenerate single-token false-PASS (same class as llm-cost-optimizer#98).
+
+**Next session:** consider the HashEmbedder degenerate false-PASS — it is a missed-regression (false PASS), the worst harm class for a regression tool.
