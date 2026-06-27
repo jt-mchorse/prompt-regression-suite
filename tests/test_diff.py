@@ -155,6 +155,33 @@ def test_extract_integer_with_hint():
     assert extracted == {"refund_days": 14}
 
 
+def test_extract_integer_ignores_hyphenated_identifier_not_a_negative():
+    # #79: `W-2` / `ABC-7` are identifiers, not the numbers -2 / -7. The old
+    # `-?\b\d+` consumed the hyphen as a unary minus (the `-`→digit boundary is
+    # always a \b), extracting a spurious negative that passed isinstance(int)
+    # and reported `ok` — masking a number-loss regression.
+    slot = {"refund_days": {"type": "integer", "description": "refund window days"}}
+    assert extract_slots("See section W-2 of the policy.", slot) == {}
+    assert extract_slots("ticket ABC-7 filed", slot) == {}
+    # And the diff must now surface it as a (true) regression, not a pass.
+    deltas = diff_slots(slot, "See section W-2 of the policy.")
+    assert deltas[0].status == "missing"
+
+
+def test_extract_genuine_negative_numbers_still_work():
+    # The lookbehind must not break real signed values.
+    int_slot = {"balance": {"type": "integer", "description": "account balance"}}
+    num_slot = {"delta": {"type": "number", "description": "temperature delta"}}
+    assert extract_slots("you owe -30 dollars", int_slot) == {"balance": -30}
+    assert extract_slots("the reading is -2.5 degrees", num_slot) == {"delta": -2.5}
+
+
+def test_extract_integer_hyphen_after_digits_unchanged():
+    # Guard the existing `14-day` behavior (hyphen *follows* the number).
+    slot = {"refund_days": {"type": "integer", "description": "Number of days"}}
+    assert extract_slots("a 14-day refund window", slot) == {"refund_days": 14}
+
+
 def test_extract_quoted_string():
     text = 'The customer is on the "Pro" plan.'
     slots = {"plan_name": {"type": "string", "description": "plan tier"}}
