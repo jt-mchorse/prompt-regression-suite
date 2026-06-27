@@ -556,3 +556,15 @@ close it out across all four repos.
 **Open questions / blockers:** a transient `gh` GraphQL 401 hit during issue creation; re-exporting `GH_TOKEN=$(gh auth token)` cleared it. Two runners-up remain unfiled — `count_always_pass` mislabels `tolerance==1.0` (the strictest setting) as always-pass, and the HashEmbedder degenerate single-token false-PASS (same class as llm-cost-optimizer#98).
 
 **Next session:** consider the HashEmbedder degenerate false-PASS — it is a missed-regression (false PASS), the worst harm class for a regression tool.
+
+## 2026-06-27 — Issue #79: slot extraction misread hyphenated tokens as negatives
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-0331-issue-79`
+
+- `_INTEGER_RE = r"-?\b\d+\b"` / `_NUMBER_RE = r"-?\b\d+\.?\d*\b"` — the optional leading minus is followed by `\b`, but the boundary between a hyphen and a digit is *always* a `\b`. So a hyphenated token (`W-2`, `ABC-7`, `P-1`) had its hyphen consumed as a unary minus, extracting a spurious negative. That value passed the `isinstance(int)` check and was reported `ok` — and could **mask a real regression**: a model answer that dropped the number but mentioned a hyphenated code (`See section W-2`) yielded a passing integer slot instead of `missing`. Reproduced: `extract_slots("See section W-2 …", integer-slot)` → `{'refund_days': -2}`.
+- Fixed with a `(?<![\w-])` lookbehind so `-` is only a sign when not glued to a preceding word char or hyphen. Hyphenated identifiers no longer yield negatives; genuine negatives (`-30`, `-2.5`) and `14-day` → 14 are preserved. Added 3 regression tests. Suite 323 → 326, ruff clean.
+
+**Why this work, this session:** fourth issue of a multi-issue NIGHT run; a high-confidence, clean dogfood find with a one-liner repro and a regex-only fix.
+
+**Open questions / blockers:** none.
+
+**Next session:** numeric slot extraction is robust to hyphenated identifiers; broader numeric parsing (thousands separators, scientific notation) remains out of scope.
