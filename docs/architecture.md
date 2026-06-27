@@ -169,7 +169,7 @@ locked by the matching test in `tests/test_cli.py`.
   `StatsReport` with per-`prompt.model` / per-`canonical.embedding_model`
   / per-`schema_version` / per-`structured_slots`-count histograms plus
   a `ToleranceDistribution` summary (count_default + count_explicit +
-  count_always_pass + min/median/max). Exposed as `prompt-snap stats`;
+  count_strictest + min/median/max). Exposed as `prompt-snap stats`;
   locked by `tests/test_stats.py`.
 - **Validator (#49).** `prompt_regression.validate.validate_snapshots(directory)`
   walks the same globs in *collecting* mode and surfaces every

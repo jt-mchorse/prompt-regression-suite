@@ -41,9 +41,10 @@ to today's surface:
   schema | duplicate_id | empty`); pre-flight before `run` so a bad
   snapshot doesn't abort the run partway through.
 - **Per-snapshot tolerance** (#10) — `Snapshot.tolerance` overrides
-  the global default; bumped to `1.0` (always-pass) for snapshots that
-  are intentionally allowed to drift, lowered for the ones you want
-  strict.
+  the global default. It's the required cosine floor (`cosine >=
+  tolerance` passes), so **lower** it (e.g. `0.6`) for snapshots
+  intentionally allowed to drift, and **raise** it toward `1.0` for the
+  ones you want strict (`1.0` passes only an identical response).
 
 Everything in this repo is narrow on purpose: it does *not* replace
 [`llm-eval-harness`](https://github.com/jt-mchorse/llm-eval-harness) —
