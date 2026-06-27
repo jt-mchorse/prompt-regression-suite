@@ -580,3 +580,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** the stats output now correctly labels strictest tolerances; the behavioral test guards the semantics.
+
+## 2026-06-27 — Issue #83: type_unknown slots forced verdict=fail
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-1536-issue-83`
+
+- Any snapshot declaring an `array`/`object`/`null` slot was permanently red: `SlotDelta.is_failure` was `status != "ok"`, counting `type_unknown` (the #77 status meaning "the tool has no extractor for this schema-valid type — didn't try") as a real failure. Since `diff_response` ANDs the slot channel into the verdict, every diff against such a slot returned `fail` even for a byte-identical, zero-drift response — #77's intent leaked at the verdict level.
+- Fixed `is_failure` to `status not in ("ok", "type_unknown")` (`missing`/`type_mismatch` stay failures) and added regression tests: identical candidate with array/object/null slot now passes (parametrized), a genuinely missing extractable slot still fails. Negative-checked the fix is load-bearing.
+
+**Why this work, this session:** third find of a multi-issue DAY run; surfaced by a second Phase A dogfood sweep over the 5 non-tier repos after the priority tier was exhausted.
+
+**Open questions / blockers:** none.
+
+**Next session:** the verdict now honors the type_unknown contract end-to-end; real extractors for array/object/null remain a deliberate non-goal (feature, not a fix).

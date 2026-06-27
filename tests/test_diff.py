@@ -702,3 +702,74 @@ class TestCliSerializeDiffMatchesToDict:
 
         result = _diff_result_for_contract()
         assert _serialize_diff(result) == result.to_dict()
+
+
+# ----------------------------------------------------------------------
+# type_unknown must not fail the verdict (#83 — completes #77 at the verdict level)
+# ----------------------------------------------------------------------
+
+
+def _make_single_slot_snapshot(
+    canonical_text: str, *, slot_name: str, slot_type: str, embedder: HashEmbedder
+) -> Snapshot:
+    return Snapshot(
+        id="test-snap-typeunknown",
+        prompt=Prompt(model="claude-haiku-4-5", user="List the items."),
+        response_shape=ResponseShape(
+            semantic_categories=[],
+            structured_slots={slot_name: {"type": slot_type, "description": "d"}},
+        ),
+        canonical=CanonicalResponse(
+            text=canonical_text,
+            embedding=embedder.embed(canonical_text),
+            embedding_model=embedder.model_name,
+        ),
+    )
+
+
+def test_slotdelta_type_unknown_is_not_a_failure():
+    """`type_unknown` ("tool has no extractor for this type") must not be a
+    failure — only `missing` and `type_mismatch` are real regressions (#83)."""
+    assert SlotDelta("s", "array", None, "type_unknown").is_failure is False
+    assert SlotDelta("s", "string", "x", "ok").is_failure is False
+    assert SlotDelta("s", "integer", None, "missing").is_failure is True
+    assert SlotDelta("s", "integer", "x", "type_mismatch").is_failure is True
+
+
+@pytest.mark.parametrize("slot_type", ["array", "object", "null"])
+def test_identical_response_with_unextractable_slot_still_passes(slot_type: str):
+    """Regression for #83: a byte-identical candidate must verdict `pass` even
+    when the snapshot declares a schema-valid-but-unextractable slot type.
+
+    Pre-fix, `is_failure` counted the resulting `type_unknown` slot as a
+    failure, so `slots_ok` was False and the verdict was forced to `fail`
+    despite a cosine of 1.0 — a permanent false-red for any array/object/null
+    slot. Existing tests only asserted the `type_unknown` *status* at the
+    `diff_slots` level, never its effect on the final verdict.
+    """
+    e = HashEmbedder()
+    text = "the items are apples bananas cherries today"
+    snap = _make_single_slot_snapshot(text, slot_name="items", slot_type=slot_type, embedder=e)
+
+    # Sanity: the slot is indeed reported type_unknown (the #77 status).
+    deltas = diff_slots(snap.response_shape.structured_slots, text)
+    assert [d.status for d in deltas] == ["type_unknown"]
+
+    result = diff_response(snap, text, embedder=e, threshold=0.85)
+    assert result.cosine_score == pytest.approx(1.0)
+    assert result.verdict == "pass"
+
+
+def test_missing_extractable_slot_still_fails_the_verdict():
+    """Guard against over-correction: a genuinely `missing` extractable slot
+    must still fail the verdict (#83 only excuses `type_unknown`)."""
+    e = HashEmbedder()
+    text = "the items are apples bananas cherries today"  # no integer present
+    snap = _make_single_slot_snapshot(
+        text, slot_name="refund_days", slot_type="integer", embedder=e
+    )
+    deltas = diff_slots(snap.response_shape.structured_slots, text)
+    assert [d.status for d in deltas] == ["missing"]
+
+    result = diff_response(snap, text, embedder=e, threshold=0.85)
+    assert result.verdict == "fail"
