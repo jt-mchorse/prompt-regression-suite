@@ -556,3 +556,15 @@ close it out across all four repos.
 **Open questions / blockers:** a transient `gh` GraphQL 401 hit during issue creation; re-exporting `GH_TOKEN=$(gh auth token)` cleared it. Two runners-up remain unfiled — `count_always_pass` mislabels `tolerance==1.0` (the strictest setting) as always-pass, and the HashEmbedder degenerate single-token false-PASS (same class as llm-cost-optimizer#98).
 
 **Next session:** consider the HashEmbedder degenerate false-PASS — it is a missed-regression (false PASS), the worst harm class for a regression tool.
+
+## 2026-06-27 — Issue #81: tolerance=1.0 mislabeled "always-pass" (it's the strictest gate)
+**Duration:** ~20 min · **Branch:** `session/2026-06-27` (committed on main-tracking session branch via PR)
+
+- The diff gate is `cosine >= tolerance`, so a higher tolerance is *stricter*; `tolerance=1.0` passes only an embedding-identical response. But `ToleranceDistribution.count_always_pass`, the `prompt-snap stats` summary token `always_pass=N`, the docstring, the README, and architecture.md all called `tolerance=1.0` "always-pass — useful for intentionally-drifting prompts" — the exact inverse. The operator-facing stats summary pointed operators at the suite's *strictest* snapshots as if they were the *laxest*.
+- This is a labeling/semantics fix (the count is computed correctly). Renamed `count_always_pass` → `count_strictest` (field, `to_dict` key, summary token), corrected the docstring/README/architecture.md, updated the public-surface key-set test, and added a behavioral test pinning `tolerance=1.0` ⇒ identical passes / drift fails (constructed with empty structured_slots so the cosine channel drives the verdict). Suite 323 → 324, ruff clean.
+
+**Why this work, this session:** fifteenth issue of a multi-issue NIGHT run; a second-pass dogfood of prompt-regression-suite surfaced this operator-facing label inversion.
+
+**Open questions / blockers:** none.
+
+**Next session:** the stats output now correctly labels strictest tolerances; the behavioral test guards the semantics.
