@@ -169,8 +169,15 @@ class SlotDelta:
         }
 
 
-_INTEGER_RE = re.compile(r"-?\b\d+\b")
-_NUMBER_RE = re.compile(r"-?\b\d+\.?\d*\b")
+# `-?` is only a sign when the `-` is not glued to a preceding word char or
+# hyphen. The old `-?\b\d+` matched the hyphen in a hyphenated token (`W-2`,
+# `ABC-7`) as a unary minus — because the boundary between `-` and a digit is
+# always a `\b` — and extracted a spurious negative, which then passed the
+# `isinstance(int)` check and could mask a number-loss regression as `ok`. The
+# `(?<![\w-])` lookbehind keeps genuine negatives (`-30`, `-2.5`) and the
+# `14-day` → `14` case working while rejecting hyphenated identifiers. See #79.
+_INTEGER_RE = re.compile(r"(?<![\w-])-?\d+\b")
+_NUMBER_RE = re.compile(r"(?<![\w-])-?\d+\.?\d*\b")
 _QUOTED_RE = re.compile(r"\"([^\"]+)\"|'([^']+)'")
 
 
