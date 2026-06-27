@@ -52,16 +52,18 @@ class ToleranceDistribution:
     """Summary of per-snapshot ``tolerance`` field across the directory.
 
     ``count_default`` is the number of snapshots that omit ``tolerance``
-    entirely and inherit the per-run default. ``count_always_pass`` is
-    the number explicitly pinned to ``1.0`` (always-pass — useful for
-    intentionally-drifting prompts). ``min`` / ``median`` / ``max`` are
+    entirely and inherit the per-run default. ``count_strictest`` is the
+    number explicitly pinned to ``1.0`` — the *strictest* possible gate,
+    not "always-pass": the diff requires ``cosine >= tolerance``, so
+    ``1.0`` passes only an embedding-identical response and fails any
+    drift. ``min`` / ``median`` / ``max`` are
     over the explicit numeric values only; ``None`` when no snapshot in
     the directory carries an explicit tolerance.
     """
 
     count_default: int
     count_explicit: int
-    count_always_pass: int
+    count_strictest: int
     min: float | None
     median: float | None
     max: float | None
@@ -70,7 +72,7 @@ class ToleranceDistribution:
         return {
             "count_default": self.count_default,
             "count_explicit": self.count_explicit,
-            "count_always_pass": self.count_always_pass,
+            "count_strictest": self.count_strictest,
             "min": self.min,
             "median": self.median,
             "max": self.max,
@@ -160,7 +162,7 @@ def collect_stats(directory: str | Path) -> StatsReport:
     slot_counts: Counter[int] = Counter()
     explicit_tolerances: list[float] = []
     count_default = 0
-    count_always_pass = 0
+    count_strictest = 0
 
     for p in snapshot_paths:
         snap = load_snapshot(p)
@@ -173,12 +175,12 @@ def collect_stats(directory: str | Path) -> StatsReport:
         else:
             explicit_tolerances.append(snap.tolerance)
             if snap.tolerance == 1.0:
-                count_always_pass += 1
+                count_strictest += 1
 
     tol = ToleranceDistribution(
         count_default=count_default,
         count_explicit=len(explicit_tolerances),
-        count_always_pass=count_always_pass,
+        count_strictest=count_strictest,
         min=min(explicit_tolerances) if explicit_tolerances else None,
         median=float(median(explicit_tolerances)) if explicit_tolerances else None,
         max=max(explicit_tolerances) if explicit_tolerances else None,
@@ -218,7 +220,7 @@ def render_summary(report: StatsReport) -> str:
     tol = report.tolerance_distribution
     tol_summary = (
         f"tolerance: default={tol.count_default} explicit={tol.count_explicit} "
-        f"always_pass={tol.count_always_pass}"
+        f"strictest={tol.count_strictest}"
     )
     if tol.count_explicit:
         tol_summary += f" min={tol.min} median={tol.median} max={tol.max}"

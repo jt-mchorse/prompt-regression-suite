@@ -8,7 +8,7 @@ Coverage matrix:
   default).
 - Mixed-tolerance directory: a synthetic directory with three
   snapshots (one default, one at 0.7, one at 1.0) produces the
-  correct min/median/max + the always-pass count.
+  correct min/median/max + the strictest count (tolerance==1.0).
 - Histogram ordering: descending count, alphabetical tiebreak.
 - Empty / missing directory → ``StatsError`` from the library;
   CLI maps it to exit 2.
@@ -101,8 +101,8 @@ def _clone_with_tolerance(src: Snapshot, *, new_id: str, tolerance: float | None
 
 def test_tolerance_distribution_math_on_mixed_directory(tmp_path: Path) -> None:
     """Three snapshots: one default (None), one at 0.7, one at 1.0.
-    min=0.7, max=1.0, median=0.85, always_pass=1, count_default=1,
-    count_explicit=2."""
+    min=0.7, max=1.0, median=0.85, strictest=1, count_default=1,
+    count_explicit=2 (tolerance==1.0 is the strictest gate, #79-followup)."""
     src_path = EXAMPLES_DIR / "refund_window_v1.yml"
     src = collect_stats.__module__  # trigger import / silence unused
     del src
@@ -112,17 +112,17 @@ def test_tolerance_distribution_math_on_mixed_directory(tmp_path: Path) -> None:
 
     default_snap = _clone_with_tolerance(base, new_id="tol-default", tolerance=None)
     mid_snap = _clone_with_tolerance(base, new_id="tol-mid", tolerance=0.7)
-    pass_snap = _clone_with_tolerance(base, new_id="tol-always-pass", tolerance=1.0)
+    strict_snap = _clone_with_tolerance(base, new_id="tol-strictest", tolerance=1.0)
     save_snapshot(default_snap, tmp_path / "default.yml")
     save_snapshot(mid_snap, tmp_path / "mid.yml")
-    save_snapshot(pass_snap, tmp_path / "pass.yml")
+    save_snapshot(strict_snap, tmp_path / "strict.yml")
 
     report = collect_stats(tmp_path)
     tol = report.tolerance_distribution
     assert report.n_snapshots == 3
     assert tol.count_default == 1
     assert tol.count_explicit == 2
-    assert tol.count_always_pass == 1
+    assert tol.count_strictest == 1
     assert tol.min == 0.7
     assert tol.max == 1.0
     assert tol.median == pytest.approx(0.85)
@@ -216,7 +216,7 @@ def test_to_dict_shape_is_stable() -> None:
     assert set(payload["tolerance_distribution"]) == {
         "count_default",
         "count_explicit",
-        "count_always_pass",
+        "count_strictest",
         "min",
         "median",
         "max",

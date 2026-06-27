@@ -525,6 +525,32 @@ def test_warn_band_guard_uses_effective_threshold_when_tolerance_overrides():
         diff_response(snap, "x", embedder=e, threshold=0.9, warn_band=0.4)
 
 
+def test_tolerance_one_is_strictest_only_identical_passes():
+    # tolerance is the required cosine floor (the gate is `cosine >= tolerance`),
+    # so tolerance=1.0 is the STRICTEST setting: it passes only an
+    # embedding-identical response and fails any drift. The stats summary's
+    # `count_strictest` counts exactly these snapshots — it used to be mislabeled
+    # `count_always_pass`/"always_pass", the inverse of the behavior. Pin the
+    # semantics so the label can't silently re-invert.
+    e = HashEmbedder()
+    text = "the quick brown fox jumps over the lazy dog"
+    # No structured slots, so the verdict is driven by the cosine channel alone.
+    snap = Snapshot(
+        id="strictest-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+        tolerance=1.0,
+    )
+    identical = diff_response(snap, text, embedder=e)
+    assert identical.verdict == "pass"
+    assert identical.cosine_score == pytest.approx(1.0)
+    drifted = diff_response(snap, "an entirely unrelated paragraph about taxes", embedder=e)
+    assert drifted.verdict == "fail"  # any drift fails at the strictest tolerance
+
+
 # ----------------------------------------------------------------------
 # Embedder model mismatch (D-006)
 # ----------------------------------------------------------------------
