@@ -155,7 +155,13 @@ class SlotDelta:
 
     @property
     def is_failure(self) -> bool:
-        return self.status != "ok"
+        # `type_unknown` means "the tool has no extractor for this schema-valid
+        # slot type" (array/object/null) — "the tool did not try", NOT a model
+        # regression (#77, see _EXTRACTABLE_SLOT_TYPES above). Counting it here
+        # would force verdict=fail on every diff for such a slot, re-introducing
+        # the exact misattribution #77 set out to fix. Only `missing` and
+        # `type_mismatch` are real failures.
+        return self.status not in ("ok", "type_unknown")
 
     def to_dict(self) -> dict[str, Any]:
         # Four-field contract (#51) — replaces `asdict(d)` in cli.py's
