@@ -27,6 +27,7 @@ from prompt_regression import (
     SemanticCategoryScore,
     SlotDelta,
     Snapshot,
+    WarnBandThresholdError,
     cosine,
     diff_response,
     diff_slots,
@@ -523,6 +524,34 @@ def test_warn_band_guard_uses_effective_threshold_when_tolerance_overrides():
         ValueError, match=r"warn_band must be <= effective_threshold \(0\.3\); got 0\.4"
     ):
         diff_response(snap, "x", embedder=e, threshold=0.9, warn_band=0.4)
+
+
+def test_warn_band_guard_raises_typed_subclass_for_run_loop_catchability():
+    # #85: the warn_band guard must raise the typed WarnBandThresholdError (a
+    # ValueError subclass, like its sibling guards) so the CLI `run` loop can
+    # catch it as a per-row `error` instead of letting a bare ValueError escape
+    # and abort the whole batch. diff_response STILL raises here — #85 fixes the
+    # batch-abort (problem 1), it does not stop the guard firing (problem 2 is a
+    # separate semantics call deferred to a human).
+    e = HashEmbedder()
+    snap = _make_snapshot("anything", embedder=e)
+    with pytest.raises(WarnBandThresholdError):
+        diff_response(snap, "x", embedder=e, threshold=0.5, warn_band=0.6)
+    assert issubclass(WarnBandThresholdError, ValueError)
+
+
+def test_warn_band_guard_fires_for_low_tolerance_under_default_warn_band():
+    # The exact #85 trigger: a per-snapshot tolerance below DEFAULT_WARN_BAND
+    # (0.05) with all run-level defaults (no explicit warn_band). diff_response
+    # raises the typed guard; the CLI catches it (covered in test_cli.py).
+    e = HashEmbedder()
+    snap = _make_snapshot("hello world test", embedder=e)
+    snap.tolerance = 0.03  # < DEFAULT_WARN_BAND
+    with pytest.raises(
+        WarnBandThresholdError,
+        match=r"warn_band must be <= effective_threshold \(0\.03\); got 0\.05",
+    ):
+        diff_response(snap, "hello world test", embedder=e)
 
 
 def test_tolerance_one_is_strictest_only_identical_passes():
