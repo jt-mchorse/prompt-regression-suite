@@ -592,3 +592,16 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** the verdict now honors the type_unknown contract end-to-end; real extractors for array/object/null remain a deliberate non-goal (feature, not a fix).
+
+## 2026-06-28 — Issue #85: low per-snapshot tolerance aborted the whole run batch
+**Duration:** ~40 min · **Branch:** `session/2026-06-28-0319-issue-85`
+
+- A snapshot with `tolerance < DEFAULT_WARN_BAND` (0.05) lowered the effective threshold under the default warn_band, firing the #35 guard even when the operator set no `--warn-band`. That guard raised a *bare* `ValueError`, which the `run` loop (catching only the three typed sibling guards) let escape and abort the whole batch — the failure mode the #65/#66/#69 batch-isolation guards exist to prevent.
+- Fixed via **Option A (conservative)**: new typed `WarnBandThresholdError(ValueError)`, caught in the run loop so it lands as a per-row `error` verdict; `diff_response` still raises, preserving #35's fail-loud guard (D-006). Added 3 tests; full suite green, ruff check + format clean.
+- **Decision-revisit posture:** problem (1), the batch abort, is an unambiguous robustness bug fixed here. Problem (2), the A-vs-B semantics (whether a low tolerance under default warn_band should raise at all vs clamp), is a genuine call **deferred to JT** — Option B silently narrows warn_band and brushes D-006. PR opened ready for review, not auto-merge. Same posture as the mcp-server-cookbook #54/#55 revisits this run.
+
+**Why this work, this session:** the only remaining `priority:high` actionable issue in the portfolio; the conservative half (problem 1) closes cleanly while honoring the deliberate JT-facing semantics question.
+
+**Open questions / blockers:** Option B (operator-friendly clamp) awaits a JT semantics decision.
+
+**Next session:** —
