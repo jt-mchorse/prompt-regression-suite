@@ -605,3 +605,15 @@ close it out across all four repos.
 **Open questions / blockers:** Option B (operator-friendly clamp) awaits a JT semantics decision.
 
 **Next session:** —
+
+## 2026-06-28 — Issue #87: HTML report showed a type_unknown slot as green/OK
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-1611-issue-87`
+
+- `_render_slots` keyed the slot row's CSS class off `is_failure` (`"slot-ok" if not is_failure else f"slot-{status}"`). Issue #83 had redefined `is_failure` to return `False` for `type_unknown` (an unevaluable slot — the tool has no extractor for that schema-valid type — not a regression). So a `type_unknown` row got `class="slot-ok"` and was rendered **green**, while the dedicated amber `.slot-type_unknown` CSS rule sat dead. A slot the tool literally couldn't evaluate looked clean in the report. `html_report.py` predated #77/#83, so it was never updated for the new status — a report-layer regression riding on the diff-layer change.
+- Fixed by driving the row class off `status` directly (`klass = f"slot-{html.escape(slot.status)}"`); every status already has a matching CSS rule, so each maps to its intended color and the `is_failure` branch is retired. No CSS change. Added a regression test that parses each slot row's class-to-status mapping (proven to fail pre-fix); suite 335 → 336, ruff clean.
+
+**Why this work, this session:** fifth substantive issue of a multi-issue DAY run, and the third real dogfood find (after llm-eval-harness #114, chunking #84, emb-shootout #69) — a genuine report-correctness bug where the chart's color lies about a slot the tool couldn't evaluate.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains.
