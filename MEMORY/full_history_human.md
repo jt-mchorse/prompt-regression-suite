@@ -617,3 +617,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains.
+
+## 2026-06-28 — Issue #89: `diff` command crashed on a low-tolerance snapshot (WarnBandThresholdError uncaught)
+**Duration:** ~15 min · **Branch:** `session/2026-06-28-1946-issue-89`
+
+- The `diff` command's `except` tuple caught the embedder config errors but not `WarnBandThresholdError`, so a schema-valid snapshot whose per-snapshot `tolerance` is below the default warn band (0.05) escaped `diff_response` as a raw traceback (exit 1) — indistinguishable from a normal `fail` verdict for a CI consumer. The sibling `run` command was fixed for this exact case in #85; `diff` was the missed sibling. Reproduced firsthand before filing.
+- Fixed by adding `WarnBandThresholdError` (already imported) to `diff`'s `except` tuple, so it lands as a clean `error: ...` + exit 2 like the command's other configuration errors. (Unlike `run`, which is a batch and treats it as a per-row error to keep processing; `diff` is single-snapshot, so a clean exit 2 is right.) Added a regression test mirroring the `run` low-tolerance test; suite 336 → 337 passed, ruff clean.
+
+**Why this work, this session:** fifth substantive issue of a multi-issue DAY run. The 4 Python priority-tier repos were worked earlier this run (#116, #104, #96, #86); only the JS/demo nextjs work remained in the tier, so per the D-007 fall-through + D-008 fuller-utilization intent I dropped to the earliest non-tier Python repo in build sequence (prompt-regression-suite) and dogfooded it. One weaker finding deferred (out-of-range `--threshold` raw ValueError escaping both commands).
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains.

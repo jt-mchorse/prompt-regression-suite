@@ -593,6 +593,26 @@ def test_diff_candidate_stdin(
     assert "verdict: pass" in capsys.readouterr().out
 
 
+def test_diff_low_tolerance_under_default_warn_band_is_clean_error_not_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    # #89: a per-snapshot `tolerance` below DEFAULT_WARN_BAND (0.05) lowers the
+    # effective threshold under the default warn_band, firing the #35 guard even
+    # though the operator passed no --warn-band. The sibling `run` command catches
+    # the typed WarnBandThresholdError (#85); the `diff` command was missed and let
+    # it escape as a raw traceback (exit 1). It must now exit 2 with a clean
+    # `error:` message, consistent with diff's other configuration errors.
+    snap = _make_snapshot("low-tol", "anything goes here")
+    snap.tolerance = 0.03  # < DEFAULT_WARN_BAND (0.05); no --warn-band set
+    path = tmp_path / "low-tol.snapshot.yaml"
+    save_snapshot(snap, path)
+    rc = main(["diff", "--snapshot", str(path), "--candidate", "anything goes here"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "warn_band must be <= effective_threshold" in err
+
+
 # ----------------------------------------------------------------------
 # #22: _SNAPSHOT_GLOBS covers committed example files (.yml) AND the
 # opinionated .snapshot.yaml convention
