@@ -160,7 +160,12 @@ def _render_slots(diff: DiffResult) -> str:
         return '  <div class="section-block muted">No structured slots declared.</div>'
     rows = []
     for slot in diff.slot_deltas:
-        klass = "slot-ok" if not slot.is_failure else f"slot-{html.escape(slot.status)}"
+        # Key the row color off `status` directly, not `is_failure`: since #83
+        # `is_failure` is False for `type_unknown` (an unevaluable slot, not a
+        # regression), so keying on it painted type_unknown rows `slot-ok`
+        # (green) and left the amber `.slot-type_unknown` rule dead (#87). Every
+        # status has a matching CSS class, so map each to its own.
+        klass = f"slot-{html.escape(slot.status)}"
         actual = html.escape(repr(slot.actual_value)) if slot.actual_value is not None else "—"
         rows.append(
             f'<tr class="{klass}">'

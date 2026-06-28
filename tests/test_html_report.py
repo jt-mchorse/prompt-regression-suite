@@ -102,6 +102,39 @@ def test_fail_section_has_categories_slots_responses():
     assert "some answer" in html
 
 
+def test_slot_row_css_class_matches_status_including_type_unknown():
+    """Each slot row's CSS class is driven by its status so the report colors
+    it correctly. Regression for #87: since #83 made `is_failure` False for
+    `type_unknown`, the old `is_failure`-keyed class painted a type_unknown
+    slot `slot-ok` (green) — falsely clean — instead of amber
+    `slot-type_unknown`."""
+    diff = _diff(
+        verdict="fail",
+        slots=[
+            SlotDelta("a_ok", "string", "v", "ok"),
+            SlotDelta("b_missing", "integer", None, "missing"),
+            SlotDelta("c_mismatch", "integer", "x", "type_mismatch"),
+            SlotDelta("d_unknown", "array", None, "type_unknown"),
+        ],
+    )
+    html = render_report([ReportEntry("slots-v1", diff, "cand", "base")])
+
+    # Map each rendered <tr class="slot-..."> to the status in its 4th <td>.
+    # Bound each row at </tr> so the last row doesn't read into later tables.
+    class_by_status = {}
+    for chunk in html.split('<tr class="slot-')[1:]:
+        row = chunk.split("</tr>")[0]
+        klass = "slot-" + row.split('"', 1)[0]
+        status = row.split("<td>")[-1].split("</td>")[0]
+        class_by_status[status] = klass
+
+    assert class_by_status["ok"] == "slot-ok"
+    assert class_by_status["missing"] == "slot-missing"
+    assert class_by_status["type_mismatch"] == "slot-type_mismatch"
+    # The fix: type_unknown is amber-class, not slot-ok.
+    assert class_by_status["type_unknown"] == "slot-type_unknown"
+
+
 def test_pass_section_collapses_details():
     diff = _diff(verdict="pass", cosine_score=0.97)
     entry = ReportEntry("clean-v1", diff, candidate_text="x", baseline_text="x")
