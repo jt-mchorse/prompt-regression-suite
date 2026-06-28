@@ -385,6 +385,12 @@ def _diff_command(args: argparse.Namespace) -> int:
         EmbedderModelMismatchError,
         EmbeddingDimensionMismatchError,
         NonFiniteEmbeddingError,
+        # The sibling `run` command catches this too (#85): a per-snapshot
+        # `tolerance` below the default warn band lowers the effective threshold
+        # under warn_band and fires the #35 guard even though no --warn-band was
+        # set. As a typed error it must land as a clean `error:` + exit 2 here,
+        # not escape as a raw traceback (exit 1) — the diff-side completion of #85.
+        WarnBandThresholdError,
     ) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
