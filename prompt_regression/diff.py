@@ -458,6 +458,28 @@ class NonFiniteEmbeddingError(ValueError):
     guard to the stored-embedding finiteness check."""
 
 
+class WarnBandThresholdError(ValueError):
+    """Raised when `warn_band > effective_threshold` (the #35 guard).
+
+    A `warn_band` wider than the effective threshold makes the cosine warn floor
+    `max(0.0, effective_threshold - warn_band)` clamp to `0.0`, collapsing the
+    fail/warn distinction on the cosine channel — every sub-threshold cosine
+    becomes "warn". Raising at the entry site keeps the misconfig fail-loud
+    (D-006 "no silent degradation").
+
+    The guard fires against the *effective* threshold, which `snapshot.tolerance`
+    can lower below the run-level `warn_band` even when the operator never set
+    `--warn-band`. That makes this raise reachable per-snapshot, so — like the
+    three sibling guards above — it is a typed `ValueError` subclass the `run`
+    loop catches and records as a per-row `error`, rather than a bare `ValueError`
+    that escapes the loop and aborts the whole batch (#85, problem 1).
+
+    Whether a low per-snapshot `tolerance` under the *default* `warn_band` should
+    raise at all (vs. clamp `warn_band` down to the tolerance) is a separate
+    semantics question deferred to a human (#85, problem 2); this class only
+    addresses the batch-abort robustness gap and preserves the existing raise."""
+
+
 def diff_response(
     snapshot: Snapshot,
     candidate_text: str,
@@ -500,7 +522,7 @@ def diff_response(
     # llm-eval-harness #40 / llm-cost-optimizer #34 / rag-production-kit #36 /
     # embedding-model-shootout #29 / vector-search-at-scale #27.
     if warn_band > effective_threshold:
-        raise ValueError(
+        raise WarnBandThresholdError(
             f"warn_band must be <= effective_threshold ({effective_threshold}); got {warn_band}"
         )
 

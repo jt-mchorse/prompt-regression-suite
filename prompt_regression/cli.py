@@ -38,6 +38,7 @@ from .diff import (
     EmbeddingDimensionMismatchError,
     HashEmbedder,
     NonFiniteEmbeddingError,
+    WarnBandThresholdError,
     diff_response,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
@@ -218,10 +219,17 @@ def _run_command(args: argparse.Namespace) -> int:
             EmbedderModelMismatchError,
             EmbeddingDimensionMismatchError,
             NonFiniteEmbeddingError,
+            WarnBandThresholdError,
         ) as e:
             # A dimension mismatch (dimension-blind D-006 guard passes, stored
             # vector length differs) must land as a per-row error like the
             # model-name mismatch, not crash the whole batch.
+            #
+            # WarnBandThresholdError joins them (#85): a low per-snapshot
+            # `tolerance` lowers the effective threshold below the *default*
+            # warn_band, so the #35 guard fires even though the operator never
+            # set --warn-band. As a typed guard it lands as a per-row `error`
+            # instead of escaping the loop and aborting every remaining snapshot.
             failed += 1
             rows.append(
                 {

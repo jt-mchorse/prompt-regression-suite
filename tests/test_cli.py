@@ -258,6 +258,44 @@ def test_run_dimension_mismatch_is_per_row_error_not_batch_crash(
     assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
 
 
+def test_run_low_tolerance_under_default_warn_band_is_per_row_error_not_batch_crash(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    # #85: a snapshot with a per-snapshot `tolerance` below DEFAULT_WARN_BAND
+    # (0.05) lowers the *effective* threshold under the default warn_band, so the
+    # #35 guard fires even though the operator never passed --warn-band. That
+    # raise used to be a bare ValueError that escaped the per-snapshot loop and
+    # aborted the whole batch. It must now land as a per-row `error` (typed
+    # WarnBandThresholdError, caught) while other snapshots still diff.
+    d = tmp_path / "snaps"
+    d.mkdir()
+    good = _make_snapshot("good-policy", "Refunds are available within fourteen days.")
+    low_tol = _make_snapshot("low-tol", "anything goes here")
+    low_tol.tolerance = 0.03  # < DEFAULT_WARN_BAND (0.05); operator set no --warn-band
+    save_snapshot(good, d / "good-policy.snapshot.yaml")
+    save_snapshot(low_tol, d / "low-tol.snapshot.yaml")
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [
+            {
+                "snapshot": "good-policy.snapshot.yaml",
+                "candidate": "Refunds are available within fourteen days.",
+            },
+            {"snapshot": "low-tol.snapshot.yaml", "candidate": "anything goes here"},
+        ],
+    )
+    # No --warn-band flag → the run uses DEFAULT_WARN_BAND.
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(candidates), "--format", "json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 1  # the error row fails the run
+    by_id = {r["snapshot_id"]: r for r in payload["rows"]}
+    assert len(by_id) == 2  # both processed — no batch abort
+    assert by_id["low-tol"]["verdict"] == "error"
+    assert any("warn_band must be <= effective_threshold" in n for n in by_id["low-tol"]["notes"])
+    # The good snapshot was still diffed (a real verdict, not skipped/crashed).
+    assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
+
+
 def test_run_non_finite_candidate_is_per_row_error_not_batch_crash(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ):
