@@ -970,3 +970,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-29T03:53Z
+issue: 91
+focus: cli_docstring_and_readme_said_three_subcommands_but_five_shipped_stats_validate_omitted
+phase: night_session_phase_b_iteration_7
+duration_min: 11
+delta:
+  files_changed: 2 # prompt_regression/cli.py docstring + README.md prose
+  tests_added: 0   # doc-only; readme bullet already test-locked
+context_for_next_session:
+  - cli_py_module_docstring_1_14_and_readme_243_said_three_subcommands_run_update_diff_but_build_parser_registers_five_run_529_update_569_diff_589_stats_628_47_validate_646_49_main_dispatches_all_five
+  - readme_feature_bullet_line_34_35_already_correctly_listed_all_five_and_is_test_locked_by_test_readme_subcommand_bullet_matches_live_argparse_only_the_prose_count_three_drifted_when_stats_validate_landed
+  - fix_enumerated_all_five_in_cli_docstring_plus_readme_prose_added_stats_validate_bullets_to_docstring_doc_only_full_suite_305_green_bullet_lock_test_still_passes_ruff_clean
+  - surfaced_by_parallel_doc_contract_subagent_sweep_of_the_four_logic_clean_repos_i_had_cleared_earlier_with_a_logic_bug_lens_doc_contract_lens_found_drift_i_missed
+  - seventh_issue_this_night_run_doc_contract_class_dominant_4_of_first_6_plus_this
+decisions_made: []
+followups: []
+---

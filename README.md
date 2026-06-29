@@ -240,7 +240,8 @@ against real Anthropic API output drops in the same way.
 ## CLI: `prompt-snap` (#5)
 
 `pip install -e .` installs the `prompt-snap` console script with
-three subcommands. The dep-free `HashEmbedder` is the default; the
+five subcommands (`run` / `update` / `diff` / `stats` / `validate`). The
+dep-free `HashEmbedder` is the default; the
 `--embedder` flag accepts `hash` today and reserves `voyage` /
 `openai` / `cohere` for follow-up integrations (they raise a clear
 "not yet wired" error rather than silently using a stale stub).

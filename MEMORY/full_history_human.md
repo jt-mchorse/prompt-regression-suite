@@ -629,3 +629,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains.
+
+## 2026-06-29 — Issue #91: docs said three CLI subcommands, but five ship
+**Duration:** ~11 min · **Branch:** `session/2026-06-29-0353-cli-subcommand-count`
+
+- `cli.py`'s module docstring and README:243 said the `prompt-snap` CLI has "three subcommands" (run/update/diff), but `build_parser()` registers five — `stats` (#47) and `validate` (#49) shipped with handlers and dedicated test files. The README feature bullet already listed all five and is test-locked; only the prose count drifted.
+- Enumerated all five in the cli docstring + README prose and added the stats/validate bullets. Doc-only; the bullet-lock test still passes.
+
+**Why this work, this session:** seventh issue of the night run, from a parallel doc-contract subagent sweep of the logic-clean repos I'd earlier cleared with a logic-bug lens — the doc-contract lens surfaced drift I'd missed.
+
+**Open questions / blockers:** none.
+
+**Next session:** the CLI subcommand count is now consistent across docstring, README prose, and the test-locked bullet.
