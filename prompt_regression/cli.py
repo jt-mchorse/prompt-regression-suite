@@ -1,6 +1,7 @@
-"""``prompt-snap`` CLI: run / update / diff for prompt regression snapshots.
+"""``prompt-snap`` CLI: run / update / diff / stats / validate for prompt
+regression snapshots.
 
-Three subcommands:
+Five subcommands:
 
 - ``run`` walks a directory of ``*.snapshot.yaml`` files, loads candidate
   responses keyed by snapshot path from a JSONL, runs ``diff_response``
@@ -12,6 +13,11 @@ Three subcommands:
 - ``diff`` performs an ad-hoc single-snapshot diff against a candidate
   supplied via ``--candidate`` or stdin. Useful for "is this output
   drifting?" probes outside a CI run.
+- ``stats`` (#47) walks a snapshots directory and emits a population-level
+  summary (model/embedding/schema-version/structured-slot histograms plus
+  the tolerance distribution).
+- ``validate`` (#49) lints a snapshots directory in collecting mode,
+  reporting every malformed snapshot in one pass.
 
 The default embedder is the dep-free ``HashEmbedder``. The
 ``--embedder`` flag accepts ``hash`` today; ``voyage`` / ``openai`` /
