@@ -166,7 +166,17 @@ def _run_command(args: argparse.Namespace) -> int:
         )
         return 2
 
-    candidates = _load_candidates(Path(args.candidates))
+    # The operator-supplied candidates file is a usage/I-O input, exactly like
+    # the snapshots dir handled above: a missing file (OSError via read_text) or
+    # a malformed/duplicate/empty JSONL (ValueError, already carrying path:lineno)
+    # must land as a clean `error:` + exit 2, not escape `main` as a raw traceback
+    # at exit 1 — the "regressions found" code. Mirrors cli.py:157-167; continues
+    # the CLI exit-code contract (#85 run warn-band, #89 diff).
+    try:
+        candidates = _load_candidates(Path(args.candidates))
+    except (OSError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     embedder = make_embedder(args.embedder)
 
     # `--format html` writes a non-trivial multi-KB payload; refuse to

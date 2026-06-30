@@ -140,6 +140,53 @@ def test_run_happy_path_all_pass(
     assert "shipping-policy.snapshot.yaml" in out
 
 
+# --- #93: a missing/malformed --candidates file is a usage error (exit 2) ------
+#
+# `_run_command` translated a missing snapshots dir to exit 2, but the very next
+# line loaded the operator's candidates file with no guard — a missing file
+# (FileNotFoundError) or malformed/duplicate/empty JSONL (ValueError) escaped as
+# a raw traceback at exit 1, the "regressions found" code. These locks were
+# confirmed failing (exit 1, traceback) on pre-fix code.
+
+
+def test_run_missing_candidates_file_exits_two(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    rc = main(
+        ["run", "--snapshots", str(snapshots_dir), "--candidates", str(tmp_path / "nope.jsonl")]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_run_malformed_candidates_file_exits_two(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text("{ not valid json\n", encoding="utf-8")
+    rc = main(["run", "--snapshots", str(snapshots_dir), "--candidates", str(bad)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "invalid JSON" in err
+    assert "Traceback" not in err
+
+
+def test_run_empty_candidates_file_exits_two(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("", encoding="utf-8")
+    rc = main(["run", "--snapshots", str(snapshots_dir), "--candidates", str(empty)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "no candidate rows" in err
+    assert "Traceback" not in err
+
+
 def test_run_failing_candidate_exits_nonzero(
     snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
