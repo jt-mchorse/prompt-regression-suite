@@ -653,3 +653,15 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review. #94 left for a future session (same-repo MEMORY-conflict avoidance). Also noted but not filed: `load_snapshot` inside the per-snapshot loop (`cli.py:187`) leaks on a corrupt snapshot YAML — a distinct per-row-vs-top-level design question.
 
 **Next session:** continue the loop on another repo.
+
+## 2026-06-30 — Issue #94: diff/update usage errors exited 1 instead of 2
+**Duration:** ~15 min · **Branch:** `session/2026-06-30-1951-issue-94`
+
+- `_read_text_arg` signaled usage errors (both `--canonical` and `--canonical-stdin` passed; text empty after stripping) with `raise SystemExit("error: …")`. A `SystemExit` with a *string* argument prints the string but exits with code **1** — the "regressions found" code — for what is a usage error. Used by both `diff` and `update`. Fixed by introducing a typed `_UsageError`; `_diff_command` and `_update_command` (both already return `int`) catch it, print the `error:` line to stderr, and `return 2`, honoring the `0/1/2` contract.
+- +2 new diff lock tests (empty `--candidate` → exit 2; a valid-candidate over-rejection guard). Updated the two pre-existing update usage tests (`test_update_rejects_empty_canonical` / `_both_canonical_sources`) from the old `pytest.raises(SystemExit)` assertion to the new exit-2 contract (added `capsys`). Dropped two initially-added redundant update tests since the updated pre-existing pair already covers those paths. Suite 340 → 342, ruff clean.
+
+**Why this work, this session:** sixth issue of a DAY multi-issue run and the second non-tier repo, after the priority tier's clean work was exhausted. Sibling of #93 (same dogfood sweep). This time I followed the order strictly — branch, then plan comment, then code (no code-before-plan slip).
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop.
