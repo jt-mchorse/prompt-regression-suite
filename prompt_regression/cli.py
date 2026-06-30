@@ -328,7 +328,11 @@ def _update_command(args: argparse.Namespace) -> int:
     snap = load_snapshot(snapshot_path)
     embedder = make_embedder(args.embedder)
 
-    new_text = _read_text_arg(args.canonical, args.canonical_stdin)
+    try:
+        new_text = _read_text_arg(args.canonical, args.canonical_stdin)
+    except _UsageError as e:
+        print(str(e), file=sys.stderr)
+        return 2
     new_embedding = embedder.embed(new_text)
     new_canonical = CanonicalResponse(
         text=new_text,
@@ -359,13 +363,24 @@ def _update_command(args: argparse.Namespace) -> int:
     return 0
 
 
+class _UsageError(Exception):
+    """A CLI usage error that callers translate to a clean stderr line + exit 2.
+
+    `_read_text_arg` previously signaled with `raise SystemExit(str)`, which
+    prints the string but exits with code **1** — the "regressions found" code —
+    for what is a usage error. Raising a typed error instead lets `_diff_command`
+    / `_update_command` (both already return `int`) honor the `0/1/2` contract
+    (#94).
+    """
+
+
 def _read_text_arg(literal: str | None, from_stdin: bool) -> str:
     if literal is not None and from_stdin:
-        raise SystemExit("error: pass --canonical OR --canonical-stdin, not both")
+        raise _UsageError("error: pass --canonical OR --canonical-stdin, not both")
     text = sys.stdin.read() if from_stdin else (literal or "")
     text = text.strip()
     if not text:
-        raise SystemExit("error: candidate text was empty after stripping whitespace")
+        raise _UsageError("error: candidate text was empty after stripping whitespace")
     return text
 
 
@@ -387,7 +402,11 @@ def _diff_command(args: argparse.Namespace) -> int:
 
     snap = load_snapshot(Path(args.snapshot).resolve())
     embedder = make_embedder(args.embedder)
-    candidate = _read_text_arg(args.candidate, args.candidate_stdin)
+    try:
+        candidate = _read_text_arg(args.candidate, args.candidate_stdin)
+    except _UsageError as e:
+        print(str(e), file=sys.stderr)
+        return 2
     try:
         result = diff_response(
             snap,

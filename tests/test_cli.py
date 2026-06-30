@@ -541,30 +541,36 @@ def test_update_canonical_stdin(snapshots_dir: Path, monkeypatch: pytest.MonkeyP
     assert after.canonical.text == new_text.strip()
 
 
-def test_update_rejects_empty_canonical(snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch):
+def test_update_rejects_empty_canonical(
+    snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    # #94: was SystemExit(str) → exit 1; now a clean error + exit 2 (usage code).
     monkeypatch.setattr("sys.stdin", io.StringIO("   \n\n  "))
     path = snapshots_dir / "refund-policy.snapshot.yaml"
-    with pytest.raises(SystemExit, match="empty"):
-        main(["update", "--snapshot", str(path), "--canonical-stdin", "--force"])
+    rc = main(["update", "--snapshot", str(path), "--canonical-stdin", "--force"])
+    assert rc == 2
+    assert "empty" in capsys.readouterr().err
 
 
 def test_update_rejects_both_canonical_sources(
-    snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch
+    snapshots_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
+    # #94: was SystemExit(str) → exit 1; now a clean error + exit 2 (usage code).
     monkeypatch.setattr("sys.stdin", io.StringIO("from stdin\n"))
     path = snapshots_dir / "refund-policy.snapshot.yaml"
-    with pytest.raises(SystemExit, match="not both"):
-        main(
-            [
-                "update",
-                "--snapshot",
-                str(path),
-                "--canonical",
-                "literal arg",
-                "--canonical-stdin",
-                "--force",
-            ]
-        )
+    rc = main(
+        [
+            "update",
+            "--snapshot",
+            str(path),
+            "--canonical",
+            "literal arg",
+            "--canonical-stdin",
+            "--force",
+        ]
+    )
+    assert rc == 2
+    assert "not both" in capsys.readouterr().err
 
 
 # ----------------------------------------------------------------------
@@ -712,3 +718,35 @@ def test_iter_snapshot_paths_dedup_when_filename_matches_multiple_globs(tmp_path
     found = _iter_snapshot_paths(tmp_path)
     assert [p.name for p in found] == ["foo.snapshot.yaml"]
     assert len(found) == 1
+
+
+# ----------------------------------------------------------------------
+# Issue #94: diff/update usage errors from _read_text_arg must exit 2
+# (the 0/1/2 contract), not exit 1 via SystemExit(str).
+# ----------------------------------------------------------------------
+
+
+def _write_snapshot_file(tmp_path: Path) -> Path:
+    snap = _make_snapshot("refund-policy", "Pro plan customers get 14 days to request a return.")
+    p = tmp_path / "refund-policy.snapshot.yaml"
+    save_snapshot(snap, p)
+    return p
+
+
+def test_diff_empty_candidate_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    snap = _write_snapshot_file(tmp_path)
+    rc = main(["diff", "--snapshot", str(snap), "--candidate", "   "])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "empty" in err
+    assert "Traceback" not in err
+
+
+def test_diff_valid_candidate_does_not_exit_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    # Over-rejection guard: a valid candidate still runs the diff (exit 0 or 1,
+    # never the usage code 2).
+    snap = _write_snapshot_file(tmp_path)
+    rc = main(["diff", "--snapshot", str(snap), "--candidate", "some real candidate text"])
+    assert rc in (0, 1)
+    assert "Traceback" not in capsys.readouterr().err
