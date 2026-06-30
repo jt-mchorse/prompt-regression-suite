@@ -641,3 +641,15 @@ close it out across all four repos.
 **Open questions / blockers:** none.
 
 **Next session:** the CLI subcommand count is now consistent across docstring, README prose, and the test-locked bullet.
+
+## 2026-06-30 — Issue #93: `run` leaked a raw traceback (exit 1) on a missing/malformed `--candidates` file
+**Duration:** ~20 min · **Branch:** `session/2026-06-30-1549-issue-93`
+
+- `_run_command` translated a missing snapshots dir / no-snapshot-files to a clean `error:` + exit 2 (`cli.py:157-167`), but the very next line `candidates = _load_candidates(Path(args.candidates))` was unguarded. `_load_candidates` raises `FileNotFoundError` (missing file) and `ValueError` (malformed JSON / non-object row / missing fields / duplicate key / zero rows) — all escaped `main` as a raw traceback at exit 1, the "regressions found" code, breaking the documented `0/1/2` contract. Reproduced all three firsthand.
+- Fixed by wrapping the call in `try/except (OSError, ValueError)` → `error: <msg>` + `return 2`, mirroring the adjacent snapshots-dir handling. +3 lock tests (missing/malformed/empty), confirmed failing pre-fix by reverting only the try/except. Suite 337 → 340, ruff clean.
+
+**Why this work, this session:** fifth issue of a DAY multi-issue run, and the first **non-tier** repo — the priority tier was exhausted for actionable code work this run (eval-harness #126, cost-optimizer #114, rag #106, chunking #92 all shipped; nextjs operator-blocked), so per D-009 I rotated to `prompt-regression-suite` (next in build sequence). It had zero open issues, so dogfood-and-file: I cleared stats.py/io.py myself (both robust) while an Explore hunter scanned cli/diff/html_report/schema/validate, surfacing this exit-code gap plus a sibling (`_read_text_arg` `SystemExit(msg)` → exit 1, filed as **#94**).
+
+**Open questions / blockers:** none — ready for review. #94 left for a future session (same-repo MEMORY-conflict avoidance). Also noted but not filed: `load_snapshot` inside the per-snapshot loop (`cli.py:187`) leaks on a corrupt snapshot YAML — a distinct per-row-vs-top-level design question.
+
+**Next session:** continue the loop on another repo.
