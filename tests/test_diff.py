@@ -115,6 +115,75 @@ def test_diff_response_finite_candidate_still_diffs():
     assert result.cosine_score == pytest.approx(1.0)
 
 
+class _HugeMagnitudeEmbedder:
+    """BYO embedder (Protocol) that returns an all-*finite* vector whose
+    magnitude is large enough to overflow a sum-of-squares to +inf. Dimension
+    matches HashEmbedder so the dimension guard passes and we exercise the
+    cosine-*output* finiteness guard specifically — every component is finite,
+    so `_first_non_finite` (the input guard) accepts it, yet cosine() returns
+    nan (#97)."""
+
+    def __init__(self, model_name: str, dims: int) -> None:
+        self._model_name = model_name
+        self._dims = dims
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name  # matches the stored snapshot so the D-006 guard passes
+
+    def embed(self, text: str) -> list[float]:
+        # 1e200**2 = 1e400 = +inf; the vector itself is entirely finite.
+        return [1e200] * self._dims
+
+
+def test_cosine_overflow_output_is_nan_from_finite_inputs():
+    # Root cause (#97): identical all-finite huge vectors score nan, not 1.0,
+    # because sum(x*x) overflows to +inf and inf/inf = nan. This documents why
+    # the input-only `_first_non_finite` guard is insufficient.
+    assert not math.isfinite(cosine([1e200] * 4, [1e200] * 4))
+
+
+def test_diff_response_overflow_cosine_raises():
+    # #97: an all-finite but out-of-range candidate overflows cosine()'s norm to
+    # nan, which the input guard (`_first_non_finite`) accepts. It must still
+    # raise a catchable NonFiniteEmbeddingError rather than leak nan into
+    # cosine_score / the output as a misleading `fail`. The stored embedding is
+    # also huge (the realistic repro: the snapshot was embedded by the same
+    # out-of-range embedder), so both norms overflow and dot/(na*nb) = inf/inf.
+    e = HashEmbedder()
+    text = "The Pro plan has a 14-day refund window."
+    huge = _HugeMagnitudeEmbedder(e.model_name, len(e.embed(text)))
+    snap = Snapshot(
+        id="overflow-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
+        canonical=CanonicalResponse(
+            text=text, embedding=huge.embed(text), embedding_model=huge.model_name
+        ),
+    )
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        diff_response(snap, text, embedder=huge)
+
+
+def test_semantic_category_overflow_cosine_raises():
+    # #97: the semantic-category channel re-embeds and calls cosine() too, so
+    # the same overflow must raise there rather than leak nan into a
+    # SemanticCategoryScore.cosine_to_response.
+    e = HashEmbedder()
+    text = "The Pro plan has a 14-day refund window."
+    snap = Snapshot(
+        id="overflow-cat-v1",
+        prompt=Prompt(model="claude-haiku-4-5", user="?"),
+        response_shape=ResponseShape(semantic_categories=["refund policy"], structured_slots={}),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+    )
+    huge = _HugeMagnitudeEmbedder(e.model_name, len(e.embed(text)))
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        diff_response(snap, text, embedder=huge)
+
+
 # ----------------------------------------------------------------------
 # cosine + HashEmbedder
 # ----------------------------------------------------------------------
