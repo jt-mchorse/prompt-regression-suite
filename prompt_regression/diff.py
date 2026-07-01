@@ -121,6 +121,30 @@ def _first_non_finite(vec: list[float]) -> tuple[int, float] | None:
     return next(((i, v) for i, v in enumerate(vec) if not math.isfinite(v)), None)
 
 
+def _finite_or_raise(score: float, *, model_name: str, where: str) -> float:
+    """Guard the *output* of `cosine()`, symmetric to `_first_non_finite`'s input guard.
+
+    `_first_non_finite` rejects non-finite input *components*, but an all-finite
+    vector of out-of-range magnitude still overflows ``sum(x * x)`` to ``+inf``,
+    so `cosine()` returns ``inf / inf = nan`` (e.g. two identical ``1e200``
+    vectors score ``nan`` instead of ``1.0``). That ``nan`` slips the input guard
+    and leaks into ``cosine_score`` / the HTML/JSON/PR-comment output as a
+    misleading ``fail`` (``nan >= threshold`` is ``False``). Raise the same
+    catchable `NonFiniteEmbeddingError` the input guard raises so the `run` batch
+    records the row as ``error`` and continues — completing the guard the
+    `NonFiniteEmbeddingError` docstring already promises (#67/#69 covered the
+    non-finite-input path; this covers the finite-input overflow path).
+    """
+    if math.isfinite(score):
+        return score
+    raise NonFiniteEmbeddingError(
+        f"cosine similarity came out non-finite ({score!r}) {where}: an all-finite "
+        f"but out-of-range embedding from {model_name!r} overflowed the norm "
+        "(sum of squares → ±inf). The embedder returned a non-normalized/corrupt "
+        "vector; fix the embedder or re-run."
+    )
+
+
 # ----------------------------------------------------------------------
 # Slot extraction (structural channel)
 # ----------------------------------------------------------------------
@@ -390,7 +414,14 @@ def score_semantic_categories(
                 "returned a corrupt vector; fix the embedder or re-run."
             )
         out.append(
-            SemanticCategoryScore(name=cat, cosine_to_response=cosine(response_vec, cat_vec))
+            SemanticCategoryScore(
+                name=cat,
+                cosine_to_response=_finite_or_raise(
+                    cosine(response_vec, cat_vec),
+                    model_name=embedder.model_name,
+                    where=f"for semantic category {cat!r}",
+                ),
+            )
         )
     return out
 
@@ -564,7 +595,11 @@ def diff_response(
             f"component at index {bad[0]}: {bad[1]!r}. The embedder returned a "
             "corrupt vector; fix the embedder or re-run."
         )
-    cosine_score = cosine(candidate_vec, snapshot.canonical.embedding)
+    cosine_score = _finite_or_raise(
+        cosine(candidate_vec, snapshot.canonical.embedding),
+        model_name=embedder.model_name,
+        where="for the main cosine_score",
+    )
 
     category_scores = score_semantic_categories(
         candidate_text, snapshot.response_shape.semantic_categories, embedder=embedder
