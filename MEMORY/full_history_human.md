@@ -665,3 +665,15 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop.
+
+## 2026-07-01 — Issue #97: cosine() overflow leaks nan into cosine_score (hole in the NonFiniteEmbeddingError guard)
+**Duration:** ~25 min · **Branch:** `session/2026-07-01-1538-issue-97`
+
+- `NonFiniteEmbeddingError` documents a guarantee: a corrupt BYO embedder must raise a catchable per-row error, never leak a `nan` `cosine_score` into the HTML/JSON/PR-comment output. The `_first_non_finite` guard (#67/#69) enforced that only for non-finite *input components* — but `cosine()` can produce `nan` from all-finite inputs: `sum(x*x)` overflows to `+inf` for out-of-range magnitudes, so `dot/(na*nb) = inf/inf = nan` (two identical `1e200` vectors score `nan` instead of `1.0`). That `nan` slipped the input guard and landed in `cosine_score`/`to_dict()` as a misleading `fail`. Reproduced firsthand both directly and end-to-end before fixing.
+- Fixed with a symmetric output guard (`_finite_or_raise`) at both BYO-vector call sites (`diff_response` main score + `score_semantic_categories` per-category), raising the same catchable error. Fail-loud, matching the module's posture toward non-normalized/corrupt vectors. +4 tests (both overflow paths raise, direct cosine-nan root cause, finite over-rejection guard); suite 341 → 345, ruff + format clean. Filed `priority:low` — realism is low (needs ~1e153+ magnitude, which no L2-normalizing production embedder emits), but the threat model is identical to #67/#69 and the guard was demonstrably incomplete.
+
+**Why this work, this session:** second issue of the DAY run. The portfolio is deeply saturated — a broad 4-repo parallel dogfood sweep (chunking, embedding-shootout, prompt-regression, python-async) returned NO_BUG on three after exhaustive fuzzing; only this cosine-overflow contract gap held up under firsthand repro.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop; portfolio saturation is deep (this run: ~11 hunter/self reads across 7 repos, only 3 real bugs total — 2 in mcp postgres, 1 here).
