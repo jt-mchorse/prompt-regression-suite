@@ -207,7 +207,14 @@ class SlotDelta:
 # `(?<![\w-])` lookbehind keeps genuine negatives (`-30`, `-2.5`) and the
 # `14-day` → `14` case working while rejecting hyphenated identifiers. See #79.
 _INTEGER_RE = re.compile(r"(?<![\w-])-?\d+\b")
-_NUMBER_RE = re.compile(r"(?<![\w-])-?\d+\.?\d*\b")
+# The `\.\d+` alternative catches a leading-decimal number (`.5`, `.05`, `-.5`),
+# common for rates/probabilities/discounts. The old `-?\d+\.?\d*` required at
+# least one digit *before* the point, so on `.05` the leading `.` failed to
+# start a match but `\d+` then matched `05` — extracting `5.0` and dropping the
+# fraction, silently masking a number-loss regression. The bare-`.`-only case
+# (no trailing digit) is excluded, and `_INTEGER_RE` is unchanged (integers have
+# no leading decimal). Preserves the #79 hyphen guards (`14-day`→14, `W-2`→none).
+_NUMBER_RE = re.compile(r"(?<![\w-])-?(?:\d+\.?\d*|\.\d+)\b")
 _QUOTED_RE = re.compile(r"\"([^\"]+)\"|'([^']+)'")
 
 

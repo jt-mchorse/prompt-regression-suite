@@ -252,6 +252,36 @@ def test_extract_integer_hyphen_after_digits_unchanged():
     assert extract_slots("a 14-day refund window", slot) == {"refund_days": 14}
 
 
+# --- #100: leading-decimal numbers (`.5`, `.05`) must extract as the fraction --
+#
+# The old `_NUMBER_RE = -?\d+\.?\d*` required a digit *before* the point, so on
+# `.05` the leading `.` failed to start a match but `\d+` matched `05` — yielding
+# `5.0` and dropping the fraction, silently masking a number-loss regression.
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("the discount rate is .05", 0.05),
+        ("probability .5 of success", 0.5),
+        ("a $.05 surcharge applies", 0.05),
+        ("the delta is -.5 degrees", -0.5),
+    ],
+)
+def test_extract_leading_decimal_number(text: str, expected: float):
+    slot = {"rate": {"type": "number"}}
+    assert extract_slots(text, slot) == {"rate": expected}
+
+
+def test_extract_number_controls_unchanged_by_leading_decimal_fix():
+    # The `\.\d+` alternative must not disturb any already-correct form.
+    slot = {"v": {"type": "number"}}
+    assert extract_slots("value 0.5 here", slot) == {"v": 0.5}
+    assert extract_slots("count 5 items", slot) == {"v": 5.0}
+    assert extract_slots("drop -2.5 now", slot) == {"v": -2.5}
+    assert extract_slots("pi is 3.14 roughly", slot) == {"v": 3.14}
+
+
 def test_extract_quoted_string():
     text = 'The customer is on the "Pro" plan.'
     slots = {"plan_name": {"type": "string", "description": "plan tier"}}
