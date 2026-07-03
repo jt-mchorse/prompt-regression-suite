@@ -35,6 +35,8 @@ from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
+
 from .diff import (
     DEFAULT_THRESHOLD,
     DEFAULT_WARN_BAND,
@@ -49,7 +51,7 @@ from .diff import (
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import atomic_write_text, load_snapshot, save_snapshot
-from .schema import CanonicalResponse, Snapshot
+from .schema import CanonicalResponse, Snapshot, SnapshotValidationError
 from .stats import StatsError, collect_stats, render_summary
 from .validate import validate_snapshots
 
@@ -194,8 +196,26 @@ def _run_command(args: argparse.Namespace) -> int:
     failed = 0
     skipped = 0
     for path in snapshot_paths:
-        snap = load_snapshot(path)
         rel = path.relative_to(snapshots_dir).as_posix()
+        # A malformed snapshot under the run dir is an operator input error, not
+        # a regression: it must land as a clean `error:` + exit 2, not escape as
+        # a raw traceback at exit 1 (the "regressions found" code). `run` aborts
+        # on the first bad file by design (that's what the collecting-mode
+        # `validate` command is for), but the abort should be legible. Mirrors
+        # the `--candidates` handling above (cli.py) and the exit-code contract
+        # from #93/#95, #94/#96, #89/#90. `SnapshotValidationError` subclasses
+        # `ValueError`; `yaml.YAMLError` (a raw YAML syntax error from
+        # `load_snapshot`) does not — so both are named explicitly (#99).
+        try:
+            snap = load_snapshot(path)
+        except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+            print(f"error: could not load snapshot {rel}: {e}", file=sys.stderr)
+            print(
+                f"hint: run 'prompt-snap validate {snapshots_dir}' to list every "
+                "malformed snapshot in one pass.",
+                file=sys.stderr,
+            )
+            return 2
         # `rel` takes precedence over `snap.id`, but check key membership
         # explicitly: an `or` chain treats a present empty-string candidate
         # (the model returned nothing — itself a regression) as missing and
