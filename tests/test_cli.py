@@ -187,6 +187,45 @@ def test_run_empty_candidates_file_exits_two(
     assert "Traceback" not in err
 
 
+# --- #99: a malformed *snapshot* under the run dir is a usage error (exit 2) ---
+#
+# `_run_command` loaded each snapshot with an unguarded `load_snapshot(path)`, so
+# a schema-invalid snapshot (SnapshotValidationError, a ValueError subclass) or a
+# YAML-syntax-broken one (yaml.YAMLError, NOT a ValueError) escaped as a raw
+# traceback at exit 1 — the "regressions found" code — the same class #93/#95
+# fixed for the sibling --candidates input. `run` still aborts on the first bad
+# file (that's what `validate` collects), but legibly: `error:` + exit 2.
+
+
+def test_run_schema_invalid_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    d = tmp_path / "snaps"
+    d.mkdir()
+    # Valid YAML, schema-invalid: `prompt` is not a mapping.
+    (d / "bad.yml").write_text("id: broken\nprompt: not-a-mapping\n", encoding="utf-8")
+    cands = _write_candidates(tmp_path / "cands.jsonl", [{"snapshot": "bad.yml", "candidate": "x"}])
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(cands)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "bad.yml" in err
+    assert "validate" in err  # points the operator at the collecting-mode command
+    assert "Traceback" not in err
+
+
+def test_run_yaml_broken_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    d = tmp_path / "snaps"
+    d.mkdir()
+    # YAML syntax error (unclosed flow sequence) → yaml.YAMLError, not a ValueError.
+    (d / "bad.yml").write_text("id: x\nprompt: [unclosed\n", encoding="utf-8")
+    cands = _write_candidates(tmp_path / "cands.jsonl", [{"snapshot": "bad.yml", "candidate": "x"}])
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(cands)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "bad.yml" in err
+    assert "Traceback" not in err
+
+
 def test_run_failing_candidate_exits_nonzero(
     snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
