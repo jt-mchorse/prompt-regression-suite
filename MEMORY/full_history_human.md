@@ -677,3 +677,15 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop; portfolio saturation is deep (this run: ~11 hunter/self reads across 7 repos, only 3 real bugs total — 2 in mcp postgres, 1 here).
+
+## 2026-07-03 — Issue #99: prompt-snap run leaked a raw traceback (exit 1) on a malformed snapshot
+**Duration:** ~25 min · **Branch:** `session/2026-07-03-1532-issue-99` · **PR:** #101
+
+- `_run_command` loaded each snapshot with an unguarded `load_snapshot(path)`, and `main()` catches nothing, so a schema-invalid snapshot (`SnapshotValidationError`) or a YAML-syntax-broken one (`yaml.YAMLError`) escaped as a raw traceback and Python exited 1 — the "regressions found" code. Reproduced firsthand for both variants. This is the same class #93/#95 fixed for the sibling `--candidates` input on the same command.
+- Fixed by wrapping the load in a try/except for `(OSError, SnapshotValidationError, yaml.YAMLError)`, printing a clean `error:` that names the file and points at `prompt-snap validate <dir>` (the collecting-mode command), and returning 2. `run` still aborts on the first bad file by design (validate is the pre-flight); the abort is just legible now. `SnapshotValidationError` subclasses `ValueError` but `yaml.YAMLError` does not, so both are named. +2 regression tests (confirmed failing pre-fix). Full pytest green; ruff check + format clean.
+
+**Why this work, this session:** third issue of the DAY multi-issue loop. Portfolio saturated (zero open issues repo-wide), so I dogfooded `prompt-regression-suite` (stalest repo past the 36h floor). Two parallel Explore hunters: one hit a leading-decimal regex bug (filed #100, working next), one returned two borderline design findings I skipped. This #99 I found firsthand during a CLI review, not from an agent.
+
+**Open questions / blockers:** none — ready for review. Sibling note: this PR and the upcoming #100 PR both append to these MEMORY files; whichever merges second needs a trivial serial rebase (documented pattern).
+
+**Next in this session's loop:** fix #100 (leading-decimal extraction), same repo.
