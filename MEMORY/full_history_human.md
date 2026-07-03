@@ -689,3 +689,15 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review. Sibling note: this PR and the upcoming #100 PR both append to these MEMORY files; whichever merges second needs a trivial serial rebase (documented pattern).
 
 **Next in this session's loop:** fix #100 (leading-decimal extraction), same repo.
+
+## 2026-07-03 — Issue #100: extract_slots dropped the fraction on a leading-decimal number
+**Duration:** ~20 min · **Branch:** `session/2026-07-03-1536-issue-100` · **PR:** #102
+
+- `_NUMBER_RE = -?\d+\.?\d*` required a digit *before* the decimal point, so on a leading-decimal number like `.05` the leading `.` failed to start a match but `\d+` then matched `05` — the extractor captured `5.0`, dropping the fraction. Rate/probability/discount "number" slots commonly use this notation, so `.05` silently recorded `5.0` and could mask a number-loss regression as `ok`. Reproduced firsthand (agent-surfaced finding, verified before fixing).
+- Fixed by adding a leading-decimal alternative: `-?(?:\d+\.?\d*|\.\d+)`. `.5`→`0.5`, `.05`→`0.05`, `-.5`→`-0.5`, `$.05`→`0.05`. Every control preserved (`0.5`, `5`, `-2.5`, `3.14`) and the #79 hyphen guards intact (`14-day`→14, `W-2`→none). `_INTEGER_RE` unchanged. +6 regression tests. Full pytest green; ruff clean.
+
+**Why this work, this session:** fourth issue of the DAY loop, second in this repo. One of two parallel dogfood hunters surfaced it; I verified firsthand before fixing per the saturation guidance.
+
+**Open questions / blockers:** none — ready for review. Sibling note: PR #101 (#99) and #102 (#100) both append to these MEMORY files; whichever merges second needs a trivial serial rebase.
+
+**Next in this session's loop:** priority-tier and this repo now worked; rotate to the next repo (ai-app-integration-tests / python-async-llm-pipelines are the remaining >36h repos).
