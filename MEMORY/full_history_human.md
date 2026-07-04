@@ -711,3 +711,15 @@ close it out across all four repos.
 **Open questions / blockers.** None — ready for review.
 
 **Next in this session's loop:** continue #55 propagation to vector-search-at-scale and python-async-llm-pipelines, one small PR each.
+
+## 2026-07-04 — Issue #105: warn_band == effective_threshold collapses the fail/warn gate
+**Duration:** ~30 min · **Branch:** `session/2026-07-04-1922-issue-105` · **PR:** #106
+
+- `diff_response`'s guard (`diff.py:562`) used `warn_band > effective_threshold`, but the collapse it exists to prevent also happens at the exact boundary `warn_band == effective_threshold`: the warn floor `max(0.0, thr - wb)` is already `0.0` there, so `cosine_warn = cosine >= 0.0` is true for every sub-threshold cosine down to maximum drift (0.0). Every regression is demoted `fail` → `warn`, and since `run`/`diff` count only `fail`, a total regression exits 0 and passes CI green — the exact silent degradation the #35 guard was meant to stop. Reachable with no `--warn-band` flag: a snapshot `tolerance == DEFAULT_WARN_BAND` (0.05) hits `warn_band == effective_threshold`. Reproduced live on `main` before fixing.
+- Changed the guard to `>=` (the floor is only safe when strictly positive) and the message to `"must be < effective_threshold"`; also fixed the inverted `DEFAULT_WARN_BAND` inline comment (band is `[thr - wb, thr)`, not `[thr, thr + wb)`). An existing test was pinning the bug — it asserted `warn_band == threshold` is *accepted* — so I moved that boundary value to the reject set and added two regression tests (the kwargs boundary and the no-flag `tolerance == DEFAULT_WARN_BAND` reachability). 356 → 359 passing, ruff clean.
+
+**Why this work, this session:** Portfolio is deeply saturated — zero `priority:high`, the two `priority:med` are JT-blocked decision-revisits. Priority-tier dogfood hunts came up empty (llm-eval-harness, llm-cost-optimizer, rag-production-kit + nextjs manual), so I rotated to a non-tier hunt round; of 4 non-tier repos (vector-search, python-async, embedding-shootout, prompt-regression-suite), only this one had a real, reproducible correctness bug.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** non-tier round exhausted (3 clean, 1 fixed); portfolio-ops #55 verified and closed earlier this run. Wind down toward the DAY cap.
