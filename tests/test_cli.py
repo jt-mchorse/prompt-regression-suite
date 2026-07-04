@@ -377,7 +377,7 @@ def test_run_low_tolerance_under_default_warn_band_is_per_row_error_not_batch_cr
     by_id = {r["snapshot_id"]: r for r in payload["rows"]}
     assert len(by_id) == 2  # both processed — no batch abort
     assert by_id["low-tol"]["verdict"] == "error"
-    assert any("warn_band must be <= effective_threshold" in n for n in by_id["low-tol"]["notes"])
+    assert any("warn_band must be < effective_threshold" in n for n in by_id["low-tol"]["notes"])
     # The good snapshot was still diffed (a real verdict, not skipped/crashed).
     assert by_id["good-policy"]["verdict"] in {"pass", "warn", "fail"}
 
@@ -702,7 +702,7 @@ def test_diff_low_tolerance_under_default_warn_band_is_clean_error_not_traceback
     assert rc == 2
     err = capsys.readouterr().err
     assert "error:" in err
-    assert "warn_band must be <= effective_threshold" in err
+    assert "warn_band must be < effective_threshold" in err
 
 
 # ----------------------------------------------------------------------

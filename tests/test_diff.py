@@ -16,6 +16,7 @@ import math
 import pytest
 
 from prompt_regression import (
+    DEFAULT_WARN_BAND,
     CanonicalResponse,
     DiffResult,
     EmbedderModelMismatchError,
@@ -583,33 +584,64 @@ def test_nan_warn_band_would_demote_fail_to_warn_without_the_guard():
         )
 
 
-# Issue #35: warn_band > effective_threshold silently collapses the fail/warn
+# Issue #35 / #105: warn_band >= effective_threshold collapses the fail/warn
 # distinction on the cosine channel because the warn floor `max(0.0, threshold
-# - warn_band)` clamps at zero, so every non-passing cosine becomes "warn".
-# The upper-bound guard rejects the misconfig at the entry site, matching the
+# - warn_band)` clamps at zero (negative for `>`, already zero at the exact
+# `==` boundary), so every non-passing cosine down to 0.0 becomes "warn". The
+# guard rejects the misconfig at the entry site — the floor is only safe when
+# strictly positive, i.e. warn_band < effective_threshold — matching the
 # existing (0, 1] threshold contract.
 @pytest.mark.parametrize(
     "bad_warn_band",
-    [0.51, 0.6, 0.9, 1.01, 5.0],  # all > effective_threshold = 0.5
+    [0.5, 0.51, 0.6, 0.9, 1.01, 5.0],  # all >= effective_threshold = 0.5 (0.5 is the boundary)
 )
-def test_warn_band_rejected_above_threshold(bad_warn_band: float):
+def test_warn_band_rejected_at_or_above_threshold(bad_warn_band: float):
     e = HashEmbedder()
     snap = _make_snapshot("anything", embedder=e)
-    with pytest.raises(ValueError, match=r"warn_band must be <= effective_threshold \(0\.5\); got"):
+    with pytest.raises(ValueError, match=r"warn_band must be < effective_threshold \(0\.5\); got"):
         diff_response(snap, "x", embedder=e, threshold=0.5, warn_band=bad_warn_band)
 
 
 @pytest.mark.parametrize(
     "good_warn_band",
-    [0.0, 0.25, 0.5],  # 0.0 = strict pass/fail; 0.5 = equal-to-threshold inclusive bound
+    [0.0, 0.25, 0.49],  # 0.0 = strict pass/fail; all strictly < threshold = 0.5
 )
-def test_warn_band_accepted_at_or_below_threshold(good_warn_band: float):
+def test_warn_band_accepted_below_threshold(good_warn_band: float):
     e = HashEmbedder()
     snap = _make_snapshot("anything", embedder=e)
     # Use canonical text so cosine == 1.0 — the verdict path isn't what's under test,
     # we're only proving the guard accepts these values without raising.
     result = diff_response(snap, "anything", embedder=e, threshold=0.5, warn_band=good_warn_band)
     assert result.verdict in ("pass", "warn", "fail")
+
+
+# Issue #105: the exact boundary `warn_band == effective_threshold` must be
+# rejected, not accepted. Before the `>=` fix it slipped through the `>` guard,
+# the warn floor `max(0.0, thr - wb)` was `0.0`, and a maximum-drift candidate
+# (cosine 0.0) was demoted from "fail" to "warn" — silently disabling the gate.
+def test_warn_band_equal_to_threshold_is_rejected_not_demoted_to_warn():
+    e = HashEmbedder()
+    snap = _make_snapshot("the refund window is fourteen calendar days", embedder=e)
+    with pytest.raises(
+        WarnBandThresholdError,
+        match=r"warn_band must be < effective_threshold \(0\.85\); got 0\.85",
+    ):
+        diff_response(snap, "zzz qqq xylophone bicycle", embedder=e, threshold=0.85, warn_band=0.85)
+
+
+def test_snapshot_tolerance_equal_to_default_warn_band_does_not_disable_gate():
+    # The no-flag reachability path (#105): a snapshot whose per-snapshot
+    # tolerance equals DEFAULT_WARN_BAND (0.05) with all run-level defaults hits
+    # `warn_band == effective_threshold`. It must fail loud via the guard rather
+    # than silently demote every regression to "warn" and pass CI green.
+    e = HashEmbedder()
+    snap = _make_snapshot("the refund window is fourteen calendar days", embedder=e)
+    snap.tolerance = DEFAULT_WARN_BAND  # 0.05 == default warn_band
+    with pytest.raises(
+        WarnBandThresholdError,
+        match=r"warn_band must be < effective_threshold \(0\.05\); got 0\.05",
+    ):
+        diff_response(snap, "zzz qqq xylophone bicycle", embedder=e)
 
 
 def test_warn_band_guard_uses_effective_threshold_when_tolerance_overrides():
@@ -620,7 +652,7 @@ def test_warn_band_guard_uses_effective_threshold_when_tolerance_overrides():
     snap = _make_snapshot("anything", embedder=e)
     snap.tolerance = 0.3  # tighter than the kwarg below
     with pytest.raises(
-        ValueError, match=r"warn_band must be <= effective_threshold \(0\.3\); got 0\.4"
+        ValueError, match=r"warn_band must be < effective_threshold \(0\.3\); got 0\.4"
     ):
         diff_response(snap, "x", embedder=e, threshold=0.9, warn_band=0.4)
 
@@ -648,7 +680,7 @@ def test_warn_band_guard_fires_for_low_tolerance_under_default_warn_band():
     snap.tolerance = 0.03  # < DEFAULT_WARN_BAND
     with pytest.raises(
         WarnBandThresholdError,
-        match=r"warn_band must be <= effective_threshold \(0\.03\); got 0\.05",
+        match=r"warn_band must be < effective_threshold \(0\.03\); got 0\.05",
     ):
         diff_response(snap, "hello world test", embedder=e)
 
