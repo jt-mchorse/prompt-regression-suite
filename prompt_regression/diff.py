@@ -28,7 +28,7 @@ from typing import Any, Protocol
 from prompt_regression.schema import Snapshot
 
 DEFAULT_THRESHOLD = 0.85
-DEFAULT_WARN_BAND = 0.05  # warn if cosine in [threshold, threshold + warn_band)
+DEFAULT_WARN_BAND = 0.05  # warn if cosine in [threshold - warn_band, threshold)
 
 
 # ----------------------------------------------------------------------
@@ -551,17 +551,23 @@ def diff_response(
     if warn_band < 0:
         raise ValueError(f"warn_band must be non-negative; got {warn_band}")
     # Upper bound matches the existing `(0, 1]` contract on `effective_threshold`.
-    # When `warn_band > effective_threshold`, the warn floor `effective_threshold
-    # - warn_band` is negative; the `max(0.0, ...)` clamp at the cosine_warn site
-    # silently rewrites the floor as `0.0`, collapsing the fail/warn distinction
-    # on the cosine channel — sub-threshold cosines become "warn" indistinguishably.
-    # Reject at the entry site (#35) so the misconfig fails loud, matching D-006's
-    # "no silent degradation" posture and the contract-tightening sweep in
-    # llm-eval-harness #40 / llm-cost-optimizer #34 / rag-production-kit #36 /
-    # embedding-model-shootout #29 / vector-search-at-scale #27.
-    if warn_band > effective_threshold:
+    # When `warn_band >= effective_threshold`, the warn floor `max(0.0,
+    # effective_threshold - warn_band)` clamps to `0.0` — at `warn_band >
+    # effective_threshold` the raw floor is negative, and at the *exact boundary*
+    # `warn_band == effective_threshold` it is already `0.0`. Either way the
+    # cosine_warn floor becomes `0.0`, so `cosine_score >= 0.0` holds for *every*
+    # sub-threshold cosine down to maximum drift (0.0): the fail/warn distinction
+    # collapses on the cosine channel and every regression is demoted to "warn",
+    # which `run`/`diff` never count as a failure — the gate passes CI green
+    # (#105). The floor is only safe when strictly positive, i.e. `warn_band <
+    # effective_threshold`, so reject `>=` (not just `>`) at the entry site (#35)
+    # so the misconfig fails loud, matching D-006's "no silent degradation"
+    # posture and the contract-tightening sweep in llm-eval-harness #40 /
+    # llm-cost-optimizer #34 / rag-production-kit #36 / embedding-model-shootout
+    # #29 / vector-search-at-scale #27.
+    if warn_band >= effective_threshold:
         raise WarnBandThresholdError(
-            f"warn_band must be <= effective_threshold ({effective_threshold}); got {warn_band}"
+            f"warn_band must be < effective_threshold ({effective_threshold}); got {warn_band}"
         )
 
     if not force and embedder.model_name != snapshot.canonical.embedding_model:
