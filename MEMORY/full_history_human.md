@@ -701,3 +701,13 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review. Sibling note: PR #101 (#99) and #102 (#100) both append to these MEMORY files; whichever merges second needs a trivial serial rebase.
 
 **Next in this session's loop:** priority-tier and this repo now worked; rotate to the next repo (ai-app-integration-tests / python-async-llm-pipelines are the remaining >36h repos).
+
+## 2026-07-03 — Issue #103: symbol-resolution doc-lock (propagates portfolio-ops #55) (~25 min)
+
+**What got done.** Added a fifth invariant to `tests/test_architecture_doc.py`: every `<submodule>.<symbol>` ref and multi-word CamelCase public type named in `docs/architecture.md` must resolve against the `prompt_regression` package, its submodules, or the Python builtins. That closes the drift class portfolio-ops #55 catalogued (a doc naming a nonexistent type passes CI). The doc names 8 real types — `CanonicalResponse`, `DiffResult`, `ResponseShape`, `SemanticCategoryScore`, `SlotDelta`, `StatsReport`, `ToleranceDistribution`, and `ValidationFinding` (which lives in the `validate` submodule, not re-exported at package level, so submodule coverage is load-bearing). Single-word capitalized tokens and bare snake_case are excluded to avoid prose/field-name false positives. Baked in an inverse-safety-net test (inject a drifted symbol, assert it's flagged) plus hard-pins for the skip-extension and subpackage sets. Suite +4 tests, ruff clean.
+
+**Why prioritized.** Second worked issue of the DAY run, continuing the #55 propagation after chunking-strategies-lab #104. With all priority-tier repos now carrying the symbol lock and no other actionable unblocked tier work, selection rotated to non-tier repos by build sequence; prompt-regression-suite (build-seq #3) is the earliest among the remaining gap repos.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next in this session's loop:** continue #55 propagation to vector-search-at-scale and python-async-llm-pipelines, one small PR each.
