@@ -171,6 +171,47 @@ def test_anchor_slugifies_unsafe_characters():
     assert _safe_anchor("!!!") == "snapshot"
 
 
+def test_colliding_snapshot_ids_get_unique_anchors():
+    # Regression (#107): `_safe_anchor` collapses case + separator style, so
+    # `"My Test"`, `"my-test"`, `"my_test"` all slugify to `snapshot-my-test`.
+    # Emitting them raw produced three sections with the same `id=` — invalid
+    # HTML, and every `#snapshot-my-test` deep-link jumped to the first one.
+    # render_report must disambiguate so each section has a document-unique id.
+    import re
+
+    entries = [
+        ReportEntry("My Test", _diff(verdict="pass"), "ok"),
+        ReportEntry("my-test", _diff(verdict="warn"), "ok"),
+        ReportEntry("my_test", _diff(verdict="fail"), "ok"),
+    ]
+    html = render_report(entries)
+
+    ids = re.findall(r'id="(snapshot-[^"]*)"', html)
+    assert len(ids) == 3, ids
+    assert len(set(ids)) == 3, f"duplicate section ids: {ids}"
+    # GitHub-style disambiguation: first keeps the base, then -1, -2.
+    assert ids == ["snapshot-my-test", "snapshot-my-test-1", "snapshot-my-test-2"]
+    # Every header anchor link targets an id that actually exists exactly once,
+    # so no deep-link silently resolves to the wrong section.
+    for href in re.findall(r'href="#(snapshot-[^"]*)"', html):
+        assert ids.count(href) == 1, f"href #{href} is ambiguous among {ids}"
+
+
+def test_suffixed_anchor_does_not_collide_with_literal_id():
+    # The disambiguator loops against all assigned anchors, so a synthesized
+    # `-1` suffix can't clash with a real snapshot literally named to hit it.
+    import re
+
+    entries = [
+        ReportEntry("dup", _diff(verdict="pass"), "ok"),
+        ReportEntry("dup", _diff(verdict="pass"), "ok"),  # -> snapshot-dup-1
+        ReportEntry("dup-1", _diff(verdict="pass"), "ok"),  # must NOT reuse snapshot-dup-1
+    ]
+    html = render_report(entries)
+    ids = re.findall(r'id="(snapshot-[^"]*)"', html)
+    assert len(set(ids)) == 3, f"duplicate section ids: {ids}"
+
+
 def test_notes_block_renders_when_present():
     diff = _diff(verdict="warn", notes=["embedder model mismatch overridden via force=True"])
     entry = ReportEntry("n", diff, "x", baseline_text="y")
