@@ -66,8 +66,42 @@ Entry = ReportEntry | ErrorEntry
 def render_report(entries: list[Entry], *, title: str = "Prompt regression report") -> str:
     """Render the full HTML page. Single self-contained string."""
     summary = _summarize(entries)
-    sections = [_render_entry(e) for e in entries]
+    anchors = _assign_unique_anchors(entries)
+    sections = [_render_entry(e, anchor) for e, anchor in zip(entries, anchors, strict=True)]
     return _wrap_page(title, summary, sections)
+
+
+def _assign_unique_anchors(entries: list[Entry]) -> list[str]:
+    """Return one document-unique anchor per entry, in entry order.
+
+    Each section's anchor is `snapshot-<slug>` where `<slug>` comes from
+    `_safe_anchor`. That slug lowercases and collapses every non-alphanumeric
+    run (space, `_`, `-`) to a single `-`, so distinct snapshot ids that differ
+    only in case or separator style (`"My Test"`, `"my-test"`, `"my_test"`)
+    slugify identically. Emitting them as raw `id=` values would produce
+    duplicate ids — invalid HTML, and worse, every colliding `#snapshot-...`
+    deep-link would jump to the *first* matching section, silently defeating
+    the per-snapshot anchoring this report exists to provide (module docstring).
+
+    Disambiguate GitHub-style: the first occurrence of a base anchor keeps it,
+    each subsequent collision gets `-1`, `-2`, … The bump loops against the set
+    of already-assigned anchors (not just a per-base counter) so a suffixed
+    candidate can't collide with a literal snapshot id like `foo-1`. Order-
+    stable and deterministic: the same entry list always yields the same
+    anchors.
+    """
+    used: set[str] = set()
+    counts: dict[str, int] = {}
+    anchors: list[str] = []
+    for entry in entries:
+        base = f"snapshot-{_safe_anchor(html.escape(entry.snapshot_id))}"
+        candidate = base
+        while candidate in used:
+            counts[base] = counts.get(base, 0) + 1
+            candidate = f"{base}-{counts[base]}"
+        used.add(candidate)
+        anchors.append(candidate)
+    return anchors
 
 
 def _summarize(entries: list[Entry]) -> dict[str, int]:
@@ -79,13 +113,12 @@ def _summarize(entries: list[Entry]) -> dict[str, int]:
     return counts
 
 
-def _render_entry(entry: Entry) -> str:
+def _render_entry(entry: Entry, anchor: str) -> str:
     if isinstance(entry, ErrorEntry):
-        return _render_error_entry(entry)
+        return _render_error_entry(entry, anchor)
     verdict = entry.diff.verdict
     klass = f"section {verdict}"
     snap_id = html.escape(entry.snapshot_id)
-    anchor = f"snapshot-{_safe_anchor(snap_id)}"
     score = f"{entry.diff.cosine_score:.3f}"
     threshold = f"{entry.diff.threshold:.3f}"
     badge = f'<span class="badge {verdict}">{verdict.upper()}</span>'
@@ -119,9 +152,8 @@ def _render_entry(entry: Entry) -> str:
     return "\n".join(parts)
 
 
-def _render_error_entry(entry: ErrorEntry) -> str:
+def _render_error_entry(entry: ErrorEntry, anchor: str) -> str:
     snap_id = html.escape(entry.snapshot_id)
-    anchor = f"snapshot-{_safe_anchor(snap_id)}"
     badge = '<span class="badge error">ERROR</span>'
     return "\n".join(
         [
