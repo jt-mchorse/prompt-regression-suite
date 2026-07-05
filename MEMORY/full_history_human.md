@@ -723,3 +723,15 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** non-tier round exhausted (3 clean, 1 fixed); portfolio-ops #55 verified and closed earlier this run. Wind down toward the DAY cap.
+
+## 2026-07-05 — Issue #107: colliding snapshot ids emit duplicate HTML `id` anchors
+**Duration:** ~30 min · **Branch:** `session/2026-07-05-1521-issue-107` · **PR:** #108
+
+- The HTML report anchors each section as `#snapshot-<id>` (module docstring, line 9) so a CI artifact can deep-link to a specific snapshot. `_safe_anchor` lowercases and collapses every non-alphanumeric run to one `-`, so distinct snapshot ids differing only in case or separator style — `"My Test"`, `"my-test"`, `"my_test"` — all slugified to `snapshot-my-test`. `render_report` then emitted three `<section>`s with the same `id=`: invalid HTML, and every colliding deep-link jumped to the *first* matching section, silently defeating the per-snapshot anchoring the report exists for. Reproduced firsthand on `main` before filing.
+- Fixed by assigning anchors once across all entries with GitHub-style disambiguation (`-1`, `-2` on collision), looping against the set of already-assigned anchors so a synthesized suffix can't clash with a snapshot literally named `foo-1`. `_render_entry`/`_render_error_entry` now take the pre-assigned anchor; `_safe_anchor`'s single-name behavior and the public `render_report` signature are unchanged. Added two lock tests (colliding-ids uniqueness + suffix-vs-literal-id). 359 → 361 passing, ruff clean.
+
+**Why this work, this session:** Portfolio is deeply saturated — Phase A found no mergeable PRs (drafts are display-blocked demo captures + JT-gated lco#124), a clean six-fingerprint audit, and eight dogfood hunts across two waves (metric math, escaping/GFM, stats, MCP servers, async concurrency, RRF/citation, retry/approval) all came up empty on Python 3.14-green suites. The one real bug was a lead the prompt-regression hunter under-rated as a "defensible design choice"; duplicate HTML ids are objectively invalid, so I reproduced it firsthand and fixed it.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** correctness surface is saturated; remaining open issues are JT-gated decision-revisits (#71 vsas, #97 lco) and display-blocked demo captures. Continue toward the DAY cap only if a further real, reproducible finding surfaces.
