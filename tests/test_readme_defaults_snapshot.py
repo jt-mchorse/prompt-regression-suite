@@ -19,6 +19,13 @@ Pairings locked:
    `[project.scripts]` in `pyproject.toml`.
 4. README `prompt-snap run | update | diff` bullet ↔ live argparse
    subcommand surface from `prompt_regression.cli.build_parser()`.
+5. The Diff-layer runnable code block (snapshot path + candidate +
+   `HashEmbedder()`) actually executes without raising. This caught #109:
+   the block paired `HashEmbedder()` (128-dim, `hash-embedder-128d-ngram2`)
+   with `refund_window_v1.yml` (8-dim, OpenAI `text-embedding-3-small-
+   truncated-8d`), which crashed on BOTH the D-006 model-name guard and the
+   embedding-dimension check — `force=True` couldn't rescue it. The example
+   must use a snapshot the documented embedder can actually diff.
 """
 
 from __future__ import annotations
@@ -28,6 +35,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+from prompt_regression import HashEmbedder, diff_response, load_snapshot
 from prompt_regression.cli import build_parser
 from prompt_regression.diff import DEFAULT_THRESHOLD
 
@@ -163,6 +171,60 @@ def test_readme_subcommand_bullet_matches_live_argparse() -> None:
         f"README CLI bullet (#5) lists subcommand(s) that aren't in argparse: "
         f"{extra}. Live: {sorted(live)}. Documented: {sorted(documented)}. "
         f"Remove the stale name. {REGEN_HINT}"
+    )
+
+
+def _diff_layer_section() -> str:
+    """Return the README's `## Diff layer` section text (up to the next
+    heading) so the runnable example can be extracted from exactly what a
+    reader copies."""
+    body = _readme()
+    start = body.index("## Diff layer")
+    # Next `## ` heading (not `### `) ends the section.
+    rest = body[start + len("## Diff layer") :]
+    end_rel = rest.index("\n## ")
+    return body[start : start + len("## Diff layer") + end_rel]
+
+
+def test_readme_diff_layer_example_executes_hermetically() -> None:
+    """The Diff-layer code block must run as written: load the documented
+    snapshot and run `diff_response(..., embedder=HashEmbedder())` on the
+    documented candidate without raising.
+
+    The snapshot path and candidate are extracted from the README so the
+    test exercises exactly the copy-pasteable example — if the block is
+    ever re-pointed at a snapshot the documented embedder can't diff (model
+    or dimension mismatch), this fails instead of shipping a crashing
+    quickstart (#109).
+    """
+    section = _diff_layer_section()
+
+    snap_match = re.search(r'load_snapshot\("([^"]+)"\)', section)
+    cand_match = re.search(r'candidate = "([^"]+)"', section)
+    assert snap_match, (
+        "README Diff-layer block must call "
+        '`load_snapshot("examples/snapshots/<name>.yml")` for this test to lock it.'
+    )
+    assert cand_match, (
+        'README Diff-layer block must assign `candidate = "..."` for this test to lock it.'
+    )
+    assert "diff_response(" in section, "README Diff-layer block must call `diff_response(...)`."
+    assert "HashEmbedder()" in section, (
+        "README Diff-layer block must diff with `embedder=HashEmbedder()`."
+    )
+
+    snap_path = REPO_ROOT / snap_match.group(1)
+    candidate = cand_match.group(1)
+    snap = load_snapshot(snap_path)
+
+    # Must not raise EmbedderModelMismatchError / EmbeddingDimensionMismatchError.
+    result = diff_response(snap, candidate, embedder=HashEmbedder())
+    assert result.verdict in {"pass", "warn", "fail"}, (
+        f"Diff-layer example produced an unexpected verdict {result.verdict!r}; "
+        f"the README documents the range as 'pass | warn | fail'. {REGEN_HINT}"
+    )
+    assert result.cosine_score == result.cosine_score, (  # NaN guard
+        "Diff-layer example produced a non-finite cosine score."
     )
 
 
