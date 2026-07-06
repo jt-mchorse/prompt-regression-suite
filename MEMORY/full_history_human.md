@@ -735,3 +735,11 @@ close it out across all four repos.
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** correctness surface is saturated; remaining open issues are JT-gated decision-revisits (#71 vsas, #97 lco) and display-blocked demo captures. Continue toward the DAY cap only if a further real, reproducible finding surfaces.
+
+## 2026-07-06 — Diff-layer README quickstart crashed (issue #109, ~30 min)
+
+A Phase-A dogfood run-the-shipped-example hunt found the README's Diff-layer quickstart crashes on a fresh clone: it paired a bare `HashEmbedder()` (128-dim) with `refund_window_v1.yml`, which is OpenAI-embedded (8-dim). The snippet failed the D-006 model-name guard, and even `force=True` hit a dimension-mismatch error (128 vs 8) — HashEmbedder can never diff that snapshot. Reproduced firsthand, deterministic.
+
+`refund_window_v1.yml` is the test-locked schema reference (a test asserts its OpenAI model name), so I left it untouched and pointed the example at `creative_kite_v1.yml` — the shipped snapshot that IS HashEmbedder-embedded — with a high-overlap candidate, so it now runs hermetically and returns `pass`. Added a lock test that extracts the snapshot + candidate from the README and runs the example, asserting no crash. Respects D-006 (matching snapshot, not a force override). PR #110, ready.
+
+**Why prioritized:** static issue queue still exhausted; work came from the run-the-shipped-example lens, which yielded two real hits this run (this + llm-eval-harness #144). Encoding, numeric-boundary, and nextjs stream-parse hunts all came up empty, reconfirming saturation on those axes.
