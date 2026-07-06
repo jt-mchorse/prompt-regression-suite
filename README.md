@@ -124,8 +124,8 @@ assertions are hard requirements.
 ```python
 from prompt_regression import HashEmbedder, diff_response, load_snapshot
 
-snap = load_snapshot("examples/snapshots/refund_window_v1.yml")
-candidate = "The Pro plan has a 14-day refund window from purchase."
+snap = load_snapshot("examples/snapshots/creative_kite_v1.yml")
+candidate = "A kite drifts above an empty beach in the late afternoon. Salt wind tugs the string, and a child below laughs and tugs back. The horizon is a thin line of orange, almost faded."
 
 result = diff_response(snap, candidate, embedder=HashEmbedder())
 print(result.verdict)            # "pass" | "warn" | "fail"
