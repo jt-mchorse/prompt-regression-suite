@@ -743,3 +743,15 @@ A Phase-A dogfood run-the-shipped-example hunt found the README's Diff-layer qui
 `refund_window_v1.yml` is the test-locked schema reference (a test asserts its OpenAI model name), so I left it untouched and pointed the example at `creative_kite_v1.yml` — the shipped snapshot that IS HashEmbedder-embedded — with a high-overlap candidate, so it now runs hermetically and returns `pass`. Added a lock test that extracts the snapshot + candidate from the README and runs the example, asserting no crash. Respects D-006 (matching snapshot, not a force override). PR #110, ready.
 
 **Why prioritized:** static issue queue still exhausted; work came from the run-the-shipped-example lens, which yielded two real hits this run (this + llm-eval-harness #144). Encoding, numeric-boundary, and nextjs stream-parse hunts all came up empty, reconfirming saturation on those axes.
+
+## 2026-07-09 — Issue #111: diff/update leak raw traceback on a malformed snapshot
+**Duration:** ~20 min · **Branch:** `session/2026-07-09-1604-issue-111` · **PR:** #112
+
+- #99 guarded `_run_command`'s `load_snapshot` (clean `error:` + exit 2), but the sibling `diff`/`update` commands read the snapshot through the same seam unguarded, so a malformed / missing / YAML-broken snapshot escaped as a raw traceback at exit 1. Both commands already honored exit 2 for their other inputs, so the omission was an incomplete port of #99.
+- Wrapped `load_snapshot` in both commands in the same `(OSError, SnapshotValidationError, yaml.YAMLError)` → exit-2 guard. 4 regression tests, all failing pre-fix. Full suite 366 pass, ruff clean.
+
+**Why this work, this session:** found via the sibling-branch-incomplete-fix meta-lens — the sixth hit of this run via that lens; reproduced firsthand via the shipped CLI before fixing.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the exit-2 snapshot-load contract is now uniform across `run`/`diff`/`update`. The `stats`/`validate` subcommands have their own load handling.
