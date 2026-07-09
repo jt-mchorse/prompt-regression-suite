@@ -345,7 +345,14 @@ def _update_command(args: argparse.Namespace) -> int:
         return 2
 
     snapshot_path = Path(args.snapshot).resolve()
-    snap = load_snapshot(snapshot_path)
+    # A malformed/missing snapshot is an operator input error: land it as a clean
+    # `error:` + exit 2, not a raw traceback at exit 1. `run` got this guard in
+    # #99; `update` reads through the same `load_snapshot` seam and needs it too.
+    try:
+        snap = load_snapshot(snapshot_path)
+    except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+        print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
+        return 2
     embedder = make_embedder(args.embedder)
 
     try:
@@ -420,7 +427,15 @@ def _diff_command(args: argparse.Namespace) -> int:
         )
         return 2
 
-    snap = load_snapshot(Path(args.snapshot).resolve())
+    # A malformed/missing snapshot is an operator input error: land it as a clean
+    # `error:` + exit 2, not a raw traceback at exit 1 (the "regressions found"
+    # code). `run` got this guard in #99; `diff` reads through the same
+    # `load_snapshot` seam and already honors exit 2 for its other inputs below.
+    try:
+        snap = load_snapshot(Path(args.snapshot).resolve())
+    except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+        print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
+        return 2
     embedder = make_embedder(args.embedder)
     try:
         candidate = _read_text_arg(args.candidate, args.candidate_stdin)

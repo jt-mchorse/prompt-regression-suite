@@ -789,3 +789,50 @@ def test_diff_valid_candidate_does_not_exit_two(tmp_path: Path, capsys: pytest.C
     rc = main(["diff", "--snapshot", str(snap), "--candidate", "some real candidate text"])
     assert rc in (0, 1)
     assert "Traceback" not in capsys.readouterr().err
+
+
+# --- #111: diff/update leak a raw traceback on a malformed/missing snapshot ---
+#
+# #99 guarded `_run_command`'s snapshot load, but the sibling `diff`/`update`
+# commands read through the same `load_snapshot` seam unguarded, so a
+# schema-invalid / YAML-broken / missing snapshot escaped as a raw traceback at
+# exit 1 instead of the contracted `error:` + exit 2. Both already honor exit 2
+# for their other inputs, so this was an incomplete port of #99.
+
+
+def test_diff_schema_invalid_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    bad = tmp_path / "bad.yml"
+    bad.write_text("id: broken\nprompt: not-a-mapping\n", encoding="utf-8")
+    rc = main(["diff", "--snapshot", str(bad), "--candidate", "x"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_diff_missing_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    rc = main(["diff", "--snapshot", str(tmp_path / "nope.yml"), "--candidate", "x"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_diff_yaml_broken_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    bad = tmp_path / "bad.yml"
+    bad.write_text("id: x\nprompt: [unclosed\n", encoding="utf-8")
+    rc = main(["diff", "--snapshot", str(bad), "--candidate", "x"])
+    assert rc == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_update_schema_invalid_snapshot_exits_two(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    bad = tmp_path / "bad.yml"
+    bad.write_text("id: broken\nprompt: not-a-mapping\n", encoding="utf-8")
+    rc = main(["update", "--snapshot", str(bad), "--canonical", "x", "--force"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
