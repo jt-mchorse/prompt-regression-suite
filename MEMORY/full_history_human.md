@@ -755,3 +755,14 @@ A Phase-A dogfood run-the-shipped-example hunt found the README's Diff-layer qui
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the exit-2 snapshot-load contract is now uniform across `run`/`diff`/`update`. The `stats`/`validate` subcommands have their own load handling.
+
+## 2026-07-09 (PM) — Issue #113: CLI write-seam exit-code contract (#99/#111 sibling)
+**Duration:** ~25 min · **Branch:** `session/2026-07-09-1933-issue-writeseam` · **PR:** #114
+
+**What got done.** The CLI documents a `0 = clean / 1 = regressions|findings / 2 = I/O or usage error` exit contract. #99/#111 translated read/load I/O errors to a clean `error:` line + exit 2 for every subcommand — but the write seam was left bare. `run/diff/validate --out` called `atomic_write_text` directly and `update` called `save_snapshot` directly, so an unwritable destination (a directory, read-only path, unwritable parent) escaped as a raw `OSError` traceback at exit 1. Added a `_write_output` helper translating `OSError` → `error:` + exit 2, routed the three `--out` sites through it, and wrapped `update`'s `save_snapshot` in the same guard. Migrated the two CLI atomicity tests from `pytest.raises(OSError)` (which pinned the propagation mechanism) to `assert rc == 2` + destination-absent — both invariants hold; the two `save_snapshot` *unit* tests correctly still raise (helper layer, not CLI). Added `validate --out` + `update` exit-2 regression tests. Full suite 368 pass, ruff clean.
+
+**Why prioritized.** Found via the exit-code-contract lens — the same class as this run's ems#87 and leh#158, applied to a third repo. Reproduced firsthand on `validate` before filing.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** prs CLI exit-code contract is now complete on both axes (#99/#111 read, #113 write). Don't re-sweep this class in prs.
