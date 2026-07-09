@@ -244,20 +244,22 @@ def test_cli_run_out_routes_through_atomic_helper(
         raise OSError("simulated rename failure")
 
     monkeypatch.setattr(io_mod.os, "replace", boom)
-    with pytest.raises(OSError, match="simulated rename failure"):
-        cli_main(
-            [
-                "run",
-                "--snapshots",
-                str(tmp_path),
-                "--candidates",
-                str(candidates),
-                "--format",
-                "json",
-                "--out",
-                str(out_path),
-            ]
-        )
+    rc = cli_main(
+        [
+            "run",
+            "--snapshots",
+            str(tmp_path),
+            "--candidates",
+            str(candidates),
+            "--format",
+            "json",
+            "--out",
+            str(out_path),
+        ]
+    )
+    # Write-seam sibling of #99/#111: an unwritable --out is an I/O error → clean
+    # exit 2, not a raw OSError traceback at exit 1. Atomicity invariant holds.
+    assert rc == 2
     assert not out_path.exists()
 
 
@@ -276,18 +278,74 @@ def test_cli_diff_out_routes_through_atomic_helper(
         raise OSError("simulated rename failure")
 
     monkeypatch.setattr(io_mod.os, "replace", boom)
-    with pytest.raises(OSError, match="simulated rename failure"):
-        cli_main(
-            [
-                "diff",
-                "--snapshot",
-                str(snap_path),
-                "--candidate",
-                "The Pro plan has a 14-day refund window from purchase.",
-                "--format",
-                "json",
-                "--out",
-                str(out_path),
-            ]
-        )
+    rc = cli_main(
+        [
+            "diff",
+            "--snapshot",
+            str(snap_path),
+            "--candidate",
+            "The Pro plan has a 14-day refund window from purchase.",
+            "--format",
+            "json",
+            "--out",
+            str(out_path),
+        ]
+    )
+    assert rc == 2
     assert not out_path.exists()
+
+
+def test_cli_validate_out_write_failure_exits_2_not_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`prompt-snap validate --out` translates a write OSError to the CLI's
+    `error:` + exit-2 contract, not a raw traceback at exit 1 (write-seam
+    sibling of the #99/#111 read-seam guards)."""
+    snap_dir = tmp_path / "snaps"
+    snap_dir.mkdir()
+    save_snapshot(_sample_snapshot(), snap_dir / "refund.snapshot.yaml")
+    out_path = tmp_path / "out" / "report.json"
+
+    def boom(*_args, **_kwargs):
+        raise OSError("simulated rename failure")
+
+    monkeypatch.setattr(io_mod.os, "replace", boom)
+    rc = cli_main(["validate", str(snap_dir), "--json", "--out", str(out_path)])
+
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error: failed to write" in err
+    assert "Traceback" not in err
+    assert not out_path.exists()
+
+
+def test_cli_update_write_failure_exits_2_not_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`prompt-snap update` translates a save_snapshot OSError to the CLI's
+    `error:` + exit-2 contract, not a raw traceback at exit 1. The pre-existing
+    snapshot is preserved by atomic_write_text on a failed rename."""
+    snap_path = tmp_path / "refund.snapshot.yaml"
+    save_snapshot(_sample_snapshot(), snap_path)
+    original = snap_path.read_text(encoding="utf-8")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("simulated rename failure")
+
+    monkeypatch.setattr(io_mod.os, "replace", boom)
+    rc = cli_main(
+        [
+            "update",
+            "--snapshot",
+            str(snap_path),
+            "--canonical",
+            "A brand-new canonical response for the refund window.",
+            "--force",
+        ]
+    )
+
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error: failed to write" in err
+    assert "Traceback" not in err
+    assert snap_path.read_text(encoding="utf-8") == original  # unchanged on failure
