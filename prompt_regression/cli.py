@@ -70,6 +70,26 @@ _SNAPSHOT_GLOBS: tuple[str, ...] = (
 _RESERVED_EMBEDDERS = frozenset({"voyage", "openai", "cohere"})
 
 
+def _write_output(path: str, rendered: str) -> int | None:
+    """Write ``rendered`` to ``path`` atomically, translating an ``OSError``
+    to the CLI's ``error:`` + exit-2 contract. Returns ``2`` on failure and
+    ``None`` on success so callers can ``if (rc := _write_output(...)) is not
+    None: return rc``.
+
+    Write-seam sibling of the read-seam guards (#99/#111): every ``--out`` site
+    (``run`` / ``diff`` / ``validate``) called ``atomic_write_text`` bare, so an
+    unwritable ``--out`` (a directory, read-only path, unwritable parent)
+    escaped as a raw ``OSError`` traceback at exit 1 — breaking the documented
+    ``0 / 1 / 2`` exit contract that every read seam already honors.
+    """
+    try:
+        atomic_write_text(path, rendered)
+    except OSError as e:
+        print(f"error: failed to write {path}: {e}", file=sys.stderr)
+        return 2
+    return None
+
+
 def make_embedder(name: str) -> Embedder:
     """Resolve an ``--embedder`` argument to an Embedder instance.
 
@@ -309,7 +329,8 @@ def _run_command(args: argparse.Namespace) -> int:
         )
 
     if args.out:
-        atomic_write_text(args.out, rendered)
+        if (rc := _write_output(args.out, rendered)) is not None:
+            return rc
     else:
         # text/json keep their trailing newline; print() would add a second one.
         sys.stdout.write(rendered)
@@ -385,7 +406,15 @@ def _update_command(args: argparse.Namespace) -> int:
     # don't trample author intent.
     if not updated.notes:
         updated.notes = f"re-baselined {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}"
-    save_snapshot(updated, snapshot_path)
+    # `save_snapshot` writes through `atomic_write_text`; an unwritable snapshot
+    # path (read-only file/dir, unwritable parent) otherwise escaped as a raw
+    # OSError traceback at exit 1. Translate to the error: + exit-2 contract,
+    # the write-seam sibling of the read-seam guards (#99/#111).
+    try:
+        save_snapshot(updated, snapshot_path)
+    except OSError as e:
+        print(f"error: failed to write {snapshot_path}: {e}", file=sys.stderr)
+        return 2
     print(f"updated {snapshot_path}: embedder={embedder.model_name} text_len={len(new_text)}")
     return 0
 
@@ -483,7 +512,8 @@ def _diff_command(args: argparse.Namespace) -> int:
         rendered = _format_diff_text(result)
 
     if args.out:
-        atomic_write_text(args.out, rendered)
+        if (rc := _write_output(args.out, rendered)) is not None:
+            return rc
     else:
         # text/json keep their trailing newline; sys.stdout.write avoids
         # the doubled newline `print()` would add.
@@ -583,7 +613,8 @@ def _validate_command(args: argparse.Namespace) -> int:
             f"findings={len(report.findings)}\n"
         )
     if args.out:
-        atomic_write_text(args.out, rendered)
+        if (rc := _write_output(args.out, rendered)) is not None:
+            return rc
     else:
         print(rendered, end="")
     return 0 if report.ok else 1
