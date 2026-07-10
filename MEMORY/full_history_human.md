@@ -776,3 +776,13 @@ Guarded the `load_snapshot` loop in `collect_stats` to raise `StatsError` (alrea
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens. The prs exit-2 loader contract is now complete across all five subcommands.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-10 — Issue #117: exit-2 translation for a bad --embedder (~22 min, night)
+
+**What got done.** `make_embedder(args.embedder)` was called bare (outside any try/except) at all three command entry points (`_run_command`, `_update_command`, `_diff_command`). A reserved-but-unwired name (`voyage`/`openai`/`cohere` → `NotImplementedError`) or an unknown name (→ `ValueError`) escaped `main` as a raw traceback at exit 1 (the "regressions found" code) instead of the documented `error:` + exit 2 operator-input contract that every other input to this CLI honors (#93/#94/#99/#111/#116). A typo in `--embedder` in CI thus read as a failing regression, not a config error. `make_embedder` *raising* is the intended library-level fail-loud contract and is unchanged — only the CLI-level translation was missing.
+
+Added a `_resolve_embedder(name)` helper that translates the `NotImplementedError`/`ValueError` to `error:` + returns `None` (matching the `_write_output` print+return-code precedent); each call site returns 2 on `None`. 10 test cases (reserved + unknown `--embedder` → exit 2/no-traceback across run/diff/update, plus a regression guard that the valid `hash` embedder still works). Full suite (381) + ruff green. Verified the repro firsthand before/after. (Gotcha: `run` loads candidates before the embedder, so the `run` test needs a *valid* candidates file or the candidates exit-2 fires first.)
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / exit-code-contract lens. The prs exit-code contract is now complete across all operator inputs.
+
+**Open questions / blockers.** None — PR ready for review.
