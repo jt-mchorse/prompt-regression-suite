@@ -23,7 +23,10 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+import yaml
+
 from prompt_regression.io import load_snapshot
+from prompt_regression.schema import SnapshotValidationError
 
 # Mirror the globs ``cli._iter_snapshot_paths`` uses so a snapshot file
 # the runner would pick up is also one the stats walker sees. Keep in
@@ -143,10 +146,12 @@ def collect_stats(directory: str | Path) -> StatsReport:
     """Walk ``directory`` and return aggregate stats over its snapshots.
 
     Raises :class:`StatsError` if the directory is missing, not a
-    directory, or empty of matching files. Schema-validation errors
-    from ``load_snapshot`` propagate as ``SnapshotValidationError`` so
-    the operator sees the same loud failure ``prompt-snap run`` would
-    surface — one fixed snapshot, one re-run.
+    directory, empty of matching files, or contains a snapshot that
+    fails to load (malformed YAML / schema-invalid / unreadable). A load
+    failure names the offending file and points at ``prompt-snap
+    validate`` — the same clean, exit-2 translation ``prompt-snap run``
+    honors since #99 (before #99 ``run`` also leaked a raw traceback;
+    ``stats`` was the last loader-walk still doing so, #115).
     """
     path = Path(directory)
     if not path.exists() or not path.is_dir():
@@ -165,7 +170,21 @@ def collect_stats(directory: str | Path) -> StatsReport:
     count_strictest = 0
 
     for p in snapshot_paths:
-        snap = load_snapshot(p)
+        # Translate a malformed snapshot (bad YAML / schema-invalid / unreadable)
+        # into a clean StatsError — which _stats_command maps to exit 2 — instead
+        # of letting SnapshotValidationError / yaml.YAMLError / OSError escape as a
+        # raw traceback at exit 1. This mirrors the guarded load_snapshot loop in
+        # the `run` seam (cli.py) that #99 introduced; `stats` was the last
+        # loader-walk still leaking the pre-#99 traceback (#115).
+        rel = p.relative_to(path) if p.is_relative_to(path) else Path(p.name)
+        try:
+            snap = load_snapshot(p)
+        except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+            raise StatsError(
+                f"could not load snapshot {rel}: {e}\n"
+                f"hint: run 'prompt-snap validate {path}' to list every "
+                "malformed snapshot in one pass."
+            ) from e
         prompt_models[snap.prompt.model] += 1
         embedding_models[snap.canonical.embedding_model] += 1
         schema_versions[snap.schema_version] += 1
