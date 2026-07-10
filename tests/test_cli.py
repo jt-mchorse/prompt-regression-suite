@@ -836,3 +836,104 @@ def test_update_schema_invalid_snapshot_exits_two(
     err = capsys.readouterr().err
     assert "error:" in err
     assert "Traceback" not in err
+
+
+# ----------------------------------------------------------------------
+# `--embedder` CLI-level exit-2 translation (#117)
+#
+# make_embedder() raises loudly (NotImplementedError for a reserved-but-unwired
+# name, ValueError for an unknown one) — the library-level fail-loud contract.
+# But it was called bare at all three command entry points, so a bad --embedder
+# escaped `main` as a raw traceback at exit 1 (the "regressions found" code)
+# instead of the documented `error:` + exit 2 operator-input contract that every
+# other input to this CLI honors. `_resolve_embedder` now translates it.
+# ----------------------------------------------------------------------
+
+
+def _diff_argv(snapshots_dir: Path, embedder: str) -> list[str]:
+    return [
+        "diff",
+        "--snapshot",
+        str(snapshots_dir / "refund-policy.snapshot.yaml"),
+        "--candidate",
+        "Our refund policy gives Pro plan customers 14 days to request a return.",
+        "--embedder",
+        embedder,
+    ]
+
+
+def _run_argv(snapshots_dir: Path, candidates: Path, embedder: str) -> list[str]:
+    return [
+        "run",
+        "--snapshots",
+        str(snapshots_dir),
+        "--candidates",
+        str(candidates),
+        "--embedder",
+        embedder,
+    ]
+
+
+def _update_argv(snapshots_dir: Path, embedder: str) -> list[str]:
+    return [
+        "update",
+        "--snapshot",
+        str(snapshots_dir / "refund-policy.snapshot.yaml"),
+        "--canonical",
+        "New canonical response text.",
+        "--force",
+        "--embedder",
+        embedder,
+    ]
+
+
+@pytest.mark.parametrize("embedder", ["voyage", "openai", "cohere", "bogus", "definitely-not-real"])
+def test_diff_bad_embedder_exits_two(
+    snapshots_dir: Path, capsys: pytest.CaptureFixture[str], embedder: str
+) -> None:
+    rc = main(_diff_argv(snapshots_dir, embedder))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert embedder in err
+    assert "Traceback" not in err
+
+
+@pytest.mark.parametrize("embedder", ["voyage", "bogus"])
+def test_run_bad_embedder_exits_two(
+    snapshots_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str], embedder: str
+) -> None:
+    # A VALID candidates file so `run` reaches the embedder resolution — the
+    # candidates loader runs first and would otherwise exit 2 on its own.
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [{"snapshot": "refund-policy.snapshot.yaml", "candidate": "some candidate text"}],
+    )
+    rc = main(_run_argv(snapshots_dir, candidates, embedder))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert embedder in err
+    assert "Traceback" not in err
+
+
+@pytest.mark.parametrize("embedder", ["voyage", "bogus"])
+def test_update_bad_embedder_exits_two(
+    snapshots_dir: Path, capsys: pytest.CaptureFixture[str], embedder: str
+) -> None:
+    rc = main(_update_argv(snapshots_dir, embedder))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert embedder in err
+    assert "Traceback" not in err
+
+
+def test_diff_hash_embedder_still_works(
+    snapshots_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Regression guard: the valid `hash` embedder must not be swallowed by the
+    # new exit-2 translation — an exact-match candidate still passes (exit 0).
+    rc = main(_diff_argv(snapshots_dir, "hash"))
+    assert rc == 0
+    assert "Traceback" not in capsys.readouterr().err

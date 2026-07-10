@@ -109,6 +109,26 @@ def make_embedder(name: str) -> Embedder:
     )
 
 
+def _resolve_embedder(name: str) -> Embedder | None:
+    """Resolve ``--embedder`` under the CLI's ``error:`` + exit-2 contract.
+
+    ``make_embedder`` raises loudly — ``NotImplementedError`` for a
+    reserved-but-unwired name, ``ValueError`` for an unknown one — which is the
+    intended *library-level* fail-loud contract. But a bad ``--embedder`` on the
+    command line is an operator input error, the sibling of a missing snapshot
+    dir / malformed ``--candidates`` (both already land as ``error:`` + exit 2),
+    so the CLI translates it here rather than let it escape ``main`` as a raw
+    traceback at exit 1 (the "regressions found" code — a typo would otherwise
+    read as a failing regression in CI). Returns ``None`` on failure; the caller
+    returns 2.
+    """
+    try:
+        return make_embedder(name)
+    except (NotImplementedError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return None
+
+
 # ----------------------------------------------------------------------
 # `run` — directory + candidates JSONL
 # ----------------------------------------------------------------------
@@ -199,7 +219,9 @@ def _run_command(args: argparse.Namespace) -> int:
     except (OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    embedder = make_embedder(args.embedder)
+    embedder = _resolve_embedder(args.embedder)
+    if embedder is None:
+        return 2
 
     # `--format html` writes a non-trivial multi-KB payload; refuse to
     # dump it into a terminal. Mirrors the loud-failure stance the
@@ -374,7 +396,9 @@ def _update_command(args: argparse.Namespace) -> int:
     except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
         print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
         return 2
-    embedder = make_embedder(args.embedder)
+    embedder = _resolve_embedder(args.embedder)
+    if embedder is None:
+        return 2
 
     try:
         new_text = _read_text_arg(args.canonical, args.canonical_stdin)
@@ -465,7 +489,9 @@ def _diff_command(args: argparse.Namespace) -> int:
     except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
         print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
         return 2
-    embedder = make_embedder(args.embedder)
+    embedder = _resolve_embedder(args.embedder)
+    if embedder is None:
+        return 2
     try:
         candidate = _read_text_arg(args.candidate, args.candidate_stdin)
     except _UsageError as e:
