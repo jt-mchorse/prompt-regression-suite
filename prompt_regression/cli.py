@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
@@ -129,6 +130,38 @@ def _resolve_embedder(name: str) -> Embedder | None:
         return None
 
 
+def _validate_thresholds(threshold: float, warn_band: float) -> bool:
+    """Validate ``--threshold`` / ``--warn-band`` under the ``error:`` + exit-2 contract.
+
+    ``diff_response`` fail-loud range guards raise a *bare* ``ValueError`` for a
+    ``--threshold`` outside ``(0, 1]`` or a non-finite / negative ``--warn-band``.
+    The per-snapshot ``except`` tuples in ``_run_command`` / ``_diff_command``
+    catch only the typed ``diff`` errors (``EmbedderModelMismatchError`` …
+    ``WarnBandThresholdError``), so those bare ``ValueError``s escaped ``main`` as
+    a raw traceback at exit 1 — the "regressions found" code — instead of the
+    ``error:`` + exit 2 operator-input contract every other CLI input honors
+    (#119, sibling of the ``--embedder`` translation in #117). A ``--threshold 5``
+    typo in CI otherwise reads as a failing regression, not a config error.
+
+    Validating the two CLI args here fully covers the reachable cases: a
+    per-snapshot ``tolerance`` is already validated to ``(0, 1]`` at load
+    (``schema.py``, raising the caught ``SnapshotValidationError``), so
+    ``args.threshold`` is the only ingress that can push ``effective_threshold``
+    out of range. ``diff_response``'s library-level raises stay loud (unchanged).
+    Returns ``False`` on a bad value; the caller returns 2.
+    """
+    if not 0.0 < threshold <= 1.0:
+        print(f"error: threshold must be in (0, 1]; got {threshold}", file=sys.stderr)
+        return False
+    if not math.isfinite(warn_band):
+        print(f"error: warn_band must be finite; got {warn_band}", file=sys.stderr)
+        return False
+    if warn_band < 0:
+        print(f"error: warn_band must be non-negative; got {warn_band}", file=sys.stderr)
+        return False
+    return True
+
+
 # ----------------------------------------------------------------------
 # `run` — directory + candidates JSONL
 # ----------------------------------------------------------------------
@@ -221,6 +254,8 @@ def _run_command(args: argparse.Namespace) -> int:
         return 2
     embedder = _resolve_embedder(args.embedder)
     if embedder is None:
+        return 2
+    if not _validate_thresholds(args.threshold, args.warn_band):
         return 2
 
     # `--format html` writes a non-trivial multi-KB payload; refuse to
@@ -491,6 +526,8 @@ def _diff_command(args: argparse.Namespace) -> int:
         return 2
     embedder = _resolve_embedder(args.embedder)
     if embedder is None:
+        return 2
+    if not _validate_thresholds(args.threshold, args.warn_band):
         return 2
     try:
         candidate = _read_text_arg(args.candidate, args.candidate_stdin)
