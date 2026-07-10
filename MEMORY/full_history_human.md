@@ -766,3 +766,13 @@ A Phase-A dogfood run-the-shipped-example hunt found the README's Diff-layer qui
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** prs CLI exit-code contract is now complete on both axes (#99/#111 read, #113 write). Don't re-sweep this class in prs.
+
+## 2026-07-10 — Issue #115: prompt-snap stats exit-2 loader parity (~25 min, night)
+
+**What got done.** `prompt-snap stats` was the last snapshot loader-walk that leaked a raw traceback at exit 1 on a malformed snapshot. `_stats_command` only caught `StatsError`; `collect_stats` → `load_snapshot` can raise `SnapshotValidationError` / `yaml.YAMLError` / `OSError`, none of which were caught — while the `run` (#99), `diff`/`update` (#111), and `--out` (#113) seams all translate the same failures to a clean `error:` + exit 2. The stale docstrings justified the bare propagation with "same loud failure `run` would surface" — true when stats shipped (2026-06-01), but #99 (2026-07-03) changed `run` to exit 2 with a validate hint. Verified firsthand: schema-invalid and YAML-syntax-error snapshots both leaked tracebacks at exit 1.
+
+Guarded the `load_snapshot` loop in `collect_stats` to raise `StatsError` (already mapped to exit 2 by `_stats_command`) naming the offending file + the `validate` hint the `run` seam gives, and refreshed both stale docstrings. Added library- and CLI-level tests locking the exit-2/no-traceback contract for both failure modes; all fail pre-fix. Full suite + ruff green.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens. The prs exit-2 loader contract is now complete across all five subcommands.
+
+**Open questions / blockers.** None — PR ready for review.
