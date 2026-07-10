@@ -937,3 +937,67 @@ def test_diff_hash_embedder_still_works(
     rc = main(_diff_argv(snapshots_dir, "hash"))
     assert rc == 0
     assert "Traceback" not in capsys.readouterr().err
+
+
+# #119: bad --threshold / --warn-band -> error: + exit 2, not a raw traceback at
+# exit 1. Sibling of #117's --embedder translation: diff_response's bare-ValueError
+# range guards escaped the per-snapshot except tuple (typed diff errors only).
+@pytest.mark.parametrize(
+    ("flag", "value", "needle"),
+    [
+        ("--threshold", "5", "threshold must be in (0, 1]"),
+        ("--threshold", "0", "threshold must be in (0, 1]"),
+        ("--threshold", "nan", "threshold must be in (0, 1]"),
+        ("--warn-band", "nan", "warn_band must be finite"),
+        ("--warn-band", "-1", "warn_band must be non-negative"),
+    ],
+)
+def test_diff_bad_threshold_warn_band_exits_two(
+    snapshots_dir: Path, capsys: pytest.CaptureFixture[str], flag: str, value: str, needle: str
+) -> None:
+    rc = main(_diff_argv(snapshots_dir, "hash") + [flag, value])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert needle in err
+    assert "Traceback" not in err
+
+
+@pytest.mark.parametrize(
+    ("flag", "value", "needle"),
+    [
+        ("--threshold", "5", "threshold must be in (0, 1]"),
+        ("--warn-band", "nan", "warn_band must be finite"),
+        ("--warn-band", "-1", "warn_band must be non-negative"),
+    ],
+)
+def test_run_bad_threshold_warn_band_exits_two(
+    snapshots_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    flag: str,
+    value: str,
+    needle: str,
+) -> None:
+    # A VALID candidates file so `run` reaches threshold validation (the
+    # candidates loader runs first and would otherwise exit 2 on its own).
+    candidates = _write_candidates(
+        tmp_path / "cands.jsonl",
+        [{"snapshot": "refund-policy.snapshot.yaml", "candidate": "some candidate text"}],
+    )
+    rc = main(_run_argv(snapshots_dir, candidates, "hash") + [flag, value])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert needle in err
+    assert "Traceback" not in err
+
+
+def test_diff_valid_threshold_warn_band_still_works(
+    snapshots_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Regression guard: valid --threshold / --warn-band aren't swallowed by the
+    # new exit-2 translation (an exact-match candidate still passes, exit 0).
+    rc = main(_diff_argv(snapshots_dir, "hash") + ["--threshold", "0.9", "--warn-band", "0.05"])
+    assert rc == 0
+    assert "Traceback" not in capsys.readouterr().err
