@@ -786,3 +786,13 @@ Added a `_resolve_embedder(name)` helper that translates the `NotImplementedErro
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / exit-code-contract lens. The prs exit-code contract is now complete across all operator inputs.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-10 — Issue #119: bad --threshold / --warn-band -> exit 2, not a traceback (~25 min, night)
+
+**What got done.** `diff_response`'s fail-loud range guards raise a **bare `ValueError`** for a `--threshold` outside `(0, 1]` or a non-finite / negative `--warn-band` (`diff.py:540/550/552`). The per-snapshot `except` tuples in `_run_command`/`_diff_command` catch only the *typed* diff errors (`EmbedderModelMismatchError` … `WarnBandThresholdError`, all `ValueError` subclasses), so those bare `ValueError`s escaped `main` as a raw traceback at **exit 1** — the "regressions found" code — instead of the documented `error:` + **exit 2** operator-input contract. A `--threshold 5` typo in CI thus read as a failing regression, not a config error. This is the exact sibling of the just-merged #117/#118 (`--embedder` translation); the control `--warn-band 5` raises the *typed* `WarnBandThresholdError` and correctly exits 2, proving the contract its sibling range-guards violate.
+
+Fix: added a `_validate_thresholds(threshold, warn_band)` CLI-entry helper (mirroring `_resolve_embedder`) that translates a bad value to `error:` + return 2, called in `_run_command`/`_diff_command` before the diff loop. `snapshot.tolerance` is already validated to `(0, 1]` at load, so `args.threshold` is the sole ingress that can push `effective_threshold` out of range — the CLI-arg check fully covers the reachable cases. 9 tests (bad values across run/diff → exit 2; valid still exits 0). Full suite + ruff green. Reproduced firsthand.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via a sibling-incomplete-fix hunt on the just-merged #118 surface, reproduced firsthand.
+
+**Open questions / blockers.** None — PR ready for review.
