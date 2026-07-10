@@ -563,10 +563,12 @@ def _stats_command(args: argparse.Namespace) -> int:
 
     Exit codes mirror the ``run`` subcommand convention:
     - ``0`` on a populated directory.
-    - ``2`` on a missing directory or one with no matching files.
-    Schema-validation errors propagate from ``load_snapshot`` as
-    ``SnapshotValidationError`` — same loud failure ``run`` would
-    surface, so a single fix-and-rerun cycle resolves both surfaces.
+    - ``2`` on a missing directory, one with no matching files, or one
+      containing a malformed snapshot. ``collect_stats`` translates a
+      bad snapshot (invalid YAML / schema-invalid / unreadable) into a
+      ``StatsError`` naming the file + a ``validate`` hint, so it lands
+      as a clean ``error:`` + exit 2 rather than a raw traceback — the
+      same contract ``run`` honors since #99 (#115).
     """
     try:
         report = collect_stats(args.snapshots)

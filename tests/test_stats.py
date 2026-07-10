@@ -189,6 +189,30 @@ def test_empty_dir_raises_stats_error(tmp_path: Path) -> None:
         collect_stats(tmp_path)
 
 
+def test_collect_stats_schema_invalid_snapshot_raises_stats_error(tmp_path: Path) -> None:
+    # #115: a malformed snapshot alongside valid ones must land as a clean
+    # StatsError (CLI -> exit 2) naming the file + a validate hint, not escape
+    # as a raw SnapshotValidationError traceback — the last loader-walk to gain
+    # the exit-2 contract the `run` seam got in #99.
+    (tmp_path / "good.yml").write_text(
+        (EXAMPLES_DIR / "creative_kite_v1.yml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / "bad.yml").write_text("id: bad\nprompt:\n  model: x\n", encoding="utf-8")
+    with pytest.raises(StatsError, match=r"could not load snapshot bad\.yml"):
+        collect_stats(tmp_path)
+
+
+def test_collect_stats_malformed_yaml_snapshot_raises_stats_error(tmp_path: Path) -> None:
+    # The yaml.YAMLError arm of the same guard (a raw parser error, which is not
+    # a SnapshotValidationError, so it must be named explicitly).
+    (tmp_path / "good.yml").write_text(
+        (EXAMPLES_DIR / "creative_kite_v1.yml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / "broken.yml").write_text("id: bad\n  : : :\n", encoding="utf-8")
+    with pytest.raises(StatsError, match=r"could not load snapshot broken\.yml"):
+        collect_stats(tmp_path)
+
+
 # --- to_dict shape lock ----------------------------------------------------
 
 
@@ -264,3 +288,18 @@ def test_cli_missing_dir_exits_two(tmp_path: Path) -> None:
     result = _run_cli(str(tmp_path / "ghost"))
     assert result.returncode == 2
     assert "snapshots directory not found" in result.stderr
+
+
+def test_cli_malformed_snapshot_exits_two_no_traceback(tmp_path: Path) -> None:
+    # #115: `stats` was the last loader-walk that leaked a raw traceback + exit 1
+    # on a malformed snapshot; it must now exit 2 with a clean `error:` + hint,
+    # matching the `run`/`diff`/`update` sibling seams (#99/#111).
+    (tmp_path / "good.yml").write_text(
+        (EXAMPLES_DIR / "creative_kite_v1.yml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / "bad.yml").write_text("id: bad\nprompt:\n  model: x\n", encoding="utf-8")
+    result = _run_cli(str(tmp_path))
+    assert result.returncode == 2
+    assert "error: could not load snapshot bad.yml" in result.stderr
+    assert "prompt-snap validate" in result.stderr
+    assert "Traceback" not in result.stderr
