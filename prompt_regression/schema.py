@@ -161,6 +161,19 @@ class ResponseShape:
                     f"ResponseShape.structured_slots[{name!r}].type "
                     f"must be one of {_ALLOWED_SLOT_TYPES}, got {slot_type!r}"
                 )
+            # `description` is the unvalidated sibling of `type`: `extract_slots`
+            # (diff.py) computes `(spec.get("description") or "").lower()`, so a
+            # present-but-non-string description (a truthy int/list/dict from a
+            # hand-authored snapshot) passed `validate` and `load_snapshot` but
+            # raised a raw `AttributeError` at exit 1 the moment diff/run reached
+            # slot extraction. Reject it here as a `SnapshotValidationError` so it
+            # surfaces as a clean validate finding / exit-2 operator-input error.
+            description = spec.get("description")
+            if description is not None and not isinstance(description, str):
+                raise SnapshotValidationError(
+                    f"ResponseShape.structured_slots[{name!r}].description "
+                    f"must be a string or omitted, got {type(description).__name__}"
+                )
             clean_slots[name] = spec
         self.structured_slots = clean_slots
 

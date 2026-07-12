@@ -130,6 +130,30 @@ def test_response_shape_accepts_all_allowed_types():
     assert set(s.structured_slots.keys()) == set(slots.keys())
 
 
+# Issue #121: `description` is the unvalidated sibling of `type`. A truthy
+# non-string description (int/list/dict) passed validate/load but raised a raw
+# AttributeError at exit 1 in extract_slots (`(spec.get("description") or "").lower()`)
+# the moment diff/run reached slot extraction. Reject it at construction as a
+# clean SnapshotValidationError so it surfaces as a validate finding / exit 2.
+@pytest.mark.parametrize("bad", [123, 1.5, ["x"], {"k": "v"}, True])
+def test_response_shape_slot_rejects_non_string_description(bad):
+    with pytest.raises(SnapshotValidationError, match="description"):
+        ResponseShape(structured_slots={"x": {"type": "string", "description": bad}})
+
+
+def test_response_shape_slot_accepts_string_or_absent_description():
+    # No over-blocking: a string description and an omitted description both hold.
+    s = ResponseShape(
+        structured_slots={
+            "a": {"type": "string", "description": "a human hint"},
+            "b": {"type": "integer"},
+            "c": {"type": "number", "description": None},
+        }
+    )
+    assert s.structured_slots["a"]["description"] == "a human hint"
+    assert "description" not in s.structured_slots["b"]
+
+
 # --- CanonicalResponse ----------------------------------------------------
 
 

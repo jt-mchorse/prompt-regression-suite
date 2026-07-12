@@ -796,3 +796,12 @@ Fix: added a `_validate_thresholds(threshold, warn_band)` CLI-entry helper (mirr
 **Why prioritized.** Static priority:high queue globally exhausted; found via a sibling-incomplete-fix hunt on the just-merged #118 surface, reproduced firsthand.
 
 **Open questions / blockers.** None — PR ready for review.
+## 2026-07-11 — Issue #121: validate slot description is a string in ResponseShape (~20 min, night)
+
+**What got done.** `ResponseShape.__post_init__` validated each structured-slot spec's `type` but not the sibling `description`. `extract_slots` (`diff.py:245`, also `_extract_string`) computes `(spec.get("description") or "").lower()`, so a truthy non-string `description` (int/list/dict from a hand-authored snapshot) passed `validate`/`load_snapshot` but raised a raw `AttributeError` at exit 1 the moment `diff`/`run` reached slot extraction — the "regressions found" code, so a config typo read as a failing regression in CI. Schema-parity lens of #99/#115/#117/#119: validated `type`, unvalidated sibling `description`.
+
+Validate `description` as `str | None` in `__post_init__`, raising `SnapshotValidationError` (surfaced by `load_snapshot`/`validate` as a clean finding → exit 2). Six tests (non-string int/float/list/dict/bool rejected; string + absent round-trip). Full suite + ruff green. Reproduced firsthand before/after: a snapshot with `description: 123` went from validate exit 0 + diff raw AttributeError exit 1 → validate reports the finding + diff clean `error:` exit 2. (Needed `update --force --canonical` to re-embed to 128-dim hash first, to get past the embedder dim guards to slot extraction.)
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / schema-validation-parity meta-lens (a prs hunt agent surfaced it; verified firsthand).
+
+**Open questions / blockers.** None — PR #122 ready for review.
