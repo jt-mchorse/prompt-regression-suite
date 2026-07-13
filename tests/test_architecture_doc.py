@@ -372,3 +372,65 @@ def test_resolvable_prefixes_hard_pin_set() -> None:
 
 def test_min_active_decision_id_hard_pin() -> None:
     assert MIN_ACTIVE_DECISION_ID == 2
+
+
+# ---------------------------------------------------------------------------
+# Directory-tree completeness lock (#123).
+#
+# The doc opens with a fenced `prompt_regression/` directory tree annotating
+# each module. Its bare `foo.py` entries are neither backtick-quoted path tokens
+# nor dotted `<module>.<symbol>` refs, so the resolvers above skip them, and
+# nothing asserted the tree matches the package. That is how `stats.py` (#47)
+# and `validate.py` (#49) shipped and stayed out of the tree even though the
+# doc's prose describes both — so a "basename appears anywhere in the doc" check
+# would pass. Parse the tree block itself and assert its `*.py` entries EQUAL
+# the package module set (bidirectional: omission and stale-leftover both fail).
+
+
+def _tree_py_modules(doc_text: str) -> set[str]:
+    """Basenames of the `*.py` entries in the fenced directory tree that opens
+    with the `prompt_regression/` header line (scan stops at the closing fence)."""
+    modules: set[str] = set()
+    in_tree = False
+    for line in doc_text.splitlines():
+        if line.strip() == f"{_PKG}/":
+            in_tree = True
+            continue
+        if in_tree:
+            if line.strip().startswith("```"):
+                break
+            m = re.search(r"([A-Za-z_][A-Za-z0-9_]*\.py)\b", line)
+            if m:
+                modules.add(m.group(1))
+    return modules
+
+
+def test_directory_tree_lists_every_package_module(doc_text: str) -> None:
+    """The fenced `prompt_regression/` tree names exactly the package's `*.py`
+    modules — no omission (the #47/#49 drift) and no stale leftover (#123)."""
+    tree = _tree_py_modules(doc_text)
+    assert tree, f"expected a `{_PKG}/` directory tree with *.py entries in the doc"
+    disk = {p.name for p in _PKG_DIR.glob("*.py")}
+    missing = sorted(disk - tree)
+    extra = sorted(tree - disk)
+    drift = [
+        *(f"missing from tree: {m}" for m in missing),
+        *(f"in tree but not on disk: {e}" for e in extra),
+    ]
+    assert not drift, (
+        f"docs/architecture.md directory tree is out of sync with {_PKG}/:\n"
+        + "\n".join(f"  {d}" for d in drift)
+        + "\n(update the tree so it depicts the current package layout)"
+    )
+
+
+def test_directory_tree_parser_and_diff_catch_drift() -> None:
+    """Inverse safety net: exercise the real parser + set-diff on synthetic
+    trees so a vacuous parse can't let drift through."""
+    good = f"{_PKG}/\n├── a.py   ← one\n└── b.py   ← two\n```"
+    assert _tree_py_modules(good) == {"a.py", "b.py"}
+    # A module on disk but absent from the tree is flagged as missing.
+    assert sorted({"a.py", "b.py", "c.py"} - _tree_py_modules(good)) == ["c.py"]
+    # A stale entry lingering in the tree after a file is deleted is flagged.
+    stale = f"{_PKG}/\n├── a.py\n├── b.py\n└── gone.py\n```"
+    assert sorted(_tree_py_modules(stale) - {"a.py", "b.py"}) == ["gone.py"]

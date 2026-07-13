@@ -14,6 +14,8 @@ prompt_regression/
 ├── diff.py          ← #2, #10: semantic similarity + structured slot-shape diff
 ├── html_report.py   ← #3: single-file HTML with inline SVG
 ├── cli.py           ← #5: prompt-snap run | update | diff
+├── stats.py         ← #47: population-level directory summary (collect_stats)
+├── validate.py      ← #49: collecting-mode directory lint (validate_snapshots)
 └── __init__.py      ← public surface (#19)
 ```
 
