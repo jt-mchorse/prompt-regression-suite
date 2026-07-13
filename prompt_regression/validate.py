@@ -143,7 +143,11 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
         try:
             with path.open("r", encoding="utf-8") as f:
                 data: Any = yaml.safe_load(f)
-        except yaml.YAMLError as e:
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
+            # UnicodeDecodeError (a ValueError subclass, not a YAMLError) surfaces
+            # at this same read seam when the file isn't valid UTF-8 — a decode
+            # failure is a parse failure, so route it to the same `parse` finding
+            # rather than letting it escape as a raw traceback at exit 1.
             findings.append(ValidationFinding(path=rel, reason=f"invalid YAML: {e}", code="parse"))
             continue
         if not isinstance(data, dict):
