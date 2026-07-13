@@ -805,3 +805,15 @@ Validate `description` as `str | None` in `__post_init__`, raising `SnapshotVali
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / schema-validation-parity meta-lens (a prs hunt agent surfaced it; verified firsthand).
 
 **Open questions / blockers.** None — PR #122 ready for review.
+
+## 2026-07-13 (Night) — Issue #123: architecture tree omitted stats.py (#47) + validate.py (#49)
+**Duration:** ~20 min · **Branch:** `session/2026-07-13-0532-issue-123` · **PR:** #124
+
+- The fenced `prompt_regression/` directory tree listed 6 of the package's 8 modules — `stats.py` (#47) and `validate.py` (#49) were absent, even though the doc's own Stats/Validator prose sections and CLI cheatsheet describe both. The arch-doc lock resolves backtick paths + dotted symbols (so the prose refs passed) but never asserted the tree matches the package.
+- Crucially, a "basename appears anywhere in the doc" lock (as used for leh #171 / nextjs #83) would have *passed* here since the names live in prose — so the new lock parses the **tree block specifically** and asserts its `*.py` entries equal the `prompt_regression/*.py` module set (bidirectional: omission and stale-leftover both fail), with an inverse guard exercising the real parser + set-diff. Verified it flags exactly `stats.py`/`validate.py` on the pre-fix doc. Full suite 398 pass; ruff clean (had to split a composite assert for PT018).
+
+**Why this work, this session:** the directory-tree-completeness variant of the "arch-doc drift beyond the lock lens" — 4th repo this night (chunking #122 field-label variant, nextjs #83, llm-eval-harness #171, now prs #123).
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** among the Python repos only leh and prs had fenced directory trees (rag/lco/ems/vsas/pyasync/aop have none), so this specific variant is exhausted on the Python side. Still to check: the two JS repos (mcp-server-cookbook, ai-app-integration-tests) both have `docs/architecture.md` — check their trees.
