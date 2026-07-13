@@ -817,3 +817,15 @@ Validate `description` as `str | None` in `__post_init__`, raising `SnapshotVali
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** among the Python repos only leh and prs had fenced directory trees (rag/lco/ems/vsas/pyasync/aop have none), so this specific variant is exhausted on the Python side. Still to check: the two JS repos (mcp-server-cookbook, ai-app-integration-tests) both have `docs/architecture.md` — check their trees.
+
+## Session 2026-07-13 (night) — issue #125: non-UTF-8 snapshot exits 2, not a raw traceback
+
+A snapshot file containing a non-UTF-8 byte (e.g. a Latin-1 `é` from a hand-edit in a non-UTF-8 editor) raised `UnicodeDecodeError` at the `yaml.safe_load(open(..., encoding="utf-8"))` read seam. `UnicodeDecodeError` is a subclass of `ValueError` — not `OSError` and not `yaml.YAMLError` — so it slipped past the `(OSError, SnapshotValidationError, yaml.YAMLError)` catch tuples that #99/#115 added for the missing-file / bad-YAML / schema-invalid cases, escaping as a raw traceback at exit 1. For `run` and `diff`, exit 1 is the documented "regressions found" code, so a non-UTF-8 snapshot in CI would read as a *failing regression* rather than a config error — the exact harm #99/#115 were filed to eliminate.
+
+The fix adds `UnicodeDecodeError` to the four load-seam catch tuples (`run`, `update`, `diff` in cli.py and `collect_stats` in stats.py → clean `error:` + exit 2) and to the `validate` pre-read (→ the existing `parse` finding). It's the byte-encoding sibling of the same read seam the syntax/schema/IO failure modes already cover. Reproduced all five subcommands firsthand before and after; added five lock tests, one per seam. Full suite green, ruff clean.
+
+**Why this work, this session:** Third hit of the night run, surfaced by the sibling-incomplete-fix dogfood hunt on prompt-regression-suite and verified firsthand across every subcommand.
+
+**Open questions / blockers:** none — PR #126 ready for review.
+
+**Next session:** Phase A merge PR for #125.
