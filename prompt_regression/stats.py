@@ -179,7 +179,7 @@ def collect_stats(directory: str | Path) -> StatsReport:
         rel = p.relative_to(path) if p.is_relative_to(path) else Path(p.name)
         try:
             snap = load_snapshot(p)
-        except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+        except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
             raise StatsError(
                 f"could not load snapshot {rel}: {e}\n"
                 f"hint: run 'prompt-snap validate {path}' to list every "

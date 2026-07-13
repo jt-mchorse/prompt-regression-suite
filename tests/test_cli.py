@@ -838,6 +838,55 @@ def test_update_schema_invalid_snapshot_exits_two(
     assert "Traceback" not in err
 
 
+# --- #125: a non-UTF-8 snapshot leaks a raw UnicodeDecodeError at exit 1 ---
+#
+# `UnicodeDecodeError` subclasses `ValueError` — not `OSError`, not
+# `yaml.YAMLError` — so it slipped past the (OSError, SnapshotValidationError,
+# yaml.YAMLError) catch tuples that #99/#115 added for the missing-file /
+# bad-YAML / schema-invalid siblings. For `run`/`diff`, exit 1 is the
+# "regressions found" code, so a non-UTF-8 snapshot read as a failing
+# regression instead of a config error. Decode failure is the byte-encoding
+# sibling of the same read seam.
+
+
+def _write_non_utf8_snapshot(path: Path) -> None:
+    # A Latin-1 'é' (0xE9) is an invalid UTF-8 continuation byte — a plausible
+    # hand-edit from a non-UTF-8 editor.
+    path.write_bytes(b'schema_version: "1"\nprompt_id: t1\nresponse:\n  text: "caf\xe9"\n')
+
+
+def test_run_non_utf8_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    d = tmp_path / "snaps"
+    d.mkdir()
+    _write_non_utf8_snapshot(d / "bad.snapshot.yaml")
+    cands = _write_candidates(tmp_path / "cands.jsonl", [{"snapshot": "t1", "candidate": "x"}])
+    rc = main(["run", "--snapshots", str(d), "--candidates", str(cands)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_diff_non_utf8_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    bad = tmp_path / "bad.snapshot.yaml"
+    _write_non_utf8_snapshot(bad)
+    rc = main(["diff", "--snapshot", str(bad), "--candidate", "x"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_update_non_utf8_snapshot_exits_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    bad = tmp_path / "bad.snapshot.yaml"
+    _write_non_utf8_snapshot(bad)
+    rc = main(["update", "--snapshot", str(bad), "--canonical", "x", "--force"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
 # ----------------------------------------------------------------------
 # `--embedder` CLI-level exit-2 translation (#117)
 #

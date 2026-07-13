@@ -303,3 +303,22 @@ def test_cli_malformed_snapshot_exits_two_no_traceback(tmp_path: Path) -> None:
     assert "error: could not load snapshot bad.yml" in result.stderr
     assert "prompt-snap validate" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_cli_non_utf8_snapshot_exits_two_no_traceback(tmp_path: Path) -> None:
+    # #125: a non-UTF-8 snapshot raises UnicodeDecodeError (a ValueError
+    # subclass, not OSError/YAMLError) at the same load seam. It must exit 2
+    # with a clean `error:` + hint, matching the malformed-snapshot sibling
+    # above, not escape as a raw traceback.
+    (tmp_path / "good.yml").write_text(
+        (EXAMPLES_DIR / "creative_kite_v1.yml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    # Latin-1 'é' (0xE9) — an invalid UTF-8 continuation byte.
+    (tmp_path / "bad.yml").write_bytes(
+        b'schema_version: "1"\nprompt_id: t1\nresponse:\n  text: "caf\xe9"\n'
+    )
+    result = _run_cli(str(tmp_path))
+    assert result.returncode == 2
+    assert "error: could not load snapshot bad.yml" in result.stderr
+    assert "prompt-snap validate" in result.stderr
+    assert "Traceback" not in result.stderr

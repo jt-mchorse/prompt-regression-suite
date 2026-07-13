@@ -104,6 +104,19 @@ def test_yaml_decode_error_is_parse_finding(tmp_path: Path) -> None:
     assert "invalid YAML" in report.findings[0].reason
 
 
+def test_non_utf8_snapshot_is_parse_finding(tmp_path: Path) -> None:
+    """#125: a non-UTF-8 snapshot raises UnicodeDecodeError (a ValueError
+    subclass, not a YAMLError) at the same read seam. It must route to a
+    ``parse`` finding, not escape as a raw traceback."""
+    bad = tmp_path / "bad.yml"
+    # Latin-1 'é' (0xE9) — an invalid UTF-8 continuation byte.
+    bad.write_bytes(b'schema_version: "1"\nprompt_id: t1\nresponse:\n  text: "caf\xe9"\n')
+    report = validate_snapshots(tmp_path)
+    assert not report.ok
+    codes = [f.code for f in report.findings]
+    assert codes == ["parse"]
+
+
 # --- library: schema_version + schema findings ----------------------------
 
 

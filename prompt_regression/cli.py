@@ -285,7 +285,7 @@ def _run_command(args: argparse.Namespace) -> int:
         # `load_snapshot`) does not — so both are named explicitly (#99).
         try:
             snap = load_snapshot(path)
-        except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+        except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
             print(f"error: could not load snapshot {rel}: {e}", file=sys.stderr)
             print(
                 f"hint: run 'prompt-snap validate {snapshots_dir}' to list every "
@@ -428,7 +428,7 @@ def _update_command(args: argparse.Namespace) -> int:
     # #99; `update` reads through the same `load_snapshot` seam and needs it too.
     try:
         snap = load_snapshot(snapshot_path)
-    except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+    except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
         print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
         return 2
     embedder = _resolve_embedder(args.embedder)
@@ -521,7 +521,7 @@ def _diff_command(args: argparse.Namespace) -> int:
     # `load_snapshot` seam and already honors exit 2 for its other inputs below.
     try:
         snap = load_snapshot(Path(args.snapshot).resolve())
-    except (OSError, SnapshotValidationError, yaml.YAMLError) as e:
+    except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
         print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
         return 2
     embedder = _resolve_embedder(args.embedder)
