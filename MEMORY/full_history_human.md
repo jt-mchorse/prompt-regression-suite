@@ -829,3 +829,14 @@ The fix adds `UnicodeDecodeError` to the four load-seam catch tuples (`run`, `up
 **Open questions / blockers:** none — PR #126 ready for review.
 
 **Next session:** Phase A merge PR for #125.
+
+## 2026-07-14 (night) — Issue #127: atomic_write_text overflows NAME_MAX on a long basename
+**Duration:** ~10 min · **Branch:** `session/2026-07-14-0754-issue-127` · **PR:** #128
+
+The cross-repo `atomic_write_text` temp-name-overflow bug (rag#128 / mcp#96): a destination basename near `NAME_MAX` (255 bytes) overflowed the temp name and raised `OSError` ENAMETOOLONG, though a plain `write_text` succeeds. Reachable from `save_snapshot` and CLI `--out`. Verified firsthand; ported `_cap_base_for_temp`. Full suite (404) green.
+
+**Why this work, this session:** Eleventh hit — cross-repo atomic-write sweep (now fixed in rag, mcp, leh, chunking, lco, ems, prs; pyasync next; vsas deferred).
+
+**Open questions / blockers:** none — PR #128 ready for review.
+
+**Next session:** Phase A merge PR for #127.
