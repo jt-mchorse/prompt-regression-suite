@@ -1364,3 +1364,17 @@ context_for_next_session:
   - LENS_exit_code_contract_completeness_by_EXCEPTION_SUBCLASS_UnicodeDecodeError_is_ValueError_not_OSError_not_YAMLError_check_other_repos_yaml_json_loaders_encoding_utf8_read_seams_for_same_decode_failure_mode_gap_leh_chunking_ems_from_json_loaders
 decisions_made: []
 followups: []
+
+---
+session: 2026-07-14T07:54Z
+issue: 127
+focus: atomic_write_text_temp_name_overflows_name_max_255_long_basename_cross_repo_sweep_sibling_rag_128_mcp_96
+phase: night_session_phase_b_issue_11
+delta:
+  files_changed: 2   # prompt_regression/io.py, tests/test_atomic_write.py
+  tests_added: 1
+context_for_next_session:
+  - shipped_127_pr_ready_prs_io_atomic_write_text_48_prefix_dot_target_name_dot_overflows_name_max_255_reachable_save_snapshot_cli_out_fixed_cap_base_for_temp_200_verified_firsthand_full_suite_404_green
+  - CROSS_REPO_SWEEP_atomic_write_text_overflow_FIXED_rag_128_mcp_96_leh_175_chunking_128_lco_154_ems_103_prs_127_ONLY_pyasync_this_run_then_vsas_deferred
+decisions_made: []
+followups: []
