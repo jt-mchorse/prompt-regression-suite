@@ -876,3 +876,62 @@ just formatter scope.
 Pinning a ruff range in `.[dev]` is the deeper fix, but that is a dependency
 policy call across six repos rather than a bug fix, so it is flagged for JT
 rather than made unilaterally.
+
+## 2026-08-04 — Issue #131: the extractor broke on the pathology it exists to catch
+
+`_extract_number` turned a regex match into a number with a bare `int(raw)` /
+`float(raw)`. Both are total for every number a model plausibly writes, and both
+fail on exactly one shape: a very long digit run. That is what a degenerate
+repetition loop produces — one of the best-known LLM failure modes — so the
+extractor fell over on precisely the output a prompt-regression tool exists to
+detect.
+
+The two failures are different, and that asymmetry is the part worth carrying
+forward.
+
+`int` fails **loudly**. CPython 3.11+ caps int↔str conversion at 4300 digits, and
+past that it raises `ValueError`. Nothing in `diff_slots` or `diff_response`
+catches it, so it escaped as a raw traceback at exit 1 — the contract #99, #111,
+#113, #115, #117, #119 and #126 have been closing everywhere else.
+
+`float` fails **silently**. `float("9" * 400)` doesn't raise; it returns `inf`.
+That passed the `isinstance(actual, float)` check as `status: "ok"`, so the
+structural channel *approved* a garbage value, and `to_dict()` carried it into
+`--format json` as a bare `Infinity` token — which `jq`, a browser `JSON.parse`
+and Go/Rust decoders all reject, taking the whole document with it.
+
+So a try/except around the coercion would have fixed half the bug and left the
+worse half. The guard has to check finiteness explicitly. That generalises:
+wherever untrusted text is coerced to a number, `int` overflows loudly and
+`float` overflows quietly, and only one of those is visible in a traceback.
+
+The fix makes the coercion total. An unrepresentable match is skipped and the
+next one tried; if none is representable the slot reports `missing`, which
+already carries a failing verdict. No new status, no change to the `--json`
+contract.
+
+Skipping rather than bailing also fixes a smaller thing: one bad token near the
+hint word used to poison the whole extraction even with a perfectly good number
+in the same sentence. There is a real tradeoff there, and I flagged it for JT
+rather than burying it — a response containing both a garbage run and a real
+number can now report `ok` on the more distant number. I chose that direction
+because the stricter reading turns previously-working extractions into failures,
+and because a genuine repetition loop has no other number in it, so it still
+lands on `missing`.
+
+Behaviour is unchanged for everything representable. `sorted` is stable, so the
+head of the distance ordering is exactly the match `min(...)` picked before. The
+parametrized tests pin hint proximity, the first-match fallback, the `W-2`
+lookbehind guard, the `.5` and `3.` float shapes, a real negative, and a
+4299-digit integer that must still extract — the guard rejects only what cannot
+be represented, not merely what is big.
+
+One test-writing note worth keeping. Python's `json.loads` accepts bare
+`Infinity` and `NaN`, so asserting that the output round-trips through
+`json.loads` would have passed on exactly the broken output. The tests parse with
+a `parse_constant` that raises instead.
+
+Also deleted `err.txt` and `err2.txt`, untracked debris an earlier session left
+at the repo root. Never committed, so nothing to revert.
+
+421 passed. Shipped as PR #132.
