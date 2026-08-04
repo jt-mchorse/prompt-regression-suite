@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -258,6 +259,51 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
     return out
 
 
+def _coerce_match(raw: str, *, want_int: bool) -> int | float | None:
+    """Convert one regex match to a finite number, or ``None`` if it isn't one.
+
+    A bare ``int(raw)`` / ``float(raw)`` is total for every number a model
+    plausibly writes and fails on exactly one shape — a very long digit run —
+    which is the shape a degenerate repetition loop produces. That is the
+    pathology this tool exists to catch, so the extractor has to survive it
+    (#131).
+
+    Both coercions fail differently and neither failure was handled:
+
+    - ``int`` raises ``ValueError`` past CPython's int↔str digit cap
+      (``sys.get_int_max_str_digits()``, 4300 by default). Nothing in
+      ``diff_slots`` or ``diff_response`` catches it, so it escaped as a raw
+      traceback at exit 1 — the contract #99/#111/#113/#115/#117/#119/#126
+      have been closing everywhere else.
+    - ``float`` does *not* raise. ``float("9" * 400)`` is ``inf``, which then
+      passed the ``isinstance(actual, float)`` check as ``status: "ok"`` and
+      egressed into ``--format json`` as a bare ``Infinity`` token. That is
+      not valid JSON, so ``jq`` / ``JSON.parse`` / a Go or Rust decoder
+      rejects the whole document — the same non-finite-at-egress class as
+      rag-production-kit#137.
+
+    Returning ``None`` lets the caller move on to the next match, and if none
+    is representable ``diff_slots`` renders the slot as ``missing`` → a
+    failing verdict, which is the right answer for a degenerate response and
+    needs no new status in the ``--json`` contract.
+    """
+    try:
+        value: int | float = int(raw) if want_int else float(raw)
+    except ValueError:
+        return None
+    if not want_int and not math.isfinite(value):
+        return None
+    return value
+
+
+def _first_representable(matches: Sequence[re.Match[str]], *, want_int: bool) -> int | float | None:
+    for match in matches:
+        value = _coerce_match(match.group(0), want_int=want_int)
+        if value is not None:
+            return value
+    return None
+
+
 def _extract_number(text: str, lowered: str, hint: str, *, want_int: bool) -> int | float | None:
     pattern = _INTEGER_RE if want_int else _NUMBER_RE
     matches = list(pattern.finditer(text))
@@ -269,12 +315,20 @@ def _extract_number(text: str, lowered: str, hint: str, *, want_int: bool) -> in
         for hw in hint_words:
             idx = lowered.find(hw)
             if idx != -1:
-                # Pick the match nearest to `idx`.
-                best = min(matches, key=lambda m: abs(m.start() - idx))
-                raw = best.group(0)
-                return int(raw) if want_int else float(raw)
-    raw = matches[0].group(0)
-    return int(raw) if want_int else float(raw)
+                # Nearest to `idx` first, then outward. `sorted` is stable, so
+                # the head of this list is the same match `min(...)` picked
+                # before — the ordering only matters when the nearest token
+                # turns out to be unrepresentable, in which case a perfectly
+                # good number elsewhere in the response should still be found
+                # rather than poisoning the whole extraction (#131).
+                by_distance = sorted(matches, key=lambda m: abs(m.start() - idx))
+                value = _first_representable(by_distance, want_int=want_int)
+                if value is not None:
+                    return value
+                # Every match is unrepresentable; a different hint word ranks
+                # the same set, so it cannot help.
+                return None
+    return _first_representable(matches, want_int=want_int)
 
 
 def _extract_string(text: str, hint: str, name: str) -> str | None:
