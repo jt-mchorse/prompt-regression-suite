@@ -661,6 +661,11 @@ def _validate_command(args: argparse.Namespace) -> int:
         print(f"error: snapshots directory not found: {e}", file=sys.stderr)
         return 2
     except OSError as e:
+        # Directory-level only. A *per-file* read failure used to land here too
+        # and take the whole report down at exit 2 — nothing reported about any
+        # other file in the pass, under a message blaming a walk that had in fact
+        # succeeded. Those are `unreadable` findings now (#133), so anything
+        # still reaching this arm really is a failure to enumerate the directory.
         print(f"error: failed to walk snapshots directory: {e}", file=sys.stderr)
         return 2
 

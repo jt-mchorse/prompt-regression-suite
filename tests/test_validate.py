@@ -12,7 +12,14 @@ Coverage matrix:
 - ``duplicate_id`` finding shape: two snapshot files in the same dir
   with the same ``Snapshot.id``; the shadow file is excluded from
   ``n_valid``.
+- ``unreadable`` finding shape (#133): a file matching a snapshot glob
+  that can't be *read* — a ``*.yaml`` directory, a ``chmod 000`` file,
+  a file that vanishes between the two read seams. Each pinned
+  alongside a second finding, because the regression is that the
+  unreadable entry used to suppress the whole pass.
 - ``empty`` finding shape: directory has zero matching snapshot files.
+- Finding-code list derived-lock (#133): ``FINDING_CODES`` vs the emit
+  sites (via AST), the module docstring, and the README.
 - Missing directory → ``FileNotFoundError`` propagates from the
   library; CLI maps to exit 2.
 - ``ValidationReport.to_dict`` shape stability lock.
@@ -24,8 +31,11 @@ Coverage matrix:
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,11 +44,13 @@ import pytest
 import yaml
 
 from prompt_regression import load_snapshot, save_snapshot
+from prompt_regression import validate as validate_module
 from prompt_regression.cli import _SNAPSHOT_GLOBS as RUN_GLOBS
 from prompt_regression.validate import (
     _SNAPSHOT_GLOBS as VALIDATE_GLOBS,
 )
 from prompt_regression.validate import (
+    FINDING_CODES,
     ValidationFinding,
     ValidationReport,
     validate_snapshots,
@@ -414,3 +426,175 @@ def test_cli_out_not_written_on_missing_dir(tmp_path: Path) -> None:
     result = _run_cli("/this/path/does/not/exist", "--out", str(out))
     assert result.returncode == 2
     assert not out.exists(), "exit-2 must not create the --out file"
+
+
+# --- #133: an unreadable file is a finding, not an abort ------------------
+
+
+def _dup_id_pair(tmp_path: Path) -> None:
+    """Two files resolving to the same ``Snapshot.id`` → one ``duplicate_id``
+    finding. Used as the *other* finding that must survive alongside an
+    unreadable file."""
+    base = load_snapshot(EXAMPLES_DIR / "refund_window_v1.yml")
+    save_snapshot(base, tmp_path / "good.yml")
+    save_snapshot(base, tmp_path / "shadow.yml")
+
+
+def test_directory_matching_a_snapshot_glob_is_an_unreadable_finding(
+    tmp_path: Path,
+) -> None:
+    """``rglob("*.yaml")`` matches a *directory* whose name ends in
+    ``.yaml`` (an exported ``bundle.yaml/`` folder). Opening it raises
+    ``IsADirectoryError`` — an ``OSError``, not a ``YAMLError`` — which
+    before #133 escaped the collecting loop entirely."""
+    _dup_id_pair(tmp_path)
+    (tmp_path / "bundle.yaml").mkdir()
+
+    report = validate_snapshots(tmp_path)
+
+    by_code = {f.code: f for f in report.findings}
+    assert "unreadable" in by_code, [f.code for f in report.findings]
+    assert by_code["unreadable"].path == "bundle.yaml"
+    assert "unreadable:" in by_code["unreadable"].reason
+    # The regression this test exists for: the *other* finding survives.
+    assert "duplicate_id" in by_code, (
+        "an unreadable entry must not suppress the rest of the pass; "
+        f"got {[f.code for f in report.findings]}"
+    )
+    assert report.n_files == 3
+    assert report.n_valid == 1
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="root bypasses file permission bits, so chmod 000 stays readable",
+)
+def test_permission_denied_snapshot_is_an_unreadable_finding(tmp_path: Path) -> None:
+    """A ``chmod 000`` snapshot raises ``PermissionError`` at the read
+    seam. Sorted first ("aaa_") so the pre-#133 abort happens *before*
+    the duplicate-id pair is reached — pinning that the collecting loop
+    continues past it rather than merely tolerating a trailing failure."""
+    _dup_id_pair(tmp_path)
+    locked = tmp_path / "aaa_locked.yml"
+    locked.write_text("schema_version: '1'\n", encoding="utf-8")
+    locked.chmod(0o000)
+    try:
+        report = validate_snapshots(tmp_path)
+    finally:
+        locked.chmod(0o644)  # so pytest's tmp_path cleanup can remove it
+
+    codes = sorted(f.code for f in report.findings)
+    assert codes == ["duplicate_id", "unreadable"], codes
+    assert not report.ok
+
+
+def test_unreadable_file_deleted_between_the_two_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``load_snapshot`` re-opens the file, so it is a *second* read seam:
+    a file that passes ``yaml.safe_load`` can be gone by the time
+    ``load_snapshot`` reads it (deleted mid-walk, permissions changed by a
+    concurrent sync). That seam routes to ``unreadable`` too."""
+    _dup_id_pair(tmp_path)
+    victim = tmp_path / "vanishes.yml"
+    save_snapshot(load_snapshot(EXAMPLES_DIR / "creative_kite_v1.yml"), victim)
+
+    real_load = validate_module.load_snapshot
+
+    def _load(path: Path):  # type: ignore[no-untyped-def]
+        if Path(path).name == "vanishes.yml":
+            raise FileNotFoundError(2, "No such file or directory", str(path))
+        return real_load(path)
+
+    monkeypatch.setattr(validate_module, "load_snapshot", _load)
+    report = validate_snapshots(tmp_path)
+
+    by_code = {f.code: f for f in report.findings}
+    assert by_code["unreadable"].path == "vanishes.yml"
+    assert "duplicate_id" in by_code
+
+
+def test_cli_unreadable_file_exits_one_with_findings_not_two(tmp_path: Path) -> None:
+    """End-to-end: the CLI reports ``unreadable`` as a finding (exit 1)
+    instead of collapsing to the directory-level ``failed to walk
+    snapshots directory`` abort (exit 2) it used to hit."""
+    _dup_id_pair(tmp_path)
+    (tmp_path / "bundle.yaml").mkdir()
+
+    result = _run_cli(str(tmp_path))
+
+    assert result.returncode == 1, (result.returncode, result.stdout, result.stderr)
+    assert "failed to walk snapshots directory" not in result.stderr
+    assert "[unreadable]" in result.stderr
+    assert "[duplicate_id]" in result.stderr
+    assert result.stdout.startswith("fail:"), result.stdout
+
+
+def test_cli_missing_directory_still_exits_two(tmp_path: Path) -> None:
+    """The directory-level arm is unchanged: a missing snapshots dir is
+    still exit 2, not a finding. Pins that #133 narrowed the ``OSError``
+    catch to per-file reads without widening the clean-failure contract."""
+    result = _run_cli(str(tmp_path / "nope"))
+    assert result.returncode == 2
+    assert "snapshots directory not found" in result.stderr
+
+
+# --- #133: the documented code list is derived, not prose -----------------
+
+
+def _codes_emitted_by_validate_module() -> set[str]:
+    """Every ``ValidationFinding.code`` string literal the module can emit.
+
+    Collected from the AST rather than by grepping prose: the module
+    docstring quotes each code in backticks, and a text scan would count
+    the documentation as an emit site — making the lock below vacuous.
+    """
+    src = Path(validate_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    codes: set[str] = set()
+    for node in ast.walk(tree):
+        # `ValidationFinding(..., code="parse")`
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "ValidationFinding"
+        ):
+            for kw in node.keywords:
+                if kw.arg == "code" and isinstance(kw.value, ast.Constant):
+                    codes.add(kw.value.value)
+        # `code = "schema_version" if ... else "schema"` — assigned, then passed
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "code" for t in node.targets
+        ):
+            for sub in ast.walk(node.value):
+                if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                    codes.add(sub.value)
+    return codes
+
+
+def test_finding_codes_matches_what_the_module_can_emit() -> None:
+    """``FINDING_CODES`` is the single source of truth, so it must equal
+    the set of codes the emit sites actually construct — no documented-but-
+    dead code, no emitted-but-undocumented one."""
+    assert set(FINDING_CODES) == _codes_emitted_by_validate_module()
+    assert len(FINDING_CODES) == len(set(FINDING_CODES)), "duplicate entry"
+
+
+def test_module_docstring_code_list_is_locked_to_finding_codes() -> None:
+    """The docstring's ``- ``code`` — …`` bullet list is derived-locked.
+    Before #133 the code list lived in three places (docstring, README,
+    emit sites) with nothing tying them together."""
+    doc = validate_module.__doc__ or ""
+    documented = re.findall(r"^- ``([a-z_]+)``", doc, flags=re.MULTILINE)
+    assert documented == list(FINDING_CODES), (documented, FINDING_CODES)
+
+
+def test_readme_validate_bullet_lists_every_finding_code() -> None:
+    """The README's ``codes `a | b | c``` span is the operator-facing copy
+    of the same list; lock it to ``FINDING_CODES`` so a new code can't be
+    added to the module and documented in only one of the two places."""
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    match = re.search(r"codes `([^`]+)`", readme, flags=re.DOTALL)
+    assert match is not None, "README no longer documents the validate finding codes"
+    listed = [c.strip() for c in match.group(1).split("|")]
+    assert listed == list(FINDING_CODES), (listed, FINDING_CODES)

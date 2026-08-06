@@ -25,10 +25,24 @@ Finding codes (stable, JSON-routable):
                        wrong type, malformed embedding vector, ...).
 - ``duplicate_id``   — two snapshot files in the dir resolve to the
                        same ``Snapshot.id``.
+- ``unreadable``     — the file matched a snapshot glob but could not
+                       be *read* (permission denied, a directory whose
+                       name ends in ``.yaml``, a broken symlink, a file
+                       deleted mid-walk). Its own code, not ``parse``:
+                       nothing was parsed, and an operator routing on
+                       the code needs to fix a filesystem problem, not
+                       a snapshot's contents.
 - ``empty``          — directory matched zero snapshot files.
 
+The code list above is not prose — it is derived-locked against
+:data:`FINDING_CODES` and the README by ``tests/test_validate.py`` (#133).
+
 Exit-code shape (mapped by the CLI): 0 clean / 1 findings / 2 missing
-dir or I/O error. Same convention as ``eval-harness validate`` and
+dir or *directory-level* I/O error. A **per-file** I/O error is a
+finding, not an abort — collecting mode is the whole point of this
+module, and before #133 a single ``chmod 000`` snapshot took the entire
+report down with it, reporting nothing about any other file in the
+directory. Same convention as ``eval-harness validate`` and
 ``scripts/audit_phase_a.py`` in portfolio-ops.
 """
 
@@ -50,6 +64,20 @@ _SNAPSHOT_GLOBS: tuple[str, ...] = (
     "*.snapshot.yml",
     "*.yml",
     "*.yaml",
+)
+
+#: Every ``ValidationFinding.code`` this module can emit, in the order the
+#: module docstring documents them. The one source of truth: the docstring
+#: list above and the README's `validate` bullet are both checked against
+#: this tuple by ``tests/test_validate.py``, so a new code cannot be added
+#: to the emit sites and documented in only one of the two places (#133).
+FINDING_CODES: tuple[str, ...] = (
+    "parse",
+    "schema_version",
+    "schema",
+    "duplicate_id",
+    "unreadable",
+    "empty",
 )
 
 
@@ -143,6 +171,20 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
         try:
             with path.open("r", encoding="utf-8") as f:
                 data: Any = yaml.safe_load(f)
+        except OSError as e:
+            # The *read* sibling of the decode failure handled just below. Both
+            # surface at this one seam; only the decode half was ever brought
+            # into collecting mode, so a single unreadable file — `chmod 000`, a
+            # directory whose name ends in `.yaml` (the globs match it), a broken
+            # symlink — escaped as an OSError, hit the CLI's directory-level
+            # `except OSError` arm, and took the whole report down at exit 2:
+            # zero findings for every other file in the pass, mis-labelled
+            # "failed to walk snapshots directory" when the walk had succeeded
+            # (#133). Nothing was parsed here, so this is not a `parse` finding.
+            findings.append(
+                ValidationFinding(path=rel, reason=f"unreadable: {e}", code="unreadable")
+            )
+            continue
         except (yaml.YAMLError, UnicodeDecodeError) as e:
             # UnicodeDecodeError (a ValueError subclass, not a YAMLError) surfaces
             # at this same read seam when the file isn't valid UTF-8 — a decode
@@ -161,6 +203,15 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
             continue
         try:
             snap = load_snapshot(path)
+        except OSError as e:
+            # `load_snapshot` re-opens the file, so this is a second read seam,
+            # not a redundant guard: the file can become unreadable between the
+            # two opens (deleted mid-walk, permissions changed by a concurrent
+            # sync). Same collecting-mode routing as the first seam (#133).
+            findings.append(
+                ValidationFinding(path=rel, reason=f"unreadable: {e}", code="unreadable")
+            )
+            continue
         except SnapshotValidationError as e:
             # Distinguish schema_version mismatch from other schema
             # errors so migration tooling can route on the code without
