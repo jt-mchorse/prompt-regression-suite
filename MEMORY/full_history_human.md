@@ -935,3 +935,104 @@ Also deleted `err.txt` and `err2.txt`, untracked debris an earlier session left
 at the repo root. Never committed, so nothing to revert.
 
 421 passed. Shipped as PR #132.
+
+## Session 2026-08-06 — `validate`: one unreadable file took the whole report down (#133)
+
+`prompt_regression/validate.py` exists for one reason, and its module
+docstring says so in its opening paragraph: `prompt-snap run` aborts on
+the first malformed snapshot, "a directory of 30 snapshots with two bad
+ones forces the operator into fix-and-retry cycles," and this module
+walks the files "in one pass, collect[ing] every problem."
+
+One file that couldn't be *read* defeated that completely. A `chmod 000`
+snapshot, a directory whose name ends in `.yaml` (the globs match a
+directory just as happily as a file), or a broken symlink raised
+`OSError` at the per-file read seam. Nothing in the collecting loop
+caught it, so it escaped `validate_snapshots`, landed in the CLI's
+*directory-level* `except OSError` arm, and printed a single line:
+
+```
+error: failed to walk snapshots directory: [Errno 13] Permission denied: '.../aaa_unreadable.yml'
+exit=2
+```
+
+The walk had succeeded. One file had failed. And the report the operator
+needed — three findings across the other four files in that directory,
+including a schema-invalid snapshot and a duplicate-id collision — was
+gone. They fix the permission, re-run, and only then learn about the
+other two: exactly the fix-and-retry loop the module was written to end.
+
+### The same seam already handled this file's other failure mode
+
+The `path.open(...)` / `yaml.safe_load(...)` block already routed one
+read-time failure into a finding, and the comment there reasons about
+precisely this spot:
+
+> `UnicodeDecodeError` (a `ValueError` subclass, not a `YAMLError`)
+> surfaces **at this same read seam** when the file isn't valid UTF-8 —
+> a decode failure is a parse failure, so route it to the same `parse`
+> finding rather than letting it escape as a raw traceback at exit 1.
+
+A *decode* failure was brought into collecting mode. Its *read* sibling
+was not. That is the whole bug: one seam, two failure classes, one of
+them handled.
+
+`unreadable` gets its own code rather than reusing `parse`, because
+nothing was parsed, and an operator routing on the code needs to go fix
+a filesystem problem, not a snapshot's contents — the same reasoning
+that split `schema_version` out of `schema` in the first place.
+`load_snapshot(path)` re-opens the file, so that is a genuinely separate
+read seam (the file can vanish between the two opens); it gets its own
+arm and its own test.
+
+### It also makes an existing promise true
+
+Both sibling walkers, `stats` and `run`, abort on an unreadable file —
+which is *correct*, they're aggregators, not collectors — and point the
+operator here:
+
+```
+hint: run 'prompt-snap validate <dir>' to list every malformed snapshot in one pass.
+```
+
+Until now that hint was false for exactly the input that produced it:
+`validate` reached the same file and died the same way. It's true now.
+
+### The code list was documented in three places and derived in none
+
+`parse | schema_version | schema | duplicate_id | empty` lived in the
+module docstring, in the README's `validate` bullet, and implicitly in
+the emit sites — with nothing tying the three together. Adding a sixth
+code meant remembering all three by hand. So the list is now a
+module-level `FINDING_CODES` tuple with three locks against it: the emit
+sites, the docstring bullets, and the README span.
+
+The emit-site lock reads the **AST**, not the file's text. The module
+docstring quotes every code in backticks, so a text scan would count the
+documentation as an emit site and the lock would pass no matter what —
+the same vacuous-lock trap embedding-model-shootout hit in #112.
+
+### Verification
+
+429 tests green. For the anti-vacuous check I reverted *only the two
+`except OSError` arms*, not the whole file — dropping `FINDING_CODES`
+would break test collection, and a suite that never runs its assertions
+proves nothing. On that tree the four behavioural tests fail and the
+AST-derived code lock fails; the docstring and README locks correctly
+stay green, since they key off `FINDING_CODES`, which the revert didn't
+touch.
+
+The `chmod 000` fixture is named `aaa_locked.yml` so it sorts *first* —
+pinning that the loop continues past a failure rather than merely
+tolerating one at the end. That test skips under root, where permission
+bits don't apply; CI runs `ubuntu-latest` as a non-root user, so it
+executes there.
+
+### Filed, not fixed
+
+`test_stats_globs_match_run_subcommand_globs` is vacuous: its
+`or set(...).issuperset({"*.yml", "*.yaml"})` arm makes the assertion
+unfalsifiable, and the source comment claims "the test pins the values
+verbatim," which it does not. There's no present harm — `*.yaml` already
+matches `foo.snapshot.yaml`, so the two glob sets are equivalent today —
+so it's a separate issue rather than scope drift into this one.
