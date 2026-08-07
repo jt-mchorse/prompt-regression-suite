@@ -72,9 +72,7 @@ def test_candidates_file_exercises_both_documented_key_conventions() -> None:
     ]
     assert len(rows) == 2, "one candidate per committed snapshot"
     keys = {("snapshot" if "snapshot" in r else "id") for r in rows}
-    assert keys == {"snapshot", "id"}, (
-        f"fixture must demonstrate both key conventions; got {keys}"
-    )
+    assert keys == {"snapshot", "id"}, f"fixture must demonstrate both key conventions; got {keys}"
     assert all(isinstance(r["candidate"], str) and r["candidate"] for r in rows)
 
 
