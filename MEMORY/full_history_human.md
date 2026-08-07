@@ -1036,3 +1036,49 @@ unfalsifiable, and the source comment claims "the test pins the values
 verbatim," which it does not. There's no present harm — `*.yaml` already
 matches `foo.snapshot.yaml`, so the two glob sets are equivalent today —
 so it's a separate issue rather than scope drift into this one.
+
+## 2026-08-07 — the CI example pointed at a directory that never existed (#136)
+
+The README's flagship CI example — "CI doesn't need the Python detour" —
+told readers to run `prompt-snap run --snapshots tests/snapshots
+--candidates tests/candidates.jsonl`. Neither path has ever existed here.
+There is no `tests/snapshots`, and no `.jsonl` file anywhere in the tree, so
+the command exits 2 on a fresh clone. The repo does ship snapshots, under
+`examples/snapshots/`, and every other README reference already used that
+path. Only this one block invented a `tests/` location.
+
+It was found by porting a lens from llm-eval-harness: a README path lock
+that enumerates markdown-link parentheses never looks inside a code fence,
+which means it never checks a single path a reader is actually told to type.
+Running that probe across all twelve repos produced three candidates, and
+two of them turned out to be fine — command *outputs*, annotated `# →
+writes ...`, correctly absent until you run the thing. This was the one real
+input. One genuine hit per twelve repos is a decent return for a probe that
+takes a minute.
+
+My own sweep pattern had a hole worth remembering: it required a dot and an
+extension, so it found `tests/candidates.jsonl` but missed `tests/snapshots`
+— the *directory*, which is what the command trips over first.
+
+The same section had a second problem. The other `run` example printed
+`total=2 failed=0` with cosines of 0.940 and 0.967 against snapshot files
+that don't exist. Those numbers were never produced by anything. That's the
+no-fabricated-benchmarks rule at documentation scale, and it's now measured
+output.
+
+Building the fixture turned up a smaller lesson. My first candidate response
+was a copy of the snapshot's canonical text, which scored a perfect 1.000
+and therefore demonstrated nothing at all. The committed one is a real
+rewording that lands at 0.806 — above that snapshot's own 0.75 tolerance,
+below the 0.85 run default — so the per-snapshot override is visibly the
+thing that lets it pass. The test asserts that band rather than the digit,
+so it encodes the intent without breaking if the embedder is ever tuned.
+
+The judgement call was what to do about the second snapshot, which reports
+`error` rather than a verdict. Its stored embedding is the illustrative
+eight-dimensional vector, so the default hash embedder refuses to compare
+against it. There's a `--force-embedder` flag that would make the example
+green. Using it in the flagship CI example would teach exactly the habit
+this repo exists to prevent — comparing vectors from two different models —
+so the README now explains the error instead. A real error verdict is better
+documentation than a fabricated green one.
