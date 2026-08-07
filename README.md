@@ -201,13 +201,41 @@ CI doesn't need the Python detour — `prompt-snap run` takes `--format html` an
 
 ```bash
 prompt-snap run \
-    --snapshots tests/snapshots \
-    --candidates tests/candidates.jsonl \
+    --snapshots examples/snapshots \
+    --candidates examples/candidates.jsonl \
     --format html \
     --out report.html
 ```
 
-`--format html` requires `--out` (HTML writes to a file, not stdout); `--out` works for `text` and `json` too.
+`--format html` requires `--out` (HTML writes to a file, not stdout); `--out` works for `text` and `json` too. `--out` is written on the
+exit-1 path too, so a CI job that fails still uploads a report.
+
+Run against the committed examples this exits 1, and the two verdicts are
+worth reading — the text format shows the same result:
+
+```text
+# prompt-snap run  total=2 failed=1 skipped=0
+verdict   cosine  snapshot
+-------- -------  ------------------------
+pass      0.806   examples/snapshots/creative_kite_v1.yml
+    - per-snapshot tolerance 0.750 overrides run threshold 0.850
+error      -.--   examples/snapshots/refund_window_v1.yml
+    - snapshot was embedded with 'text-embedding-3-small-truncated-8d' but the diff embedder reports 'hash-embedder-128d-ngram2'. Re-embed the snapshot or pass force=True to override.
+```
+
+`creative_kite_v1.yml` passes at 0.806 against a genuinely reworded
+candidate — below the default 0.85 threshold, above that snapshot's own
+0.75 tolerance, so the per-snapshot override (D-005) is doing real work
+rather than the number being a copy of the canonical text.
+
+`refund_window_v1.yml` reports `error`, and that is the mismatch guard
+(D-006) working as designed rather than a broken example: its inline
+canonical embedding is the illustrative 8-dimensional vector described in
+its own `notes` (D-003), so the default `hash` embedder legitimately
+refuses to compare against it. `--force-embedder` would silence it; the
+documentation deliberately doesn't, because comparing vectors from two
+different models is the failure this repo exists to prevent. Issue #2
+covers producing a real embedding for that snapshot.
 
 Verdict colors mirror the diff layer's vocabulary (D-007): `pass` green,
 `warn` amber, `fail` red. Passing sections collapse to a one-line note —
@@ -252,13 +280,13 @@ dep-free `HashEmbedder` is the default; the
 ```bash
 # Walk a snapshot dir, diff each against candidates in a JSONL, exit non-zero on any fail.
 prompt-snap run \
-    --snapshots ./snapshots \
-    --candidates ./candidates.jsonl
-# # prompt-snap run  total=2 failed=0 skipped=0
-# verdict   cosine   snapshot
-# -------- --------  ------------------------
-# pass      0.940    snapshots/refund-policy.snapshot.yaml
-# pass      0.967    snapshots/shipping-policy.snapshot.yaml
+    --snapshots examples/snapshots \
+    --candidates examples/candidates.jsonl
+# # prompt-snap run  total=2 failed=1 skipped=0
+# verdict   cosine  snapshot
+# -------- -------  ------------------------
+# pass      0.806   examples/snapshots/creative_kite_v1.yml
+# error      -.--   examples/snapshots/refund_window_v1.yml
 
 # Ad-hoc diff: one snapshot vs one candidate. Exits 1 on fail.
 prompt-snap diff \
