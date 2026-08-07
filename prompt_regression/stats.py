@@ -25,13 +25,14 @@ from typing import Any
 
 import yaml
 
-from prompt_regression.io import load_snapshot
+from prompt_regression.io import SNAPSHOT_GLOBS, iter_snapshot_paths, load_snapshot
 from prompt_regression.schema import SnapshotValidationError
 
-# Mirror the globs ``cli._iter_snapshot_paths`` uses so a snapshot file
-# the runner would pick up is also one the stats walker sees. Keep in
-# sync if either ever extends — the test pins the values verbatim.
-_STATS_SNAPSHOT_GLOBS: tuple[str, ...] = ("*.yml", "*.yaml")
+# Historical private alias. This used to be its own two-pattern tuple with
+# a comment asking the next author to keep it in sync with `cli` — and it had
+# already drifted (2 patterns vs 4), which only stayed harmless because the
+# two it kept are supersets of the two it dropped. Now derived (#135).
+_STATS_SNAPSHOT_GLOBS = SNAPSHOT_GLOBS
 
 
 @dataclass(frozen=True)
@@ -108,18 +109,11 @@ class StatsReport:
         }
 
 
-def _iter_snapshot_paths(snapshots_dir: Path) -> list[Path]:
-    """Same shape as ``cli._iter_snapshot_paths``; duplicated here so
-    importing ``stats`` doesn't pull the CLI module's argparse setup."""
-    seen: set[Path] = set()
-    out: list[Path] = []
-    for pattern in _STATS_SNAPSHOT_GLOBS:
-        for p in snapshots_dir.rglob(pattern):
-            if p not in seen:
-                seen.add(p)
-                out.append(p)
-    out.sort()
-    return out
+# Historical private alias; the implementation lives in `io` (#135). The
+# duplication existed so importing `stats` wouldn't pull in the CLI module's
+# argparse setup — `io` has no such baggage, so the constraint is satisfied
+# without a second copy.
+_iter_snapshot_paths = iter_snapshot_paths
 
 
 def _hist(counter: Counter[Any]) -> tuple[HistogramEntry, ...]:

@@ -23,6 +23,7 @@ Coverage matrix:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -36,6 +37,7 @@ from prompt_regression import (
     save_snapshot,
 )
 from prompt_regression.cli import _SNAPSHOT_GLOBS
+from prompt_regression.io import SNAPSHOT_GLOBS
 from prompt_regression.stats import _STATS_SNAPSHOT_GLOBS, render_summary
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -46,14 +48,51 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "snapshots"
 
 
 def test_stats_globs_match_run_subcommand_globs() -> None:
-    """Stats walker must see the same files the runner sees. If
-    ``run`` ever extends to ``*.snapshot.yaml`` (the opinionated
-    convention named in the run subcommand help) the stats walker
-    has to follow."""
-    assert set(_STATS_SNAPSHOT_GLOBS) == set(_SNAPSHOT_GLOBS) or set(
-        _STATS_SNAPSHOT_GLOBS
-    ).issuperset({"*.yml", "*.yaml"}), (
+    """Stats walker must see the same files the runner sees.
+
+    The previous version of this test could not fail (#135). Its second
+    ``or`` arm compared ``_STATS_SNAPSHOT_GLOBS`` against the literal
+    ``{"*.yml", "*.yaml"}`` — which that tuple *was* — so the assertion held
+    regardless of what ``run`` did. Its docstring said "if ``run`` ever
+    extends to ``*.snapshot.yaml`` the stats walker has to follow"; ``run``
+    already had that pattern, stats did not, and the test was green.
+
+    Now they're the same object, so this is an identity check.
+    """
+    assert _STATS_SNAPSHOT_GLOBS == _SNAPSHOT_GLOBS, (
         f"stats globs {_STATS_SNAPSHOT_GLOBS} drifted from run globs {_SNAPSHOT_GLOBS}"
+    )
+    assert _STATS_SNAPSHOT_GLOBS is SNAPSHOT_GLOBS, (
+        "stats must reference io.SNAPSHOT_GLOBS rather than restate it"
+    )
+
+
+def test_snapshot_globs_are_defined_exactly_once_in_the_package() -> None:
+    """Structural lock: one definition, not three kept in sync by comment.
+
+    `cli`, `validate`, and `stats` each carried their own copy behind a
+    comment asking the next author to propagate changes — and the
+    propagation had already been missed. A comment requesting manual
+    upkeep, in a codebase where that upkeep has already lapsed, is a
+    report of a missing mechanism.
+
+    This fails on a *fourth* copy appearing anywhere in the package, so a
+    new module doesn't need its own bespoke parity test.
+    """
+    pkg = Path(__import__("prompt_regression").__file__).parent
+    # A *construction* — `... SNAPSHOT_GLOBS ... = (` — as opposed to an
+    # alias binding (`_SNAPSHOT_GLOBS = SNAPSHOT_GLOBS`), which is fine and
+    # is how the historical private names are kept working.
+    literal = re.compile(r"^\s*\w*SNAPSHOT_GLOBS\w*\s*(?::[^=]*)?=\s*\(", re.MULTILINE)
+
+    definers = sorted(
+        mod.name for mod in pkg.glob("*.py") if literal.search(mod.read_text(encoding="utf-8"))
+    )
+
+    assert definers == ["io.py"], (
+        f"the snapshot glob tuple must be constructed in exactly one module; "
+        f"found it built in {definers}. Import `io.SNAPSHOT_GLOBS` instead of "
+        "restating it — three copies behind 'keep in sync' comments is what #135 was."
     )
 
 
