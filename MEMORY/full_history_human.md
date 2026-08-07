@@ -1082,3 +1082,47 @@ green. Using it in the flagship CI example would teach exactly the habit
 this repo exists to prevent — comparing vectors from two different models —
 so the README now explains the error instead. A real error verdict is better
 documentation than a fabricated green one.
+## 2026-08-07 — a parity lock that had already been broken for months, quietly passing (#135)
+
+Three modules kept their own copy of the snapshot glob tuple, each behind a
+comment asking whoever came next to keep them in sync. They had already
+fallen out of sync: `stats` carried two patterns where `cli` and `validate`
+carried four.
+
+The test that existed to catch exactly this could not fail. Its second `or`
+arm compared the stats tuple against the literal `{"*.yml", "*.yaml"}` — and
+the stats tuple *was* that literal, so the assertion held no matter what the
+runner did.
+
+The sharpest part is the docstring. It said: "if `run` ever extends to
+`*.snapshot.yaml`, the stats walker has to follow." But `run` already had
+`*.snapshot.yaml`, and `stats` hadn't followed, and the test was green. A
+condition written in the future tense turned out to be a claim about the
+present that nobody had rechecked. That's worth carrying forward as a lens in
+its own right.
+
+The intent was never ambiguous, because the repo locks the same tuple twice:
+`test_validate.py` uses strict equality with no escape arm. When one of two
+locks over a single constant is strict and the other isn't, the strict one is
+the evidence.
+
+No files were actually being missed. `*.yml` and `*.yaml` match everything
+`*.snapshot.yml` and `*.snapshot.yaml` match, so the walked set was identical
+— by accident, not design, and only for as long as every future pattern
+happens to be a subset. What *had* diverged visibly was the operator-facing
+text: the three subcommands printed different "patterns considered" lists,
+and their `--help` strings had drifted three separate ways, with `run` naming
+one pattern, `stats` two, and `validate` none, while all three walked the
+same files.
+
+The fix is mechanism instead of a better comment. `io.py` imports only
+`schema.py`, and all three modules already import `io` — so it sidesteps the
+circular import that `validate.py`'s own comment gives as the reason it needed
+a second copy. Each of the three duplicated walkers carried a docstring
+explaining why duplication was unavoidable ("importing from cli would pull in
+argparse machinery"), and each was correct about `cli` and beside the point.
+
+Replacing an unfalsifiable test carries an obvious trap, so the check that
+mattered most was proving the new one *can* fail: I put the old two-pattern
+tuple back and confirmed both replacement tests go red on the exact state the
+original passed on.
