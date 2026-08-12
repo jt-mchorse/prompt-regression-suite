@@ -54,17 +54,13 @@ from typing import Any
 
 import yaml
 
-from .io import load_snapshot
+from .io import SNAPSHOT_GLOBS, iter_snapshot_paths, load_snapshot
 from .schema import SnapshotValidationError
 
-# Same glob set the run command uses; importing from cli would create a
-# circular import (cli pulls in this module). One copy here is fine.
-_SNAPSHOT_GLOBS: tuple[str, ...] = (
-    "*.snapshot.yaml",
-    "*.snapshot.yml",
-    "*.yml",
-    "*.yaml",
-)
+# Historical private alias; `io.SNAPSHOT_GLOBS` is the single definition
+# (#135). `io` is importable from here without the cycle that `cli` would
+# have introduced.
+_SNAPSHOT_GLOBS = SNAPSHOT_GLOBS
 
 #: Every ``ValidationFinding.code`` this module can emit, in the order the
 #: module docstring documents them. The one source of truth: the docstring
@@ -130,22 +126,12 @@ class ValidationReport:
         }
 
 
-def _iter_snapshot_paths(snapshots_dir: Path) -> list[Path]:
-    """De-duplicated, sorted list of snapshot files under ``snapshots_dir``.
-
-    Same shape as ``cli._iter_snapshot_paths`` / ``stats._iter_snapshot_paths``;
-    duplicated here for the same reason stats duplicates it (importing
-    from cli would pull in argparse machinery just to share four lines).
-    """
-    seen: set[Path] = set()
-    out: list[Path] = []
-    for pattern in _SNAPSHOT_GLOBS:
-        for p in snapshots_dir.rglob(pattern):
-            if p not in seen:
-                seen.add(p)
-                out.append(p)
-    out.sort()
-    return out
+# Historical private alias; the implementation lives in `io` (#135). Three
+# copies of this function each carried a docstring explaining why it had to be
+# duplicated — "importing from cli would pull in argparse machinery just to
+# share four lines". True of `cli`, and irrelevant to `io`, which every one of
+# these modules already imports.
+_iter_snapshot_paths = iter_snapshot_paths
 
 
 def validate_snapshots(directory: str | Path) -> ValidationReport:

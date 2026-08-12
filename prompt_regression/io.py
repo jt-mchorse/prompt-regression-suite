@@ -24,6 +24,52 @@ from .schema import SCHEMA_VERSION, Snapshot, SnapshotValidationError
 
 PathArg = str | PathLike[str]
 
+#: The one definition of what counts as a snapshot file on disk (#135).
+#:
+#: The opinionated ``*.snapshot.yaml`` convention is preferred for fresh
+#: projects (it clearly distinguishes snapshot files from other YAML in the
+#: repo), but the plain ``.yml`` / ``.yaml`` extensions are also accepted so
+#: the committed ``examples/snapshots/*.yml`` files — and whatever convention
+#: an operator already uses — work without renames.
+#:
+#: This lived in three modules (``cli``, ``validate``, ``stats``) behind
+#: comments asking the next author to keep them in sync. They had already
+#: drifted: ``stats`` carried only the last two patterns, so it reported a
+#: narrower "patterns considered" list than its siblings. The set of files
+#: walked happened to stay identical, because the two patterns it kept are
+#: supersets of the two it dropped — an accident, not a design.
+#:
+#: ``io`` is the home because it imports only ``schema``, and ``cli``,
+#: ``validate``, and ``stats`` all already import it. That sidesteps the
+#: circular import (``cli`` pulls in ``validate``) which is why these were
+#: separate in the first place.
+SNAPSHOT_GLOBS: tuple[str, ...] = (
+    "*.snapshot.yaml",
+    "*.snapshot.yml",
+    "*.yml",
+    "*.yaml",
+)
+
+
+def iter_snapshot_paths(snapshots_dir: PathArg) -> list[Path]:
+    """Every snapshot file under ``snapshots_dir``, recursively, deduped.
+
+    Patterns overlap (``*.yml`` also matches ``*.snapshot.yml``), so a file
+    matching more than one is yielded once. The result is sorted, so callers
+    get a stable order regardless of filesystem enumeration order.
+    """
+    root = Path(snapshots_dir)
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for pattern in SNAPSHOT_GLOBS:
+        for p in root.rglob(pattern):
+            if p not in seen:
+                seen.add(p)
+                out.append(p)
+    out.sort()
+    return out
+
+
 # Cap the target basename's contribution to the temp filename. The temp name is
 # `.<base>.<random>.tmp`; the affixes add ~13-20 bytes, so prepending a full
 # basename that is itself near NAME_MAX (255 on ext4/APFS) overflows the limit

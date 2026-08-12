@@ -51,23 +51,28 @@ from .diff import (
     diff_response,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
-from .io import atomic_write_text, load_snapshot, save_snapshot
+from .io import (
+    SNAPSHOT_GLOBS,
+    atomic_write_text,
+    iter_snapshot_paths,
+    load_snapshot,
+    save_snapshot,
+)
 from .schema import CanonicalResponse, Snapshot, SnapshotValidationError
 from .stats import StatsError, collect_stats, render_summary
 from .validate import validate_snapshots
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
-# The opinionated `*.snapshot.yaml` convention is preferred for fresh
-# projects (clearly distinguishes snapshot files from other yaml in the
-# repo), but the plain `.yml` / `.yaml` extensions are also accepted so
-# the committed `examples/snapshots/*.yml` files and any pre-existing
-# convention an operator already uses just work without renames.
-_SNAPSHOT_GLOBS: tuple[str, ...] = (
-    "*.snapshot.yaml",
-    "*.snapshot.yml",
-    "*.yml",
-    "*.yaml",
-)
+# Re-exported under the historical private name so existing callers and
+# tests keep working; `io.SNAPSHOT_GLOBS` is the single definition (#135).
+_SNAPSHOT_GLOBS = SNAPSHOT_GLOBS
+
+# Derived from the globs rather than restated, for the same reason the tuple
+# itself is (#135). The three subcommands' `--help` had drifted three
+# different ways: `run` named only `*.snapshot.yaml`, `stats` named only
+# `*.yml` / `*.yaml`, and `validate` named none of them — while all three
+# walked the identical set.
+_SNAPSHOT_DIR_HELP = f"Directory of snapshot files ({' / '.join(SNAPSHOT_GLOBS)}), recursive."
 _RESERVED_EMBEDDERS = frozenset({"voyage", "openai", "cohere"})
 
 
@@ -167,16 +172,8 @@ def _validate_thresholds(threshold: float, warn_band: float) -> bool:
 # ----------------------------------------------------------------------
 
 
-def _iter_snapshot_paths(snapshots_dir: Path) -> list[Path]:
-    seen: set[Path] = set()
-    out: list[Path] = []
-    for pattern in _SNAPSHOT_GLOBS:
-        for p in snapshots_dir.rglob(pattern):
-            if p not in seen:
-                seen.add(p)
-                out.append(p)
-    out.sort()
-    return out
+# Historical private alias; the implementation lives in `io` (#135).
+_iter_snapshot_paths = iter_snapshot_paths
 
 
 def _load_candidates(path: Path) -> dict[str, str]:
@@ -702,9 +699,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Walk a snapshots dir, diff each against candidates, exit non-zero on failure.",
         description="Diff a directory of snapshots against a JSONL of candidate responses.",
     )
-    run_p.add_argument(
-        "--snapshots", required=True, help="Directory of *.snapshot.yaml files (recursive)."
-    )
+    run_p.add_argument("--snapshots", required=True, help=_SNAPSHOT_DIR_HELP)
     run_p.add_argument(
         "--candidates",
         required=True,
@@ -804,9 +799,7 @@ def build_parser() -> argparse.ArgumentParser:
             "and per-slot-count summaries. Useful before a big model upgrade."
         ),
     )
-    stats_p.add_argument(
-        "snapshots", help="Directory of *.yml / *.yaml snapshot files (recursive)."
-    )
+    stats_p.add_argument("snapshots", help=_SNAPSHOT_DIR_HELP)
     stats_p.add_argument(
         "--json",
         action="store_true",
@@ -824,7 +817,7 @@ def build_parser() -> argparse.ArgumentParser:
             "/ 2 missing directory."
         ),
     )
-    validate_p.add_argument("snapshots", help="Directory of snapshot files to lint (recursive).")
+    validate_p.add_argument("snapshots", help=_SNAPSHOT_DIR_HELP)
     validate_p.add_argument(
         "--json",
         action="store_true",
