@@ -180,12 +180,29 @@ def main(argv: list[str] | None = None) -> int:
         [entry], title="Regression demo — refund-window prompt across model versions"
     )
     out_html = Path(args.out_html)
-    atomic_write_text(out_html, html)
+    # `cli._write_output` exists precisely because "every `--out` site called
+    # `atomic_write_text` bare, so an unwritable `--out` escaped as a raw
+    # OSError traceback at exit 1". That sweep (#99/#111) enumerated the
+    # library CLI's `--out` sites and never enumerated `scripts/` — this call
+    # had the identical seam (#140). Same message shape as that helper.
+    try:
+        atomic_write_text(out_html, html)
+    except OSError as e:
+        print(f"error: failed to write {out_html}: {e}", file=sys.stderr)
+        return 2
     print(f"html wrote {out_html} (verdict: {diff.verdict}, cosine: {diff.cosine_score:.3f})")
 
     if not args.no_screenshot:
         out_png = Path(args.out_png)
-        out_png.parent.mkdir(parents=True, exist_ok=True)
+        # A second, independent seam. It fires *after* the HTML has been
+        # written successfully, so the report above is real and already
+        # announced — the exit code reports the screenshot failure without
+        # implying the HTML didn't land (#140).
+        try:
+            out_png.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"error: failed to create screenshot dir {out_png.parent}: {e}", file=sys.stderr)
+            return 2
         print(_maybe_screenshot(out_html, out_png))
 
     return 0

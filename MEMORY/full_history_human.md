@@ -1126,3 +1126,40 @@ Replacing an unfalsifiable test carries an obvious trap, so the check that
 mattered most was proving the new one *can* fail: I put the old two-pattern
 tuple back and confirmed both replacement tests go red on the exact state the
 original passed on.
+
+## 2026-08-12 — a dormant bug that fixing its callee would have armed (#140)
+
+`cli._write_output` says in its own docstring why it exists: every `--out` site
+called `atomic_write_text` bare, so an unwritable path escaped as a traceback
+at exit 1. That sweep enumerated the library CLI's `--out` sites. It never
+enumerated `scripts/`, and both files there had the same seam.
+
+The interesting part isn't the seam, it's the interaction.
+`capture_demo._run_render_demo_into` raised an uncaught `RuntimeError` whenever
+the render script returned non-zero. That was harmless — but only because
+`render_regression_demo.main` never returned non-zero for a write failure. It
+let the `OSError` escape straight through, so the `rc != 0` branch was dead
+code.
+
+Giving the render script its exit-2 guard is exactly what arms that raise. Fix
+the render script on its own and the `capture_demo` path is no better off: it
+trades an `OSError` traceback for a `RuntimeError` traceback and now also
+throws the exit code away. Worse, it would look fixed — any test driving the
+render script directly would go green.
+
+Worth carrying forward: **before teaching a callee to return a non-zero code,
+grep its callers for `if rc != 0: raise`.** A wrapper that's inert while the
+callee only ever returns 0 goes live the moment it doesn't. It's the inverse of
+the llm-cost-optimizer case earlier in this run, where the same laundering
+shape was already firing.
+
+That's also why the anti-vacuous check was run per file rather than once.
+Reverting the render script alone puts 5 tests red; reverting `capture_demo`
+alone puts 9 red; and the propagation test is red under *either*. That's the
+demonstration, rather than the argument, that neither half closes the path on
+its own.
+
+One small design note. The `--out-png` guard fires after the HTML has already
+been written and announced. A guard that made the whole run look failed would
+have been its own bug, so the test asserts both things at once: exit 2, and the
+HTML exists and was reported.
