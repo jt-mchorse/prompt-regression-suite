@@ -1163,3 +1163,17 @@ One small design note. The `--out-png` guard fires after the HTML has already
 been written and announced. A guard that made the whole run look failed would
 have been its own bug, so the test asserts both things at once: exit 2, and the
 HTML exists and was reported.
+
+## 2026-08-13 — The boolean extractor inverted seven common negations (#142)
+
+**Duration:** ~40 min · **Issue:** #142 · **PR:** #143
+
+`_extract_boolean` checks its negative pattern before its positive one, and the comment above it says exactly why: so that "not allowed" wins over the lone "allowed". The ordering was right. The pattern behind it wasn't — it spelled out the negated form of exactly one of the five positive terms, and recognised only the bare word "not" as a negation cue.
+
+So "not permitted", "not enabled", "not true", "not yes", "never allowed", "isn't allowed" and "cannot be enabled" all fell through to the positive branch and came back as `True`. In a repo whose job is deciding whether model output has regressed, that isn't a noisy diff — it's a confidently wrong verdict in either direction, with a delta table showing a value the model never gave. The whole extractor had one test, on "Yes, refunds are allowed.", which is why this stayed green.
+
+The comment was the tell. A guard whose comment names a class but whose pattern covers one member of it is a shape this portfolio has now hit three times. The fix derives the negated form from the positive term list rather than enumerating negated pairs, because enumerating pairs is the maintenance trap that created the bug — adding a sixth positive term now gets its negation for free. The cue-to-term window is deliberately bounded at two filler words and pinned by a test: unbounded negation scope would be worse than the bug, since it would start inverting any sentence that merely contains a "not".
+
+One case is right only by accident and is now pinned as such: "no longer permitted" returns False because `\bno\b` matches inside "no longer", not because the negation was understood.
+
+**Left for JT:** negated negatives like "not refused" still resolve to False. Flipping them is a semantic judgement rather than the repair of a stated invariant, so it's raised as a question on the issue and pinned by a test so it reads as a decision.

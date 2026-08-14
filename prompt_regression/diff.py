@@ -360,10 +360,44 @@ def _sentence_around(text: str, idx: int) -> str:
 _BOOL_TRUE_RE = re.compile(r"\b(yes|true|allowed|permitted|enabled)\b", re.IGNORECASE)
 _BOOL_FALSE_RE = re.compile(r"\b(no|false|not\s+allowed|refused|disabled|denied)\b", re.IGNORECASE)
 
+# A negation cue immediately before a positive term. `_BOOL_FALSE_RE` spelled
+# out `not\s+allowed` — the negated form of exactly one of the five terms in
+# `_BOOL_TRUE_RE` — so `not permitted`, `not enabled`, `not true` and `not yes`
+# fell straight through to the positive branch and extracted as `True`, the
+# precise inversion the negative-first ordering exists to prevent (#142). The
+# bare word `not` was also the only cue recognised, so `isn't allowed`,
+# `cannot be enabled` and `never allowed` inverted too.
+#
+# Deriving the negation instead of enumerating negated pairs is what keeps this
+# from being whack-a-mole: adding a sixth positive term to `_BOOL_TRUE_RE` now
+# gets its negated form for free, which is exactly the maintenance trap that
+# produced this bug.
+_NEGATION_CUES = r"(?:not|never|cannot|can't|won't|isn't|aren't|wasn't|weren't|doesn't|don't|no)"
+
+# The window between cue and term: up to two short filler words, so
+# `cannot be enabled` and `is not currently permitted` are caught while an
+# unrelated `not` far earlier in the sentence is not. This is a heuristic
+# extractor by design — unbounded negation scope would be worse than the bug,
+# because it would start inverting sentences that merely contain a `not`.
+_NEGATED_TRUE_RE = re.compile(
+    rf"\b{_NEGATION_CUES}\b(?:\s+\w+){{0,2}}\s+\b(yes|true|allowed|permitted|enabled)\b",
+    re.IGNORECASE,
+)
+
 
 def _extract_boolean(lowered: str) -> bool | None:
-    # Check the negative pattern first so "not allowed" wins over the lone "allowed".
-    if _BOOL_FALSE_RE.search(lowered):
+    # Negatives are checked before positives so "not allowed" wins over the
+    # lone "allowed" — and `_NEGATED_TRUE_RE` is what makes that ordering
+    # actually cover the class, rather than the single phrasing that was
+    # spelled out by hand.
+    #
+    # Not changed here: a negated *negative* (`not refused`, `not denied`)
+    # still resolves to `False`. Flipping those is a genuine semantic
+    # judgement for a heuristic extractor — "not denied" is not the same claim
+    # as "allowed" — the phrasings are much rarer, and changing them would
+    # alter existing behaviour rather than repair a stated invariant. Filed as
+    # a question on #142 rather than decided silently here.
+    if _NEGATED_TRUE_RE.search(lowered) or _BOOL_FALSE_RE.search(lowered):
         return False
     if _BOOL_TRUE_RE.search(lowered):
         return True
