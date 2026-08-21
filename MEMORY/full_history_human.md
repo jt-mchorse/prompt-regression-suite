@@ -1177,3 +1177,56 @@ The comment was the tell. A guard whose comment names a class but whose pattern 
 One case is right only by accident and is now pinned as such: "no longer permitted" returns False because `\bno\b` matches inside "no longer", not because the negation was understood.
 
 **Left for JT:** negated negatives like "not refused" still resolve to False. Flipping them is a semantic judgement rather than the repair of a stated invariant, so it's raised as a question on the issue and pinned by a test so it reads as a decision.
+
+---
+
+## 2026-08-21 — snapshots that quietly never ran (#144)
+
+Three of seven snapshot files in a directory were never checked, and `validate`
+called the suite clean.
+
+The cause is small: `iter_snapshot_paths` called `rglob` once per pattern, and
+`pathlib`'s glob is case-sensitive on every platform. So `three.snapshot.YAML`,
+`five.Yml` and `seven.YML` matched nothing, while their lowercase neighbours
+matched fine.
+
+The consequence isn't small. All three consumers share that walker — `validate`,
+`stats`, and `cli._run_command`, which *is* the regression check. Those files
+weren't merely unvalidated; they never ran. For a tool whose whole purpose is
+catching prompt regressions on a model upgrade, a snapshot that silently doesn't
+run is the precise failure it exists to prevent.
+
+And nothing could have told you. The run summary reports the total as the length
+of the list it walked, so an operator sees "4 snapshots, 0 regressions" with
+nothing to compare that 4 against. The "no snapshot files" error only fires when
+a directory yields *zero* matches — the one situation a real repository never
+finds itself in. A count derived from the filtered set can't detect the filter.
+
+The old behaviour wasn't even self-consistent: `four.SNAPSHOT.yaml` *was* walked,
+because `*.yaml` matches it, while `three.snapshot.YAML` wasn't. Only the final
+extension's case mattered. And on macOS or Windows those two spellings name the
+same file, yet the matching stayed case-sensitive regardless of what the
+filesystem thinks.
+
+The docstring on the pattern list already stated the intent this restores: the
+plain extensions are accepted so that "whatever convention an operator already
+uses" works "without renames". An uppercase extension is somebody's existing
+convention, and the code was forcing a rename without saying so.
+
+Two process notes worth keeping.
+
+My first probe was entirely noise. I built a matrix of malformed snapshot files
+to compare the loader against the validator, wrote them as JSON, and every single
+row — including the control — came back with one finding. The tell was the
+control failing: snapshots are YAML, so the walker matched nothing and every row
+was reporting "no snapshot files". A matrix where every row agrees is as
+suspicious as one where none do, and the fix is to always include a known-good
+control and read it first. Once corrected, twenty-three of twenty-four rows
+agreed and the twenty-fourth was this bug.
+
+And the existing test suite caught my first attempt at the fix. I had added an
+`is_file()` filter, which broke an earlier deliberate behaviour: a *directory*
+named like a snapshot is yielded on purpose, so `validate` reports it as an
+unreadable finding instead of aborting the walk. Filtering it out would have made
+it vanish silently — the same defect class I was fixing, reintroduced one line
+away. It has its own test now.
