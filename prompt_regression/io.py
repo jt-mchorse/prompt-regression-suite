@@ -12,6 +12,7 @@ Writes route through ``atomic_write_text`` (#39) so an interrupted
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import os
 import tempfile
 from os import PathLike
@@ -57,15 +58,63 @@ def iter_snapshot_paths(snapshots_dir: PathArg) -> list[Path]:
     Patterns overlap (``*.yml`` also matches ``*.snapshot.yml``), so a file
     matching more than one is yielded once. The result is sorted, so callers
     get a stable order regardless of filesystem enumeration order.
+
+    Extension matching is **case-insensitive** (#144). It used to be
+    ``root.rglob(pattern)``, and ``pathlib``'s glob is case-sensitive on every
+    platform, so a snapshot whose extension was not lowercase was invisible to
+    the whole suite. Measured on seven well-formed files in one directory::
+
+        one.snapshot.yaml     WALKED
+        two.snapshot.yaml     WALKED
+        three.snapshot.YAML   SILENTLY SKIPPED
+        four.SNAPSHOT.yaml    WALKED
+        five.Yml              SILENTLY SKIPPED
+        six.yaml              WALKED
+        seven.YML             SILENTLY SKIPPED
+
+        found: 4 of 7   ->   validate_snapshots reported CLEAN
+
+    All three consumers share this walker -- ``validate``, ``stats``, and
+    ``cli._run_command``, the regression check itself -- so those three files
+    were not merely unvalidated, they were never *run*. The `run` summary then
+    reports ``total=len(snapshot_paths)``, which counts only what was walked, so
+    there is nothing for an operator to notice the gap against. The
+    "no snapshot files" error only fires on *zero* matches, which is the one
+    case a real repository never hits.
+
+    Note ``four.SNAPSHOT.yaml`` was walked while ``three.snapshot.YAML`` was
+    not: only the final extension's case mattered, so the old behaviour was not
+    even consistent across mixed-case names. And on a case-insensitive
+    filesystem (APFS, NTFS) those two spellings denote the *same file*, yet the
+    match was case-sensitive regardless -- so whether a snapshot ran depended on
+    how it happened to be typed, not on anything the filesystem treats as
+    meaningful.
+
+    This restores what ``SNAPSHOT_GLOBS`` above already says it is for:
+    "whatever convention an operator already uses -- work without renames".
+
+    ``SNAPSHOT_GLOBS`` stays the single definition. #135 consolidated it here
+    after three modules had drifted, so the matching is done *against* it rather
+    than by re-listing the extensions with case variants.
     """
     root = Path(snapshots_dir)
     seen: set[Path] = set()
     out: list[Path] = []
-    for pattern in SNAPSHOT_GLOBS:
-        for p in root.rglob(pattern):
-            if p not in seen:
-                seen.add(p)
-                out.append(p)
+    # One walk, matching each name case-insensitively against the patterns --
+    # rather than one `rglob` per pattern -- because `rglob` is where the
+    # case-sensitivity lives. The patterns are already lowercase, so lowering
+    # the candidate name is all that is needed.
+    for p in root.rglob("*"):
+        # Deliberately NOT filtered to `is_file()`. A *directory* whose name
+        # matches a snapshot glob is yielded, exactly as the old per-pattern
+        # `rglob` yielded it, so `validate` still reports it as an `unreadable`
+        # finding rather than aborting the walk (#133). Filtering it here would
+        # make it vanish silently -- the same class of defect this change
+        # exists to fix, reintroduced one line away.
+        name = p.name.lower()
+        if any(fnmatch.fnmatchcase(name, pattern) for pattern in SNAPSHOT_GLOBS) and p not in seen:
+            seen.add(p)
+            out.append(p)
     out.sort()
     return out
 
