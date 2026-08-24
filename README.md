@@ -78,7 +78,7 @@ prompt_regression/
 
 See [`docs/schema.md`](docs/schema.md) for the full field reference and
 [`docs/architecture.md`](docs/architecture.md) for how the diff and report
-layers plug in, plus the design decisions behind each layer (D-002…D-008).
+layers plug in, plus the design decisions behind each layer (D-002…D-009).
 
 ## Quickstart
 

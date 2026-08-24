@@ -151,7 +151,13 @@ def _finite_or_raise(score: float, *, model_name: str, where: str) -> float:
 # ----------------------------------------------------------------------
 
 
-SLOT_TYPE_PYTHON = {
+#: Slot type -> the Python type(s) `isinstance` should accept for it.
+#:
+#: Annotated rather than inferred. The values mix a bare `type` with a
+#: `tuple[type, type]`, so mypy widened the value type to `object` and
+#: `isinstance(actual, expected_python)` below became uncheckable (#146).
+#: `_ClassInfo` is what `isinstance` accepts, and this spells it out.
+SLOT_TYPE_PYTHON: dict[str, type | tuple[type, ...]] = {
     "string": str,
     "number": (int, float),
     "integer": int,
@@ -241,6 +247,12 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
     if not slot_specs:
         return out
     lowered = text.lower()
+    # One binding across three branches, so its type is the union of the three
+    # extractors' returns. Left to inference it took the *first* branch's type
+    # and every later branch read as an error (#146). Each branch writes into
+    # `out[name]` immediately and none reads another branch's binding, so the
+    # union is real and there is nothing to restructure — only to state.
+    value: int | float | str | bool | None
     for name, spec in slot_specs.items():
         slot_type = spec.get("type")
         hint = (spec.get("description") or "").lower()

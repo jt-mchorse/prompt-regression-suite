@@ -32,6 +32,13 @@ dev = [
   "pytest>=8.0",
   "pytest-cov>=4.1",
   "ruff>=0.5",
+  # Powers tests/test_mypy_clean.py and the CI lint step (#146, D-009).
+  "mypy>=1.10",
+  # Four of the six errors #146 reported were `Library stubs not installed
+  # for "yaml"` — a missing *stub package*, not a code defect. `pyyaml` is a
+  # runtime dependency of this package, so its stubs belong in `dev`
+  # alongside the checker that needs them, not in the runtime set.
+  "types-PyYAML>=6.0",
 ]
 
 [project.urls]
@@ -47,6 +54,31 @@ packages = ["prompt_regression"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-ra -q"
+
+[tool.mypy]
+# Non-strict baseline gate (#146, D-009). Mirrors llm-eval-harness D-016,
+# llm-cost-optimizer D-014 and chunking-strategies-lab D-013 in shape — but
+# not in rationale. The first two justify their gate by shipping a `py.typed`
+# marker, so their annotations are a downstream contract. This package ships
+# no marker; the case here is the "latent green" one: the annotations were
+# already written, nothing machine-checked them, and #146's six errors sat on
+# a green `main` until someone ran `mypy` by hand while working an unrelated
+# issue.
+#
+# Scoped to the package, matching all three siblings. `mypy prompt_regression
+# scripts tests` reports 17 further errors across 12 files — mypy *starts*
+# here (unlike chunking-strategies-lab, where a module-name collision stopped
+# it before checking anything), so widening the scope is a real, separate
+# piece of work rather than a blocked one. Tracked separately.
+#
+# No blanket `ignore_missing_imports`: it would silence a typo'd import as
+# effectively as a stubless one. The `yaml` stubs come from `types-PyYAML` in
+# the `dev` extra instead, which is the honest fix — the import is real and
+# resolvable, only its types were missing.
+python_version = "3.11"
+files = ["prompt_regression"]
+warn_unused_ignores = true
+warn_redundant_casts = true
 
 [tool.ruff]
 # ruff 0.16.1 extended `ruff format` to Python code blocks inside Markdown.

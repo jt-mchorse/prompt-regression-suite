@@ -25,6 +25,10 @@ jobs:
       - run: pip install -e '.[dev]'
       - run: ruff check .
       - run: ruff format --check .
+      # Non-strict mypy gate (#146, D-009). Bare invocation so it reads the
+      # [tool.mypy] block in pyproject.toml — the same config
+      # tests/test_mypy_clean.py and a developer's local run use.
+      - run: mypy
 
   test:
     runs-on: ubuntu-latest
