@@ -1230,3 +1230,70 @@ named like a snapshot is yielded on purpose, so `validate` reports it as an
 unreadable finding instead of aborting the walk. Filtering it out would have made
 it vanish silently — the same defect class I was fixing, reintroduced one line
 away. It has its own test now.
+
+---
+
+## 2026-08-24 — Issue #146: six mypy errors, and what they actually were
+
+**What got done.** The six errors split 4/2, and the split is the interesting
+part.
+
+**Four were missing type stubs** — `Library stubs not installed for "yaml"` in
+`io.py`, `validate.py`, `stats.py`, `cli.py`. That is a *dependency* gap, not a
+code defect: the import is real and resolvable, only its types were missing. So
+the fix is `types-PyYAML` in the `dev` extra. Deliberately **not** a blanket
+`ignore_missing_imports` and not a per-module override — either would have
+silenced a genuine typo'd import just as effectively, to hide a problem that has
+a proper solution. (Worth contrasting with `chunking-strategies-lab` D-013,
+which *did* need an override, because `sentence_transformers` has no stubs to
+install. Same config shape, different right answer.)
+
+**Two were annotation slips in `diff.py`.** `value` is bound to
+`int | float | None` in the first branch of a three-branch chain and rebound to
+`str | None` and `bool | None` in the others, so inference took the first
+branch's type and the rest read as errors. And `SLOT_TYPE_PYTHON` mixes a bare
+`type` with a `tuple[type, type]` as values, so it widened to
+`dict[str, object]` and `isinstance(actual, expected_python)` became uncheckable.
+
+Neither masked a defect, and I checked rather than assumed — confirming that
+every branch writes into `out[name]` immediately and none reads another branch's
+binding, and that the dict's contents are correct.
+
+**But the checking found a real one next door.** `_coerce_match`'s finiteness
+guard reads `if not want_int and not math.isfinite(value)`, so the *integer*
+branch has no magnitude bound: `_coerce_match("9" * 400, want_int=True)` returns
+a 400-digit `int` with `status: "ok"` where the float branch returns `None`, and
+that literal decodes to `Infinity` in any double-based JSON consumer. It is the
+docstring's own stated harm reached through the other branch. Filed as #147
+rather than fixed here, to stay on this issue.
+
+That is worth generalizing: checking whether an annotation error masks a defect
+means reading the function around it, and the reading is where the real bug turns
+up. Two repos today, both exonerated on the filed error, one of which handed over
+a genuine finding on the way.
+
+**The gate (D-009).** Adopted the non-strict baseline, mirroring
+`llm-eval-harness` D-016, `llm-cost-optimizer` D-014 and
+`chunking-strategies-lab` D-013 in shape — but stating this repo's own rationale,
+because theirs doesn't transfer. The first two justify their gate by shipping a
+`py.typed` marker, so their annotations are a downstream contract. This package
+ships no marker; the case here is latent green, and #146 is the evidence rather
+than the hypothesis: six errors on a green `main` until someone ran `mypy` by
+hand on an unrelated issue.
+
+Wired into the CI lint job *and* `tests/test_mypy_clean.py`, both invoking a bare
+`mypy` so all three of the test, the CI step and a local run read the same
+config. The gate carries its own anti-vacuous guards — parsing
+`"no issues found in N source files"` and requiring `N > 1`, and asserting that
+`types-PyYAML` and `mypy` are *declared* dev dependencies, since the gate is only
+reproducible if the stub package is declared rather than merely present in
+whoever's virtualenv ran it first.
+
+**Scope limitation.** The gate covers the package only.
+`mypy prompt_regression scripts tests` reports 17 further errors across 12 files
+— and note `mypy` *starts* here, unlike `chunking-strategies-lab`, where the same
+widening is blocked by a module-name collision that stops it before checking
+anything. One repo's widening is real work and the other's is blocked work; they
+are not the same issue.
+
+**Tests.** 6 new; suite 499 → 505 green, ruff clean, mypy clean.
