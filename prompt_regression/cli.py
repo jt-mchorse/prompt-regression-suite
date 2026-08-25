@@ -196,11 +196,24 @@ def _load_candidates(path: Path) -> dict[str, str]:
             raise ValueError(f"{path}:{lineno}: invalid JSON: {e}") from e
         if not isinstance(row, dict):
             raise ValueError(f"{path}:{lineno}: row is not an object: {row!r}")
-        key = row.get("snapshot") or row.get("id")
+        # Explicit membership, not `row.get("snapshot") or row.get("id")`. That is
+        # the shape the snapshot->candidate lookup below argues against in its own
+        # comment: an `or` chain cannot tell "absent" from "present and falsy", so
+        # a row that deliberately carries `"snapshot": ""` was silently re-keyed by
+        # `id` instead of being rejected as malformed (#150).
+        key = row["snapshot"] if "snapshot" in row else row.get("id")
         candidate = row.get("candidate")
         if not isinstance(key, str) or not isinstance(candidate, str):
             raise ValueError(
                 f"{path}:{lineno}: row must have string `snapshot` (or `id`) and `candidate`"
+            )
+        # An empty key can never match a snapshot's relative path or id, so it is
+        # an orphan by construction. Caught here rather than at the unmatched-key
+        # check so the diagnostic points at the line that is wrong.
+        if not key:
+            raise ValueError(
+                f"{path}:{lineno}: `snapshot` (or `id`) must be a non-empty string; "
+                "an empty key cannot match any snapshot"
             )
         if key in out:
             raise ValueError(f"{path}:{lineno}: duplicate candidate key {key!r}")
@@ -269,6 +282,11 @@ def _run_command(args: argparse.Namespace) -> int:
     entries: list[Entry] = []  # collected for --format html (ReportEntry | ErrorEntry)
     failed = 0
     skipped = 0
+    # Which candidate keys actually matched a snapshot. A key that matches none is
+    # an orphan: the operator's most likely mistakes are keying by absolute path,
+    # by a since-renamed `snapshot.id`, or with a typo, and every one of them used
+    # to produce a clean-looking report and exit 0 (#150, D-010).
+    consumed: set[str] = set()
     for path in snapshot_paths:
         rel = path.relative_to(snapshots_dir).as_posix()
         # A malformed snapshot under the run dir is an operator input error, not
@@ -296,8 +314,10 @@ def _run_command(args: argparse.Namespace) -> int:
         # silently skips it, letting the worst regression pass CI green.
         if rel in candidates:
             candidate = candidates[rel]
+            consumed.add(rel)
         elif snap.id in candidates:
             candidate = candidates[snap.id]
+            consumed.add(snap.id)
         else:
             candidate = None
         if candidate is None:
@@ -372,14 +392,73 @@ def _run_command(args: argparse.Namespace) -> int:
         if result.verdict == "fail":
             failed += 1
 
+    # Every candidate key that matched no snapshot (#150, D-010).
+    #
+    # `_load_candidates` already refuses a candidates file with ZERO rows -- "a run
+    # with nothing to check is meaningless", exit 2. A file with N rows of which
+    # none matched reaches the identical state by a quieter road, and used to exit
+    # 0. Measured on the shipped examples, changing only the two keys:
+    #
+    #   correct (control)               total=2 failed=1 skipped=0   exit 1
+    #   zero rows                       error: no candidate rows      exit 2
+    #   2 rows, neither key matches     total=2 failed=0 skipped=2   exit 0  <--
+    #   2 rows, one key matches         total=2 failed=0 skipped=1   exit 0  <--
+    #
+    # And the orphan rows were mentioned nowhere: not in the table, not in the
+    # JSON, not on stderr. The lookup's own comment forty lines up names this
+    # harm -- "silently skips it, letting the worst regression pass CI green" --
+    # for the case where the candidate VALUE is empty; this is the same harm
+    # reached through the KEY.
+    #
+    # There is deliberately NO separate `skipped == total` rule. A partial
+    # candidates file (fewer rows than snapshots) has `skipped > 0` and zero
+    # orphans -- a legitimate workflow that must stay green -- and the only other
+    # way to reach `skipped == total` is an all-orphan file, which this catches.
+    # A second rule could only fire where this one already does, while risking a
+    # false positive on the partial run.
+    unmatched = sorted(set(candidates) - consumed)
+    if unmatched and not args.allow_unmatched_candidates:
+        listed = ", ".join(repr(k) for k in unmatched[:10])
+        more = f" (and {len(unmatched) - 10} more)" if len(unmatched) > 10 else ""
+        print(
+            f"error: {len(unmatched)} candidate row(s) matched no snapshot under "
+            f"{snapshots_dir}: {listed}{more}",
+            file=sys.stderr,
+        )
+        print(
+            "hint: keys are the snapshot path RELATIVE to --snapshots, or the "
+            "snapshot's `id`. Pass --allow-unmatched-candidates to report them "
+            "without failing (e.g. one shared candidates file across several "
+            "snapshot dirs).",
+            file=sys.stderr,
+        )
+        return 2
+
     rendered: str
     if args.format == "json":
-        rendered = json.dumps({"rows": rows, "failed": failed, "skipped": skipped}, indent=2) + "\n"
+        rendered = (
+            json.dumps(
+                {
+                    "rows": rows,
+                    "failed": failed,
+                    "skipped": skipped,
+                    # The keys, not just a count: this is a machine artifact, and
+                    # "3 rows matched nothing" is not actionable without them.
+                    "unmatched_candidates": unmatched,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
     elif args.format == "html":
         rendered = render_report(entries)
     else:
         rendered = _format_text_table(
-            rows, failed=failed, skipped=skipped, total=len(snapshot_paths)
+            rows,
+            failed=failed,
+            skipped=skipped,
+            total=len(snapshot_paths),
+            unmatched=unmatched,
         )
 
     if args.out:
@@ -391,9 +470,17 @@ def _run_command(args: argparse.Namespace) -> int:
     return 1 if failed > 0 else 0
 
 
-def _format_text_table(rows: Sequence[dict], *, failed: int, skipped: int, total: int) -> str:
+def _format_text_table(
+    rows: Sequence[dict],
+    *,
+    failed: int,
+    skipped: int,
+    total: int,
+    unmatched: Sequence[str] = (),
+) -> str:
     lines: list[str] = [
-        f"# prompt-snap run  total={total} failed={failed} skipped={skipped}",
+        f"# prompt-snap run  total={total} failed={failed} skipped={skipped} "
+        f"unmatched={len(unmatched)}",
         f"{'verdict':8} {'cosine':>7}  snapshot",
         f"{'-' * 8} {'-' * 7}  {'-' * 24}",
     ]
@@ -402,6 +489,11 @@ def _format_text_table(rows: Sequence[dict], *, failed: int, skipped: int, total
         lines.append(f"{row['verdict']:8} {cosine}  {row['snapshot_path']}")
         for note in row["notes"]:
             lines.append(f"    - {note}")
+    # Only reachable under --allow-unmatched-candidates; without the flag the
+    # command has already returned 2. Listed rather than counted, for the same
+    # reason the JSON carries the keys.
+    for key in unmatched:
+        lines.append(f"unmatched   -.--   (candidate key {key!r} matched no snapshot)")
     return "\n".join(lines) + "\n"
 
 
@@ -704,6 +796,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--candidates",
         required=True,
         help='JSONL of {"snapshot": "<path-or-id>", "candidate": "<text>"} rows.',
+    )
+    run_p.add_argument(
+        "--allow-unmatched-candidates",
+        action="store_true",
+        help=(
+            "Report candidate rows that matched no snapshot instead of failing "
+            "with exit 2. For the one legitimate case: a single candidates file "
+            "shared across several snapshot directories."
+        ),
     )
     run_p.add_argument("--embedder", default="hash", help="Embedder name (default: hash).")
     run_p.add_argument(

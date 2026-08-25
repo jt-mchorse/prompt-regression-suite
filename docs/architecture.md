@@ -230,6 +230,37 @@ rather than blocked work.
   `canonical.embedding_model` and applied locally; the diff itself
   doesn't make network calls.
 
+## Unmatched candidates are an input error (D-010)
+
+`prompt-snap run` derives its exit code from `failed`, so a candidate
+row whose key matched no snapshot used to be dropped silently and the
+run exited 0 having verified nothing. Measured on the shipped
+`examples/`, changing only the two keys:
+
+| candidates file | summary | exit |
+|---|---|---|
+| correct (control) | `total=2 failed=1 skipped=0` | 1 |
+| zero rows | `error: no candidate rows loaded` | 2 |
+| 2 rows, neither key matches | `total=2 failed=0 skipped=2` | **0** |
+| 2 rows, one key matches | `total=2 failed=0 skipped=1` | **0** |
+
+`_load_candidates` already refused the zero-row file — a run with
+nothing to check is meaningless — and the all-orphan file reaches the
+same state by a quieter road. An unmatched key is now reported by name
+(`unmatched=N` in the summary, `unmatched_candidates` in `--format
+json`) and exits 2, the repo's code for an operator input error.
+
+There is deliberately **no** separate `skipped == total` rule. A
+partial candidates file has `skipped > 0` and zero orphans — a
+legitimate workflow that stays green — and the only other route to
+`skipped == total` is a zero-row file, already handled. A second rule
+could only fire where this one does, while risking a false positive on
+the partial run.
+
+`--allow-unmatched-candidates` covers the one legitimate case: a single
+candidates file shared across several snapshot directories. It turns
+off the failure, not the report.
+
 ## Where to look next
 
 - **Layer code** — `prompt_regression/<module>.py` per the directory

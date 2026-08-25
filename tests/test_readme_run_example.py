@@ -99,6 +99,36 @@ def test_readme_run_example_exits_1_with_the_documented_verdicts() -> None:
     )
 
 
+def test_readme_quotes_the_summary_line_the_command_actually_prints() -> None:
+    """The behaviour lock above pinned the exit code and the per-snapshot
+    verdicts, but not the `# prompt-snap run  total=... ` line the README shows
+    verbatim. That gap let the line go stale when `unmatched=N` was added in
+    #150 — the suite stayed green while the documented output was wrong. Pin the
+    line itself, extracted from the README rather than restated here, so the two
+    cannot drift again.
+    """
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    quoted = [
+        line.lstrip("# ").rstrip()
+        for line in readme.splitlines()
+        if line.startswith("# # prompt-snap run ")
+    ]
+    assert len(quoted) == 1, (
+        f"expected exactly one quoted `run` summary line in the README; found {len(quoted)}"
+    )
+
+    proc = _run(
+        "run",
+        "--snapshots",
+        "examples/snapshots",
+        "--candidates",
+        "examples/candidates.jsonl",
+    )
+    assert proc.returncode == 1, proc.stderr
+    printed = proc.stdout.splitlines()[0].lstrip("# ").rstrip()
+    assert printed == quoted[0], f"README quotes {quoted[0]!r} but the command prints {printed!r}"
+
+
 def test_kite_candidate_is_a_rewording_not_a_copy() -> None:
     """Pin the cosine into the band that makes the example meaningful.
 
