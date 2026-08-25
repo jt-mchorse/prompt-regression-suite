@@ -108,3 +108,74 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. Two strings in one file get replaced when an operator runs a real capture; the snapshot's `notes` field and the README's framing get updated in the same PR.
 
 **Related issues:** #4
+
+---
+
+## D-009 — A non-strict `mypy` gate over `prompt_regression`, in CI and as a test
+
+**Date:** 2026-08-24
+
+**Decision.** Adopt the non-strict `mypy` baseline gate: `python_version =
+"3.11"`, `files = ["prompt_regression"]`, `warn_unused_ignores`,
+`warn_redundant_casts`, no blanket `ignore_missing_imports`. It runs in the CI
+lint job and again as `tests/test_mypy_clean.py`, both invoking a bare `mypy` so
+they read exactly the `[tool.mypy]` block in `pyproject.toml`.
+
+**Why.** Three sibling repos already run this gate, and the config is copied
+from them — but the *rationale* is not, because theirs does not transfer.
+`llm-eval-harness` (D-016) and `llm-cost-optimizer` (D-014) justify their gate
+by shipping a `py.typed` marker: their annotations are visible to downstream
+type-checkers, so drift breaks a consumer. `prompt_regression` ships no marker.
+
+What applies here is **latent green** rot, and #146 is the evidence rather than
+the hypothesis: six errors sat on a green `main` until someone ran `mypy` by
+hand while working an unrelated issue. Hand-running a checker is not a discovery
+mechanism.
+
+Wiring it into both the CI step and a test is the substance, not belt-and-braces.
+A CI step alone means the failure arrives after pushing. A test alone is bypassed
+by a future change to the pytest scope. And invoking a *bare* `mypy` in both —
+rather than passing a file list — is what keeps the test, the CI step and a
+developer's terminal checking the same thing.
+
+**What the six errors actually were, since the split matters.** Four were
+`Library stubs not installed for "yaml"`. That is a *dependency* gap, not a code
+defect: the import is real and resolvable, only its types were missing. So the
+fix is `types-PyYAML` in the `dev` extra, and neither a blanket
+`ignore_missing_imports` nor a per-module override is warranted — either would
+have silenced a genuine typo just as effectively as a stubless import, to hide a
+problem that has a proper solution.
+
+The other two were annotation slips in `diff.py`: a `value` name rebound across
+a three-branch chain (so inference took the first branch's type and the other
+two read as errors), and `SLOT_TYPE_PYTHON`, whose values mix a bare `type` with
+a `tuple[type, type]` and therefore widened to `dict[str, object]`, making
+`isinstance(actual, expected_python)` uncheckable. Neither masked a defect —
+checked rather than assumed, by confirming that no branch reads another's
+binding and that the dict's contents are correct.
+
+**But one was found next door.** While checking whether the annotation errors
+masked anything, `_coerce_match`'s finiteness guard turned out to read
+`if not want_int and not math.isfinite(value)` — so the integer branch has no
+magnitude bound and a 400-digit integer is returned with `status: "ok"` where
+the float branch returns `None`. Filed as #147 rather than fixed here.
+
+**Scope limitation, stated rather than papered over.** The gate covers the
+package only, matching all three siblings. `mypy prompt_regression scripts tests`
+reports 17 further errors across 12 files. Worth noting the difference from
+`chunking-strategies-lab`, where the same widening is *blocked* by a module-name
+collision that stops `mypy` before it checks anything: here `mypy` starts fine,
+so widening is real work rather than blocked work.
+
+**Alternatives considered.**
+- *Full strict mode now* — rejected; baseline first, as all three siblings did.
+- *Blanket `ignore_missing_imports`* — rejected; silences typos too.
+- *A per-module `yaml` override instead of the stub package* — rejected; hides a
+  problem that has a proper fix.
+- *Just fix the six errors* — rejected; closes the instance, leaves the class.
+- *CI step only, or test only* — rejected for the reasons above.
+
+**Reversibility:** Cheap. A config block, two dev dependencies, a CI line, and a
+test file.
+
+**Related issues:** #146, #147

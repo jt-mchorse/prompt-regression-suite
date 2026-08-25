@@ -185,6 +185,40 @@ locked by the matching test in `tests/test_cli.py`.
   the healthy population) and `run` (consume it). Locked by
   `tests/test_validate.py`.
 
+## Type checking (D-009)
+
+A non-strict `mypy` gate runs over `prompt_regression` in the CI lint
+job and again as `tests/test_mypy_clean.py`, both invoking a **bare**
+`mypy` so they read exactly the `[tool.mypy]` block in
+`pyproject.toml` — the test, the CI step and a developer's local run
+therefore cannot drift to different scopes.
+
+The rationale differs from two of the three sibling repos that already
+have one. `llm-eval-harness` (D-016) and `llm-cost-optimizer` (D-014)
+justify theirs by shipping a `py.typed` marker, so their annotations
+are a downstream contract. This package ships no marker; the case here
+is **latent green** rot, and #146 is the evidence rather than the
+hypothesis — six errors sat on a green `main` until someone ran `mypy`
+by hand while working an unrelated issue.
+
+Four of those six were `Library stubs not installed for "yaml"`, which
+is a *dependency* gap and not a code defect: the import is real and
+resolvable, only its types were missing. `types-PyYAML` in the `dev`
+extra is the honest fix, so no blanket `ignore_missing_imports` and no
+per-module override are needed — either would have silenced a genuine
+typo just as effectively. The other two were annotation slips in
+`diff.py` (a name rebound across a branch chain, and a dict whose mixed
+`type` / `tuple[type, ...]` values widened to `object` and made an
+`isinstance` call uncheckable). Neither masked a defect — but a real
+one was found in the same file while checking, and is tracked as #147.
+
+Scoped to the package, matching all three siblings. `mypy
+prompt_regression scripts tests` reports 17 further errors across 12
+files; note that `mypy` *starts* here, unlike
+`chunking-strategies-lab`, where a module-name collision stopped it
+before checking anything — so widening the scope is real separate work
+rather than blocked work.
+
 ## What's deliberately not in the suite
 
 - **Replacing `llm-eval-harness`.** That repo does dataset-style
