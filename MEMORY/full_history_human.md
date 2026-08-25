@@ -1379,3 +1379,52 @@ green, ruff clean, mypy clean.
 
 **Note for review.** This branch is stacked on the #146 branch so the two PRs
 don't collide on the append-only MEMORY files. Merge #148 first.
+
+## 2026-08-25 — a candidates file that matched nothing exited 0 (#150, D-010)
+
+**What got done.** `prompt-snap run` derived its exit code from `failed` alone, so
+a candidate row whose key matched no snapshot was dropped with no note, no count
+and no diagnostic. Measured on the shipped `examples/`, changing only the two
+keys: a file where neither key matched reported `total=2 failed=0 skipped=2` and
+exited **0**. The operator's likeliest mistakes — keying by absolute path, by a
+since-renamed `snapshot.id`, or with a typo — all produce a clean-looking report
+and a green CI step that verified nothing. Orphan keys are now named on stderr
+and exit 2, with `--allow-unmatched-candidates` for a shared candidates file
+across several snapshot directories.
+
+**How it was found.** `_load_candidates` already refuses a candidates file with
+*zero rows*, because a run with nothing to check is meaningless. An all-orphan
+file reaches the identical state by a quieter road. When a guard in a file names
+a harm, ask which other inputs reach it — that is the third run in a row that
+shape has paid. The second half was forty lines below: the snapshot-to-candidate
+lookup's comment says an `or` chain "silently skips it, letting the worst
+regression pass CI green" — about an empty candidate *value*, while the function
+above still keyed on `row.get("snapshot") or row.get("id")`.
+
+**A rule I proposed and then dropped.** The issue asked for two remedies: report
+orphans, and make `skipped == total` non-zero. Working the cases showed the second
+is subsumed. A partial candidates file has `skipped > 0` and zero orphans and is a
+legitimate green run; the only other route to `skipped == total` is a zero-row
+file, already exit 2. A second rule could only fire where the first does, while
+risking a false positive on the partial run. It is argued in D-010 rather than
+quietly omitted.
+
+**Something the rule caught that it wasn't written for.** Two rows keyed at the
+same snapshot — one by relative path, one by id. The relative path wins, so the
+other row's candidate was silently discarded, including when the two disagreed
+about what the model returned. Now exit 2, with its own test.
+
+**A lock gap worth remembering.** `test_readme_run_example` pinned the exit code
+and the per-snapshot verdicts but not the summary line the README quotes
+verbatim, so adding `unmatched=N` made the documented output wrong while the
+suite stayed green. The lock now extracts the quoted line from the README and
+compares it to stdout.
+
+**Open questions.** None.
+
+**Tests.** 12 new (`tests/test_run_unmatched_candidates.py`) plus the extended
+README lock. Verified non-vacuous twice, narrowly: disabling only the exit-2 gate
+reddens exactly the three tests that exercise it, and disabling only the empty-key
+guard reddens exactly the three parametrized empty-key rows — whose failure
+message is itself the original defect. Suite 537 → 549 green, ruff clean, mypy
+clean.
