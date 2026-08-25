@@ -294,6 +294,45 @@ def _coerce_match(raw: str, *, want_int: bool) -> int | float | None:
       rejects the whole document — the same non-finite-at-egress class as
       rag-production-kit#137.
 
+    The finiteness rule was written as ``if not want_int and not
+    math.isfinite(value)``, i.e. scoped to one branch of this function, and the
+    paragraph above framed the hazard as a ``float`` problem. Both were wrong,
+    and in the same direction: the *integer* branch had no magnitude bound at
+    all, so the docstring's own example split (#147)::
+
+        digits            want_int=True        want_int=False
+             3           int(3 digits)                 999.0
+            20          int(20 digits)                 1e+20
+           309         int(309 digits)                  None
+           400         int(400 digits)                  None   <- the example above
+          4299        int(4299 digits)                  None
+          4301                    None                  None   <- CPython digit cap
+
+    The integer route reaches the *same destination by a quieter road*. It
+    produces **valid** JSON, so there is no decoder rejection to notice —
+    ``JSON.parse`` of a 400-digit integer literal returns ``Infinity``, and
+    ``jq`` and most Go/Rust ``float64`` decoders do the same, with no error.
+    The float route at least stopped the pipeline.
+
+    Reachability is this docstring's own argument: a very long digit run "is
+    the shape a degenerate repetition loop produces", and such a loop hits
+    ``_INTEGER_RE`` exactly as readily as ``_NUMBER_RE``.
+
+    So the rule is now stated once, for both branches: the value must be
+    representable as a finite IEEE-754 double, which is what the float branch
+    always enforced. Note ``float()`` fails *differently* on the two inputs —
+    ``float("9" * 309)`` is ``inf`` while ``float(int("9" * 309))`` raises
+    ``OverflowError`` — so both arms are needed. The boundary is exact::
+
+        308 digits -> float -> 1e+308          finite; both branches accept
+        309 digits -> inf / OverflowError      both branches reject
+
+    Precision loss *below* that threshold (a 20-digit integer does not survive
+    a ``float64`` round trip intact) is deliberately left alone: it is a
+    different concern with a different threshold (``2**53``), and it needs an
+    argument about what a slot value is for. A value that becomes ``Infinity``
+    needs no such argument.
+
     Returning ``None`` lets the caller move on to the next match, and if none
     is representable ``diff_slots`` renders the slot as ``missing`` → a
     failing verdict, which is the right answer for a degenerate response and
@@ -303,9 +342,29 @@ def _coerce_match(raw: str, *, want_int: bool) -> int | float | None:
         value: int | float = int(raw) if want_int else float(raw)
     except ValueError:
         return None
-    if not want_int and not math.isfinite(value):
+    if not _is_finite_double(value):
         return None
     return value
+
+
+def _is_finite_double(value: int | float) -> bool:
+    """True when ``value`` survives as a finite IEEE-754 double.
+
+    One rule for both branches of ``_coerce_match`` (#147). ``math.isfinite``
+    alone is not it: for a Python ``int`` it is *always* ``True``, however many
+    digits the int has, which is precisely why conditioning the old guard on
+    ``not want_int`` looked harmless and was not.
+
+    ``float()`` is the conversion every downstream ``float64`` JSON decoder
+    performs, so asking it directly is asking the question that matters — and
+    it fails in two different ways depending on the input's Python type, hence
+    both arms.
+    """
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        # `float(huge_int)` raises where `float(huge_str)` returns `inf`.
+        return False
 
 
 def _first_representable(matches: Sequence[re.Match[str]], *, want_int: bool) -> int | float | None:

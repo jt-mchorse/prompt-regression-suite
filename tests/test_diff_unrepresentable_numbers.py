@@ -146,13 +146,44 @@ def test_representable_extraction_is_unchanged(text: str, spec: dict, expected: 
 
 
 def test_a_long_but_representable_integer_still_extracts() -> None:
-    # The guard must reject only what cannot be represented, not "big" numbers.
-    # 4299 digits is one under the cap.
-    digits = (sys.get_int_max_str_digits() or 4300) - 1
+    """The guard must reject only what cannot be represented, not "big" numbers.
+
+    That sentence is this test's original rationale and it is kept verbatim,
+    because it is right. What changed in #147 is the *threshold* it should be
+    measured at.
+
+    This used to assert 4299 digits — one under CPython's int<->str digit cap.
+    But CPython's cap is not the representability boundary that matters here.
+    The docstring on `_coerce_match` says why a non-finite value is rejected:
+    it "egressed into ``--format json``" and a downstream decoder cannot read
+    it. Every `float64`-based JSON decoder — JavaScript, `jq`, most Go and Rust
+    — turns a 309-plus-digit integer literal into `Infinity`, silently, because
+    the literal is *valid* JSON and there is nothing to reject. So a
+    4299-digit integer was never representable in the sense this module cares
+    about; it merely survived the one conversion Python happened to do.
+
+    The correct boundary is where doubles stop: 308 digits of nines is
+    `1e+308` (finite), 309 overflows. That is a property of IEEE-754, not of
+    this host, and `tests/test_coerce_match_branch_parity.py` derives it rather
+    than assuming it.
+    """
+    digits = 308
     raw = "9" * digits
+    assert math.isfinite(float(raw)), "308 digits must still be a finite double"
     assert extract_slots(f"The count is {raw}.", {"n": {"type": "integer", "description": ""}}) == {
         "n": int(raw)
     }
+
+
+def test_an_integer_past_the_double_range_is_no_longer_extracted() -> None:
+    """The other side of the threshold this test used to sit on the wrong side
+    of. On `main`, 4299 digits extracted with `status: "ok"` and produced a JSON
+    literal that decodes to `Infinity` in any double-based consumer (#147)."""
+    digits = (sys.get_int_max_str_digits() or 4300) - 1
+    raw = "9" * digits
+    assert (
+        extract_slots(f"The count is {raw}.", {"n": {"type": "integer", "description": ""}}) == {}
+    )
 
 
 # --- end to end through the shipped CLI -------------------------------------

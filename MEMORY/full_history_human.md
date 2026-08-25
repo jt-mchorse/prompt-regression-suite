@@ -1297,3 +1297,85 @@ anything. One repo's widening is real work and the other's is blocked work; they
 are not the same issue.
 
 **Tests.** 6 new; suite 499 → 505 green, ruff clean, mypy clean.
+
+---
+
+## 2026-08-24 — Issue #147: the finiteness guard covered one branch of its own function
+
+**What got done.** `_coerce_match` exists to reject a number that isn't
+representable, and its docstring states the harm precisely: a non-finite value
+"egressed into `--format json` as a bare `Infinity` token ... so `jq` /
+`JSON.parse` / a Go or Rust decoder rejects the whole document". The guard that
+closed it was written as:
+
+```python
+if not want_int and not math.isfinite(value):
+```
+
+— conditioned on one branch of the function it lives in. The integer branch had
+no magnitude bound at all:
+
+```
+digits            want_int=True        want_int=False
+     3           int(3 digits)                 999.0
+    20          int(20 digits)                 1e+20
+   309         int(309 digits)                  None
+   400         int(400 digits)                  None   <- the docstring's own example
+  4299        int(4299 digits)                  None
+```
+
+**The same harm by a quieter road.** This is the part worth carrying forward.
+The float branch produced a bare `Infinity` token, which is *invalid* JSON — so a
+decoder rejects the document loudly and the pipeline stops. The integer branch
+produces **valid** JSON, and every `float64`-based decoder (JavaScript, `jq`,
+most Go and Rust) turns a 400-digit integer literal into `Infinity` with **no
+error at all**:
+
+```
+$ node -e '... JSON.parse(doc).actual_value'
+Infinity
+```
+
+Same destination, and the silent route is the worse one.
+
+**The fix states the rule once for both branches:** the value must be
+representable as a finite IEEE-754 double, which is exactly what the float
+branch always enforced. One subtlety — `float()` fails *differently* depending
+on the input's Python type: `float("9" * 309)` returns `inf`, while
+`float(int("9" * 309))` raises `OverflowError`. A helper that only checked
+`isfinite` would have crashed rather than rejected, so `_is_finite_double`
+carries both arms. The boundary is exact: 308 digits accepted by both branches,
+309 rejected by both.
+
+**The hardest part was an existing test that pinned the defect.** `#131` shipped
+`test_a_long_but_representable_integer_still_extracts`, asserting 4299 digits
+extracts, with the comment *"The guard must reject only what cannot be
+represented, not 'big' numbers."* That rationale is correct, and it is kept
+verbatim in the rewritten test — what was wrong is the *threshold* it measured
+at. CPython's int↔str digit cap is not the representability boundary this module
+cares about; the boundary is where doubles stop, because that is where the
+stated harm lives. A 4299-digit integer was never representable in the sense
+that matters here; it merely survived the one conversion Python happened to do.
+
+That generalizes: when a prior test's stated reason supports your change but its
+assertion contradicts it, the reason is usually right and the threshold is
+usually measured against the wrong notion. Quote the reason back in the rewritten
+test rather than silently editing the number.
+
+**Two smaller disciplines.** The 308/309 constants are *derived* in their own
+test from `math.isfinite(float("9" * n))` rather than taken on faith — they are a
+property of IEEE-754, not of the CI host. And the negative side is pinned too:
+the bound is on magnitude, not sign, and a guard closing only the positive half
+would be the same defect one operand over.
+
+**Deliberately deferred.** Precision loss *below* the overflow threshold — a
+20-digit integer survives as finite but does not round-trip a `float64` intact.
+Different concern, different threshold (`2**53`), and it needs an argument about
+what a slot value is *for*. A value that becomes `Infinity` needs no such
+argument.
+
+**Tests.** 33 new; 14 fail against a one-token narrowed revert. Suite 505 → 537
+green, ruff clean, mypy clean.
+
+**Note for review.** This branch is stacked on the #146 branch so the two PRs
+don't collide on the append-only MEMORY files. Merge #148 first.
