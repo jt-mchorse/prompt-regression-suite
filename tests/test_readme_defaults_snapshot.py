@@ -68,27 +68,38 @@ def _live_subcommands() -> set[str]:
 
 
 def test_readme_quotes_live_default_threshold() -> None:
-    """README `threshold=0.85` (signature example + `(threshold 0.85)`
-    in CLI output) must equal `prompt_regression.diff.DEFAULT_THRESHOLD`."""
+    """Every README surface quoting the *default* threshold must equal
+    `prompt_regression.diff.DEFAULT_THRESHOLD`."""
     body = _readme()
     # Two surfaces in the README quote the default:
     #   - `diff_response(..., threshold=0.85)` in the diff-layer code block.
-    #   - `cosine: 0.812 (threshold 0.85)` in the prompt-snap diff example.
+    #   - `run threshold 0.850` in the `prompt-snap diff` example output.
+    #
+    # The second anchor used to be `(threshold <N>)` from that same example,
+    # on the assumption that the number the CLI prints there *is* the default.
+    # It is not: the CLI prints the **effective** threshold, and #138 replaced
+    # the fabricated example with a real one against `creative_kite_v1.yml`,
+    # whose per-snapshot tolerance of 0.75 overrides the default (D-005). So the
+    # example now legitimately prints `(threshold 0.75)`, and the surface that
+    # quotes the default is the override note beside it — which the old
+    # fabricated block did not have at all. `test_the_readme_shows_the_override
+    # _rather_than_only_the_default` below keeps both numbers present, so this
+    # anchor cannot be satisfied by deleting the example.
     sig_match = re.search(r"diff_response\([^)]*threshold=([\d.]+)", body)
-    out_match = re.search(r"\(threshold ([\d.]+)\)", body)
+    out_match = re.search(r"overrides run threshold ([\d.]+)", body)
     assert sig_match, (
         "README must quote the default threshold as `diff_response(..., "
         "threshold=<N>, ...)` in the Diff-layer code block."
     )
     assert out_match, (
-        "README must quote the default threshold as `(threshold <N>)` in "
-        "the `prompt-snap diff` example output."
+        "README must quote the default threshold as `overrides run threshold "
+        "<N>` in the `prompt-snap diff` example output."
     )
     sig_v = float(sig_match.group(1))
     out_v = float(out_match.group(1))
     assert sig_v == out_v, (
         f"README quotes two different default thresholds: "
-        f"`threshold={sig_v}` in the signature and `(threshold {out_v})` in "
+        f"`threshold={sig_v}` in the signature and `run threshold {out_v}` in "
         f"the CLI output. Pick one and align both anchors."
     )
     assert sig_v == DEFAULT_THRESHOLD, (
@@ -230,3 +241,21 @@ def test_readme_diff_layer_example_executes_hermetically() -> None:
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(__import__("pytest").main([__file__, "-v"]))
+
+
+def test_the_readme_shows_the_override_rather_than_only_the_default() -> None:
+    """The CLI-tour example must keep demonstrating D-005 doing real work (#138).
+
+    The effective threshold it prints (0.75, the snapshot's own tolerance) and
+    the default it overrides (0.850) are two different numbers, and the block is
+    only honest if both are visible. Without this, the anchor above could be
+    satisfied by deleting the example entirely.
+    """
+    body = _readme()
+    assert "cosine:  0.8058 (threshold 0.75)" in body, (
+        "the CLI tour must show the EFFECTIVE threshold the tool printed"
+    )
+    assert "per-snapshot tolerance 0.750 overrides run threshold 0.850" in body, (
+        "the CLI tour must show the default being overridden, not just the effective value"
+    )
+    assert DEFAULT_THRESHOLD == 0.85

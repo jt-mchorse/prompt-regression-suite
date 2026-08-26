@@ -288,20 +288,54 @@ prompt-snap run \
 # pass      0.806   examples/snapshots/creative_kite_v1.yml
 # error      -.--   examples/snapshots/refund_window_v1.yml
 
-# Ad-hoc diff: one snapshot vs one candidate. Exits 1 on fail.
+# Ad-hoc diff: one snapshot vs one candidate. Exit 0 on pass.
+# This is the same candidate examples/candidates.jsonl carries, so the
+# cosine below is the number the run table above prints as 0.806.
 prompt-snap diff \
-    --snapshot snapshots/refund-policy.snapshot.yaml \
+    --snapshot examples/snapshots/creative_kite_v1.yml \
+    --candidate "A kite drifts above an empty beach in the late afternoon. The salt wind tugs the string, a child below laughs and tugs back, and the horizon is a thin orange line, almost gone."
+# verdict: pass
+# cosine:  0.8058 (threshold 0.75)
+# embedder: hash-embedder-128d-ngram2  (snapshot: hash-embedder-128d-ngram2)
+# notes:
+#   - per-snapshot tolerance 0.750 overrides run threshold 0.850
+
+# Exits 1 on fail.
+prompt-snap diff \
+    --snapshot examples/snapshots/creative_kite_v1.yml \
+    --candidate "The quarterly revenue forecast was revised upward by nine percent."
+# verdict: fail
+# cosine:  0.0508 (threshold 0.75)
+# notes:
+#   - cosine 0.051 below threshold 0.750
+
+# Exits 2 when the snapshot's embedder doesn't match the diff embedder (D-006).
+# refund_window_v1.yml carries the illustrative 8-d embedding of D-003, so this
+# is the guard working, not a broken fixture.
+prompt-snap diff \
+    --snapshot examples/snapshots/refund_window_v1.yml \
     --candidate "Refunds are now available for 30 days after purchase."
-# verdict: warn
-# cosine:  0.812 (threshold 0.85)
-# ...
+# error: snapshot was embedded with 'text-embedding-3-small-truncated-8d' but the
+# diff embedder reports 'hash-embedder-128d-ngram2'. Re-embed the snapshot or
+# pass force=True to override.
 
 # Re-baseline a snapshot after an intentional change. REQUIRES --force.
+# `update` rewrites the file in place, so copy first — the snapshots under
+# examples/ are committed fixtures.
+cp examples/snapshots/creative_kite_v1.yml ./creative_kite_v1.copy.yml
 prompt-snap update \
-    --snapshot snapshots/refund-policy.snapshot.yaml \
-    --canonical "Refunds are available for 30 days after purchase." \
+    --snapshot ./creative_kite_v1.copy.yml \
+    --canonical "A paper kite hangs over the empty sand as the light turns orange." \
     --force
+# updated <abs-path>/creative_kite_v1.copy.yml: embedder=hash-embedder-128d-ngram2 text_len=65
 ```
+
+Every verdict, cosine and count in the block above is the tool's actual output,
+pinned by `tests/test_readme_cli_tour_examples.py` — the commands are run and
+their exit codes and printed numbers asserted, so the block is a tested artifact
+rather than prose to hand-sync. The one elision is `update`'s `<abs-path>`
+prefix: it echoes the resolved absolute path, which differs per machine (on
+macOS `/tmp` resolves to `/private/tmp`), so the lock asserts the suffix.
 
 The candidates JSONL row shape is
 `{"snapshot": "<path-relative-to-snapshots-dir>", "candidate": "<text>"}`
