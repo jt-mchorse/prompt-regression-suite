@@ -78,7 +78,7 @@ prompt_regression/
 
 See [`docs/schema.md`](docs/schema.md) for the full field reference and
 [`docs/architecture.md`](docs/architecture.md) for how the diff and report
-layers plug in, plus the design decisions behind each layer (D-002…D-009).
+layers plug in, plus the design decisions behind each layer (D-002…D-010).
 
 ## Quickstart
 
@@ -282,7 +282,7 @@ dep-free `HashEmbedder` is the default; the
 prompt-snap run \
     --snapshots examples/snapshots \
     --candidates examples/candidates.jsonl
-# # prompt-snap run  total=2 failed=1 skipped=0
+# # prompt-snap run  total=2 failed=1 skipped=0 unmatched=0
 # verdict   cosine  snapshot
 # -------- -------  ------------------------
 # pass      0.806   examples/snapshots/creative_kite_v1.yml
@@ -307,6 +307,17 @@ The candidates JSONL row shape is
 `{"snapshot": "<path-relative-to-snapshots-dir>", "candidate": "<text>"}`
 or `{"id": "<snapshot.id>", "candidate": "<text>"}`; the lookup tries
 the relative path first, then falls back to the id.
+
+A candidate row whose key matches **no** snapshot exits 2 and names the
+key (D-010). Supplying candidates for only *some* snapshots is still
+fine — those snapshots report `skipped` and the run stays green — but a
+key that matches nothing is an operator mistake (an absolute path, a
+since-renamed `id`, a typo), and before #150 it was dropped with no
+note, no count and no diagnostic, so a run that verified *nothing*
+exited 0 and CI went green. The `unmatched=N` field in the summary line
+and the `unmatched_candidates` list in `--format json` report it. Pass
+`--allow-unmatched-candidates` for the one legitimate case: a single
+candidates file shared across several snapshot directories.
 
 `run` walks `*.snapshot.yaml`, `*.snapshot.yml`, `*.yml`, and `*.yaml`
 under the supplied dir, merging the matches deduped. Extension matching

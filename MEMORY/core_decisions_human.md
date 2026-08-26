@@ -179,3 +179,49 @@ so widening is real work rather than blocked work.
 test file.
 
 **Related issues:** #146, #147
+
+## D-010 — an unmatched candidate key is an input error, not a silent skip (2026-08-25)
+
+**Decision.** `prompt-snap run` reports every candidate row whose key matched no
+snapshot, by name, and exits 2. `--allow-unmatched-candidates` downgrades the
+failure to a report for the one legitimate case: a single candidates file shared
+across several snapshot directories.
+
+**Why.** The exit code was derived from `failed` alone, so an orphan candidate
+row was dropped with no note, no count and no diagnostic. Measured on the shipped
+`examples/`, changing only the two keys:
+
+| candidates file | summary | exit |
+|---|---|---|
+| correct (control) | `total=2 failed=1 skipped=0` | 1 |
+| zero rows | `error: no candidate rows loaded` | 2 |
+| 2 rows, neither key matches | `total=2 failed=0 skipped=2` | **0** |
+| 2 rows, one key matches | `total=2 failed=0 skipped=1` | **0** |
+
+The operator's likeliest mistakes — keying by absolute path, by a since-renamed
+`snapshot.id`, or with a typo — all land in the bottom two rows: a clean-looking
+report and a green CI step that verified nothing.
+
+This is not a new standard. `_load_candidates` already refuses a candidates file
+with zero rows, because a run with nothing to check is meaningless. An all-orphan
+file reaches the identical state by a quieter road. And the snapshot-to-candidate
+lookup forty lines below already names the harm, for the neighbouring case where
+the candidate *value* is empty rather than its key unmatched: "silently skips it,
+letting the worst regression pass CI green."
+
+**Alternatives considered.** *Report without failing* — a report nobody reads does
+not stop a green CI step that checked nothing. *Exit 1* — that code means
+"regressions found"; this is a usage error, which is 2 everywhere else in this
+CLI. *No escape hatch* — a shared candidates file across snapshot directories is
+a real workflow.
+
+*A separate `skipped == total` rule* was considered and rejected as both
+redundant and harmful. A partial candidates file has `skipped > 0` and zero
+orphans, which is legitimate and must stay green; and the only other route to
+`skipped == total` is a zero-row file, already handled at exit 2. So the second
+rule could only fire where the orphan rule already does, while risking a false
+positive on the partial run.
+
+**Reversibility.** Cheap. Worth recording because it changes an exit code: a run
+that previously passed CI can now fail. That is the intended outcome — those runs
+were passing without checking anything.
