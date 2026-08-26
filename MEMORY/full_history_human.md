@@ -1428,3 +1428,51 @@ reddens exactly the three tests that exercise it, and disabling only the empty-k
 guard reddens exactly the three parametrized empty-key rows — whose failure
 message is itself the original defect. Suite 537 → 549 green, ruff clean, mypy
 clean.
+
+## 2026-08-26 — a lock that was correct only because the doc was fake (#138)
+
+**What got done.** The README's CLI tour documented `diff` and `update` against
+`snapshots/refund-policy.snapshot.yaml` — a path that has never existed here —
+annotated with `# verdict: warn` / `# cosine: 0.812`, numbers no run produced.
+Both now point at committed fixtures, every number is measured, and
+`tests/test_readme_cli_tour_examples.py` runs each command and asserts its exit
+code and printed numbers.
+
+**A `priority:low` label is not a severity judgement.** It was the only open
+issue in the repo, and it was a fabricated number in the README — a handoff §10
+violation. Read the issue.
+
+**The most transferable finding: a lock can be correct only because the thing it
+locks is fake.** `test_readme_quotes_live_default_threshold` anchored the default
+threshold on `(threshold 0.85)` *inside the CLI example*. That was right only
+because the example was invented. The CLI prints the **effective** threshold, and
+the real snapshot carries a 0.75 tolerance that overrides the default (D-005). So
+making the documentation true broke the lock.
+
+**And the repair was to repoint the anchor, not to bend the example.** The real
+output does name the default — in the line "per-snapshot tolerance 0.750
+overrides run threshold 0.850", which the fabricated block could not have had,
+because a made-up transcript has no override note to print. A companion test
+keeps both numbers present so the narrowed anchor cannot be satisfied by deleting
+the example instead.
+
+**The anti-vacuous revert proved the architecture of the locks.** Restoring the
+fabricated block leaves `test_readme_shell_input_paths_exist` green — it
+deliberately doesn't match bare relative roots, since a bare dir in a generic
+tour is a plausible placeholder — and turns four behavioural assertions red. When
+a path lock cannot see a class by design, the answer is a lock that *runs the
+command*, not a noisier regex.
+
+**Two doc-design choices worth reusing.** Show all three exit channels in one
+fence: the fence already claimed "Exits 1 on fail" in prose and never
+demonstrated it, and a prose claim about an exit code is a test case. And make
+the examples in one fence agree — the `diff` example now uses the same candidate
+`examples/candidates.jsonl` carries, so its `0.8058` *is* the run table's
+`0.806`, pinned by a test that rounds one and compares it to the other.
+
+**A small, real portability detail.** macOS resolves `/tmp` to `/private/tmp`,
+and `prompt-snap update` echoes the resolved absolute path — so a `/tmp`-based
+recipe would document output that doesn't match what was typed. The fence uses a
+relative copy and elides the absolute prefix; the lock asserts the suffix.
+
+**Tests.** 13 new; suite 546 → 559 green, ruff and mypy clean.
