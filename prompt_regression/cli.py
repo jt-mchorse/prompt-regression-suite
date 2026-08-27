@@ -410,12 +410,30 @@ def _run_command(args: argparse.Namespace) -> int:
     # for the case where the candidate VALUE is empty; this is the same harm
     # reached through the KEY.
     #
-    # There is deliberately NO separate `skipped == total` rule. A partial
-    # candidates file (fewer rows than snapshots) has `skipped > 0` and zero
-    # orphans -- a legitimate workflow that must stay green -- and the only other
-    # way to reach `skipped == total` is an all-orphan file, which this catches.
-    # A second rule could only fire where this one already does, while risking a
-    # false positive on the partial run.
+    # This used to say there was "deliberately NO separate `skipped == total`
+    # rule", because "the only other way to reach `skipped == total` is an
+    # all-orphan file, which this catches". Every clause of that was true except
+    # the last one, and only because of the flag consulted on the very next line
+    # (#153).
+    #
+    # `--allow-unmatched-candidates` exists precisely so this rule does NOT fire.
+    # So "which this catches" is false exactly when the flag is present -- which
+    # is the one case where the second rule is not redundant but is the *only*
+    # rule. Measured on the shipped examples, changing only the keys and the flag:
+    #
+    #   ALL keys orphaned, no flag                        exit 2
+    #   ALL keys orphaned, --allow-unmatched-candidates   exit 0, skipped=2 of 2
+    #   PARTIAL (1 of 2 snapshots), no flag               exit 0, skipped=1 of 2
+    #
+    # The middle row compared nothing at all and exited green. `skipped == total`
+    # is the same "a run with nothing to check is meaningless" state
+    # `_load_candidates` refuses for a zero-row file, reached by a third road.
+    #
+    # Rejecting a redundant rule was the right instinct; the redundancy just has
+    # to be re-checked against every branch the same change introduced. "A second
+    # rule could only fire where this one already does" is a coverage claim, and
+    # an escape hatch is exactly what invalidates a coverage claim. The rule now
+    # lives below the orphan block.
     unmatched = sorted(set(candidates) - consumed)
     if unmatched and not args.allow_unmatched_candidates:
         listed = ", ".join(repr(k) for k in unmatched[:10])
@@ -430,6 +448,37 @@ def _run_command(args: argparse.Namespace) -> int:
             "snapshot's `id`. Pass --allow-unmatched-candidates to report them "
             "without failing (e.g. one shared candidates file across several "
             "snapshot dirs).",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Nothing was compared (#153). Independent of `--allow-unmatched-candidates`
+    # on purpose: that flag turns off the *orphan* rule, and this is the rule the
+    # flag must not be able to turn off, because a run that checked zero
+    # snapshots is meaningless whatever the reason.
+    #
+    # Cannot false-positive on the workflow the flag exists for. A partial
+    # candidates file has `skipped < total` by definition, and the shared-file
+    # case the flag's help describes ("a single candidates file shared across
+    # several snapshot directories") matches *some* rows in each directory it is
+    # pointed at -- if none match, the file and the directory are mispaired,
+    # which is the same operator error the orphan rule catches without the flag.
+    #
+    # `total == 0` never reaches here: an empty snapshots directory already
+    # returns 2 ("no snapshot files under ..."), so this is never the vacuous
+    # `0 == 0`.
+    total = len(snapshot_paths)
+    if skipped == total:
+        print(
+            f"error: no snapshot was compared against a candidate "
+            f"(total={total} skipped={total}); the run checked nothing",
+            file=sys.stderr,
+        )
+        print(
+            "hint: every snapshot was skipped for want of a candidate row. Check "
+            "that --candidates keys match the snapshot paths relative to "
+            "--snapshots (or their `id`), and that --snapshots points at the "
+            "directory this candidates file was written for.",
             file=sys.stderr,
         )
         return 2
