@@ -77,3 +77,11 @@ def test_lock_covers_the_run_examples_that_regressed() -> None:
     refs = _shell_fence_paths()
     assert "examples/snapshots" in refs
     assert "examples/candidates.jsonl" in refs
+    # #138: the `diff`/`update` half of the same fence used a bare `snapshots/`
+    # root, which this lock deliberately does not match — a bare relative dir in
+    # a generic tour is a plausible placeholder, and matching it would make the
+    # lock noisy. Now that those lines point at a committed root they are in
+    # scope, so assert the lock sees them; the behavioural half lives in
+    # `test_readme_cli_tour_examples.py`, which runs the commands.
+    assert "examples/snapshots/creative_kite_v1.yml" in refs
+    assert "examples/snapshots/refund_window_v1.yml" in refs
