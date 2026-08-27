@@ -1476,3 +1476,44 @@ recipe would document output that doesn't match what was typed. The fence uses a
 relative copy and elides the absolute prefix; the lock asserts the suffix.
 
 **Tests.** 13 new; suite 546 → 559 green, ruff and mypy clean.
+
+
+## 2026-08-27 - #153: the rule declined as redundant, in the change that made it necessary
+
+`#150` closed the road where every candidate key missed its snapshot: that lands
+in the same "nothing was checked" state the loader already refuses for a zero-row
+file, so it exits 2. The same change added `--allow-unmatched-candidates`, whose
+whole purpose is to turn that rule off, and — in a comment — declined a second
+rule on the grounds that "a second rule could only fire where this one already
+does".
+
+Every clause of that reasoning is true except the one about coverage, and it is
+false only because of the flag consulted on the very next line. With the flag
+present the orphan rule deliberately does not fire, so a `skipped == total` rule
+is not redundant there; it is the only rule. Measured on the shipped examples, an
+all-orphan candidates file plus the flag reports `skipped=2 unmatched=2` out of
+two snapshots and exits **0**. Not one snapshot compared against anything, and a
+green CI step.
+
+The generalization is worth keeping: a redundancy argument is a coverage claim,
+and an escape hatch is exactly what invalidates a coverage claim. When a comment
+says "this could only fire where that one already does", the question is what can
+switch *that one* off — and if the same diff introduced the switch, the claim was
+never checked against it.
+
+The declining comment was also right to worry. It declined the rule because of
+false-positive risk on a partial candidates file, and that risk is real, so the
+tests are a grid — control, all-orphan, partial, one-matching, each with and
+without the flag — because the rows that must stay green are as load-bearing as
+the row that must go red. Closing a false-accept by failing everything would be a
+worse tool. The predicate needed no threshold in the end: every legitimate case
+has `skipped < total` by definition, and `skipped == total` means zero
+comparisons. When a rule seems to need a ratio, the predicate is probably wrong.
+
+One pre-existing test had to change, and that is worth saying out loud rather
+than burying in a diff: it typo'd both keys and asserted exit 0, which is the
+hole. The property it was written for — the flag reports instead of failing — is
+real, and now sits on the shape that actually has it, one orphan and one match. A
+sibling test kept every assertion; only the over-broad reason in its docstring
+was corrected. Correct the reason, not the assertion, when the assertion was
+never wrong.
