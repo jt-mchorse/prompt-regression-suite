@@ -1517,3 +1517,40 @@ real, and now sits on the shape that actually has it, one orphan and one match. 
 sibling test kept every assertion; only the over-broad reason in its docstring
 was corrected. Correct the reason, not the assertion, when the assertion was
 never wrong.
+
+## 2026-08-28 - issue #155: the code that existed so nobody would parse the prose, computed by parsing the prose
+
+No open issues here, so this was a hunt. Counting commits per module pointed at the
+two quietest files. The report renderer turned out to be clean - it escapes every
+caller- and model-controlled value it interpolates, including the model's own
+response text. The validator was not.
+
+It classified each finding with a machine-readable code, and computed that code by
+testing whether the exception's message contained the word "schema_version". The
+comment directly above that line says the code exists so migration tooling can route
+on it without parsing the prose. It was parsing the prose.
+
+That would be merely inelegant if the message were fixed text. It is not: these
+messages embed identifiers taken from the snapshot file. An unknown field in the
+prompt section produces "got an unexpected keyword argument 'x'", with the file's own
+field name in the string being matched. So a snapshot with a stray field named
+something like `schema_version_note` was routed as a version mismatch, while the
+identical error with any other field name was routed as a schema error. Same class,
+same raise site, different routing, decided by the input.
+
+The fix is the shape the sibling repo already uses: carry the code on the exception,
+set at the raise site, with a closed set that rejects a typo at construction. The
+version check in the loader is now the only thing that can produce the version code.
+The second benefit is larger than the bug - the code and the message are now
+independent, so rewording an error can no longer silently change how it routes, and
+that is asserted directly rather than left implied.
+
+The existing lock that ties the documented code list to the emit sites went red, and
+correctly: it discovered codes from the validator's syntax tree, and the schema-side
+ones had moved out of that file. I extended the derivation rather than adding a
+literal back, and the extension needed its own anti-vacuous arm, because a set
+discovered from explicit keyword arguments cannot see a default.
+
+One small thing worth keeping. The new suite's "the unmutated fixture is valid" test
+caught a malformed base fixture immediately - three other cases had been passing on
+an unrelated finding. When every case mutates a shared base, assert the base first.
