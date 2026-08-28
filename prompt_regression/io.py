@@ -218,7 +218,10 @@ def load_snapshot(path: PathArg) -> Snapshot:
     if str(version) != SCHEMA_VERSION:
         raise SnapshotValidationError(
             f"{p}: snapshot schema_version is {version!r}, "
-            f"this reader only supports {SCHEMA_VERSION!r}"
+            f"this reader only supports {SCHEMA_VERSION!r}",
+            # The single source of the `schema_version` finding code (#155).
+            # Every other raise in this package takes the `"schema"` default.
+            code="schema_version",
         )
     # Normalize to the canonical string before `from_dict`, whose strict
     # `_require_str(schema_version)` would otherwise re-reject the int form.

@@ -46,6 +46,7 @@ import yaml
 from prompt_regression import load_snapshot, save_snapshot
 from prompt_regression import validate as validate_module
 from prompt_regression.cli import _SNAPSHOT_GLOBS as RUN_GLOBS
+from prompt_regression.schema import SnapshotValidationError
 from prompt_regression.validate import (
     _SNAPSHOT_GLOBS as VALIDATE_GLOBS,
 )
@@ -542,34 +543,77 @@ def test_cli_missing_directory_still_exits_two(tmp_path: Path) -> None:
 # --- #133: the documented code list is derived, not prose -----------------
 
 
-def _codes_emitted_by_validate_module() -> set[str]:
-    """Every ``ValidationFinding.code`` string literal the module can emit.
-
-    Collected from the AST rather than by grepping prose: the module
-    docstring quotes each code in backticks, and a text scan would count
-    the documentation as an emit site — making the lock below vacuous.
-    """
-    src = Path(validate_module.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(src)
+def _code_kwargs_of(path: Path, call_name: str) -> set[str]:
+    """Every literal ``code=`` kwarg passed to ``call_name`` in ``path``."""
     codes: set[str] = set()
-    for node in ast.walk(tree):
-        # `ValidationFinding(..., code="parse")`
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
-            and node.func.id == "ValidationFinding"
+            and node.func.id == call_name
         ):
             for kw in node.keywords:
                 if kw.arg == "code" and isinstance(kw.value, ast.Constant):
                     codes.add(kw.value.value)
-        # `code = "schema_version" if ... else "schema"` — assigned, then passed
-        if isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == "code" for t in node.targets
-        ):
-            for sub in ast.walk(node.value):
-                if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
-                    codes.add(sub.value)
     return codes
+
+
+def _codes_emitted_by_validate_module() -> set[str]:
+    """Every ``ValidationFinding.code`` a validation run can produce.
+
+    Collected from the AST rather than by grepping prose: the module docstring
+    quotes each code in backticks, and a text scan would count the
+    documentation as an emit site — making the lock below vacuous.
+
+    Two sources since #155. `validate.py` still constructs some codes directly
+    (`parse`, `unreadable`, `empty`, `duplicate_id`). The schema-side ones no
+    longer appear there at all: `validate.py` now reads `e.code` off the
+    exception, because deriving them from the message meant a snapshot's own
+    field name could pick its code. So the schema-side half of the population
+    is discovered from `SnapshotValidationError`'s closed set, which
+    `test_snapshot_error_codes_match_their_raise_sites` in turn pins to the
+    actual raise sites — the chain stays derived end to end rather than
+    reintroducing a literal here.
+    """
+    return _code_kwargs_of(Path(validate_module.__file__), "ValidationFinding") | set(
+        SnapshotValidationError.CODES
+    )
+
+
+def test_snapshot_error_codes_match_their_raise_sites() -> None:
+    """``SnapshotValidationError.CODES`` equals what the package actually raises.
+
+    Without this the closed set could list a code no raise site uses (dead, and
+    it would leak into the documented list via the lock above), or a raise site
+    could pass one the set rejects — which is a construction-time error, but
+    only on the path that happens to run.
+
+    The default (`"schema"`) is counted explicitly: most raise sites take it,
+    and a set discovered only from explicit `code=` kwargs would miss it.
+    """
+    pkg = Path(validate_module.__file__).parent
+    explicit: set[str] = set()
+    for module in sorted(pkg.glob("*.py")):
+        explicit |= _code_kwargs_of(module, "SnapshotValidationError")
+
+    # Anti-vacuous: at least one site must pass a code explicitly, or this
+    # would pass with the whole mechanism deleted.
+    assert explicit == {"schema_version"}, explicit
+    assert explicit | {"schema"} == SnapshotValidationError.CODES
+
+
+def test_only_the_version_check_raises_the_schema_version_code() -> None:
+    """`io.py`'s version mismatch is the single source of `schema_version`.
+
+    The point of #155: every *other* schema failure — including one whose
+    message happens to contain the word — must take the `schema` default.
+    """
+    pkg = Path(validate_module.__file__).parent
+    sources = {
+        module.name: _code_kwargs_of(module, "SnapshotValidationError")
+        for module in sorted(pkg.glob("*.py"))
+    }
+    assert {name for name, codes in sources.items() if "schema_version" in codes} == {"io.py"}
 
 
 def test_finding_codes_matches_what_the_module_can_emit() -> None:
