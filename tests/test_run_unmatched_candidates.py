@@ -19,9 +19,12 @@ identical state by a quieter road. And the lookup's own comment names this
 harm for the neighbouring case where the candidate *value* is empty:
 "silently skips it, letting the worst regression pass CI green."
 
-There is deliberately no separate `skipped == total` rule; see
-`test_a_partial_candidates_file_is_still_green` for why one would be both
-redundant and harmful.
+This file used to close by saying there was deliberately no separate
+`skipped == total` rule. That was true of the world without
+`--allow-unmatched-candidates`, which the same change introduced -- see
+`tests/test_run_nothing_compared.py` (#153), which measures the third road to
+the same state and closes it. The partial-file test below is unchanged: its
+assertions were always right, only the reason attached to them was too broad.
 """
 
 from __future__ import annotations
@@ -103,15 +106,24 @@ def test_one_key_unmatched_also_exits_2(tmp_path: Path) -> None:
 
 
 def test_allow_flag_reports_without_failing(tmp_path: Path) -> None:
-    bad = _rewrite(
-        tmp_path,
-        {KITE_KEY: "creative_kite_v1.YML.typo", REFUND_KEY: "refund-window-pro-v1-TYPO"},
-    )
+    """The flag turns off the failure, not the report.
+
+    CHANGED in #153, and it is the one pre-existing assertion that change moves.
+    This used to typo BOTH keys and assert exit 0 — which is precisely the hole
+    #153 closes: with every key orphaned, nothing is compared, and a run that
+    compared nothing must not be green whatever the flag says. The all-orphan
+    case now exits 2, pinned in `tests/test_run_nothing_compared.py`.
+
+    The property this test was written for is untouched and is asserted here on
+    the shape that actually has it: one key orphaned, one matching, so the orphan
+    is *reported* and the run still checks something.
+    """
+    bad = _rewrite(tmp_path, {REFUND_KEY: "refund-window-pro-v1-TYPO"})
     proc = _run_with(bad, "--allow-unmatched-candidates")
     assert proc.returncode == 0, proc.stderr
-    assert "unmatched=2" in proc.stdout
+    assert "unmatched=1" in proc.stdout
+    assert "skipped=1" in proc.stdout
     # Still visible, just not fatal — the flag turns off the failure, not the report.
-    assert "creative_kite_v1.YML.typo" in proc.stdout
     assert "refund-window-pro-v1-TYPO" in proc.stdout
 
 
@@ -125,13 +137,14 @@ def test_json_output_carries_the_keys_not_just_a_count(tmp_path: Path) -> None:
 
 
 def test_a_partial_candidates_file_is_still_green(tmp_path: Path) -> None:
-    """Why there is no separate `skipped == total` rule.
+    """The workflow a `skipped == total` rule must not break.
 
     A candidates file covering only *some* snapshots has `skipped > 0` and zero
-    orphans — a legitimate workflow. A `skipped == total` rule could only fire
-    where the orphan rule already does (the only other route to it is a
-    zero-row file, which `_load_candidates` rejects at exit 2), while risking a
-    false positive here.
+    orphans — a legitimate workflow, and `skipped < total` by definition, so the
+    rule added in #153 cannot fire here. This test predates that rule and its
+    assertions are unchanged; what changed is the claim that used to be attached
+    to them, that no such rule could ever be needed. See
+    `tests/test_run_nothing_compared.py`.
     """
     only_kite = tmp_path / "candidates.jsonl"
     lines = [

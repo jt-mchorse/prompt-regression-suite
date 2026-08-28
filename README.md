@@ -353,6 +353,17 @@ and the `unmatched_candidates` list in `--format json` report it. Pass
 `--allow-unmatched-candidates` for the one legitimate case: a single
 candidates file shared across several snapshot directories.
 
+That flag turns off the *orphan* rule, and one rule it cannot turn off:
+a run where **every** snapshot was skipped exits 2 regardless (#153).
+The two are not the same check, and for a while the second one was
+missing on the reasoning that the first already covered it — true until
+the flag exists, and the flag arrived in the same change. With it, an
+all-orphan candidates file reported `skipped=2 unmatched=2` out of a
+total of 2 and exited **0**: not one snapshot compared against
+anything, and a green CI step. The partial-file workflow above is
+unaffected — it has `skipped < total` by definition — and an empty
+snapshots directory keeps its own earlier exit 2.
+
 `run` walks `*.snapshot.yaml`, `*.snapshot.yml`, `*.yml`, and `*.yaml`
 under the supplied dir, merging the matches deduped. Extension matching
 is **case-insensitive**, so `notes.YAML` and `notes.Yml` are picked up
