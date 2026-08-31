@@ -34,7 +34,38 @@ class SnapshotValidationError(ValueError):
 
     All schema-validation failures funnel through this class so callers can
     catch one type instead of distinguishing TypeError from ValueError.
+
+    ``code`` is the machine-readable classification `validate_snapshots` puts
+    on its `ValidationFinding`, carried here rather than recovered downstream.
+    It used to be reconstructed with ``"schema_version" if "schema_version" in
+    str(e) else "schema"`` — a test on the *message*, which embeds identifiers
+    taken from the snapshot file, so the file chose its own code: an unknown
+    field named ``schema_version_note`` in the ``prompt`` section produced the
+    same `TypeError` as any other unknown field and was routed as a version
+    mismatch (#155). The comment above that line said the code existed "so
+    migration tooling can route on the code without parsing the prose", which
+    is exactly what it then did.
+
+    Carrying the code also decouples an error's *wording* from its *routing*:
+    before, rewording any message in this module could silently move a code.
+
+    Sibling of ``llm-eval-harness``'s ``CalibrationLoadError(line_no, reason,
+    code="schema")``, which already had this shape.
     """
+
+    #: Every classification a snapshot-validation failure can carry. Kept as a
+    #: closed set so a typo'd code is a construction-time error rather than an
+    #: unroutable finding, and so the README's documented list has something to
+    #: be checked against.
+    CODES = frozenset({"schema", "schema_version"})
+
+    def __init__(self, message: str, *, code: str = "schema") -> None:
+        if code not in self.CODES:
+            raise ValueError(
+                f"unknown SnapshotValidationError code {code!r}; expected one of {sorted(self.CODES)}"
+            )
+        super().__init__(message)
+        self.code = code
 
 
 def _require_str(value: Any, field_name: str) -> str:

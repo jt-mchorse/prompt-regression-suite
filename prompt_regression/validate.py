@@ -199,10 +199,17 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
             )
             continue
         except SnapshotValidationError as e:
-            # Distinguish schema_version mismatch from other schema
-            # errors so migration tooling can route on the code without
-            # parsing the prose.
-            code = "schema_version" if "schema_version" in str(e) else "schema"
+            # Distinguish schema_version mismatch from other schema errors so
+            # migration tooling can route on the code without parsing the prose.
+            #
+            # Read off the exception, which is where the raise site put it. This
+            # used to be `"schema_version" if "schema_version" in str(e) else
+            # "schema"` — prose-parsing, in the line whose comment promises
+            # consumers will not have to. Because the message embeds identifiers
+            # from the snapshot, the file picked its own code: an unknown field
+            # named `schema_version_note` raised the same `TypeError` as any
+            # other unknown field and was routed as a version mismatch (#155).
+            code = e.code
             # The SnapshotValidationError reason includes the full path
             # prefix from load_snapshot; keep the original message so
             # operators get the same string the loader would have raised
