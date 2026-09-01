@@ -1554,3 +1554,35 @@ discovered from explicit keyword arguments cannot see a default.
 One small thing worth keeping. The new suite's "the unmutated fixture is valid" test
 caught a malformed base fixture immediately - three other cases had been passing on
 an unrelated finding. When every case mutates a shared base, assert the base first.
+
+## 2026-09-01 — Issue #157: one seam guarded, its twin not
+**Branch:** `session/2026-09-01-0806-issue-157`
+
+- `validate` reads every snapshot file twice, and the guard on the second read
+  explains in its own comment why that is not redundant: the file can change
+  between the two opens. That reason is correct, and it describes a mechanism —
+  a concurrent writer — that can produce three different failures. The guard
+  handled one of them. A file that became invalid UTF-8 or invalid YAML between
+  the opens escaped as a raw traceback, out of the one command whose whole job
+  is to collect problems rather than abort on them, and at an exit code that
+  command documents as "findings".
+- Rather than copy the working seam's exception list into the broken one, both
+  now classify through a single table. Copying would have closed today's gap and
+  kept the shape that opened it: two hand-written lists answering one question.
+  The tests share a table too, with an arm that fails if the cases stop covering
+  every failure class the module declares.
+- An existing test went red during the refactor and was right to: it discovers
+  which finding codes the module can emit by reading the source, and the codes
+  had moved out of the place it looked. Teaching the discovery the new source
+  kept the chain derived; re-adding a literal would have quietly ended it.
+
+**Why this work, this session:** the repo had no open issues. Ranking modules by
+issue traffic pointed at `stats.py`, which came back clean — its tolerance
+handling is correct, and the range validation makes the "strictest" count and
+the NaN case right by construction. Comparing the five call sites of the loader
+`stats.py` uses is what found this: four have identical exception handling and
+one does not.
+
+**Open questions / blockers:** none.
+
+**Next session:** the repo is again at zero open issues.
