@@ -574,9 +574,19 @@ def _codes_emitted_by_validate_module() -> set[str]:
     `test_snapshot_error_codes_match_their_raise_sites` in turn pins to the
     actual raise sites — the chain stays derived end to end rather than
     reintroducing a literal here.
+
+    Three sources since #157. The read-failure codes (`parse`, `unreadable`) no
+    longer appear as `ValidationFinding(code=...)` literals either: both read
+    seams classify through `validate.READ_FAILURE_CODES`, so that table is read
+    here directly. Reading the live tuple rather than restating its contents
+    keeps this discovered — a fourth read-failure mode added to the table shows
+    up in this population automatically, which is the property the table was
+    introduced for.
     """
-    return _code_kwargs_of(Path(validate_module.__file__), "ValidationFinding") | set(
-        SnapshotValidationError.CODES
+    return (
+        _code_kwargs_of(Path(validate_module.__file__), "ValidationFinding")
+        | {code for _, code, _ in validate_module.READ_FAILURE_CODES}
+        | set(SnapshotValidationError.CODES)
     )
 
 
