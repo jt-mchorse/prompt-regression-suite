@@ -134,6 +134,60 @@ class ValidationReport:
 _iter_snapshot_paths = iter_snapshot_paths
 
 
+#: How a *read* of a snapshot file can fail, and which finding code it becomes.
+#:
+#: One definition because `validate_snapshots` reads each file twice -- inline
+#: with `yaml.safe_load`, then again through `load_snapshot`, which re-opens it.
+#: Both are read seams over the same bytes, so they must answer identically for
+#: identical inputs. They did not (#157): the first handled all three modes and
+#: the second handled `OSError` alone, so a file that became un-parseable or
+#: un-decodable between the two opens escaped as a raw traceback from the one
+#: command whose contract is to *collect* rather than abort.
+#:
+#: The guard that was there stated the reason correctly -- "`load_snapshot`
+#: re-opens the file, so this is a second read seam, not a redundant guard: the
+#: file can become unreadable between the two opens (deleted mid-walk,
+#: permissions changed by a concurrent sync)" -- and that reason covers every
+#: way a read can fail, not just the one it was written next to. A true reason
+#: for an under-broad guard is hard to spot, because re-reading confirms it.
+#:
+#: Copying the first seam's tuple into the second would have fixed today's gap
+#: and left the shape that produced it: two hand-written lists over one
+#: question. A fourth failure mode added here reaches both seams.
+#:
+#: `UnicodeDecodeError` is a `ValueError`, not an `OSError`, so the two entries
+#: are disjoint and iteration order is not load-bearing -- but the mapping makes
+#: the classification explicit rather than implicit in `except`-clause order.
+#:
+#: `SnapshotValidationError` is deliberately absent: it is not a read failure,
+#: it only arises at the second seam, and it carries its own finding code on the
+#: exception (#155) rather than being classified by type here.
+READ_FAILURE_CODES: tuple[tuple[type[BaseException], str, str], ...] = (
+    (OSError, "unreadable", "unreadable: {error}"),
+    (UnicodeDecodeError, "parse", "invalid YAML: {error}"),
+    (yaml.YAMLError, "parse", "invalid YAML: {error}"),
+)
+
+#: The exception classes above, as a tuple `except` accepts.
+READ_FAILURES: tuple[type[BaseException], ...] = tuple(e for e, _, _ in READ_FAILURE_CODES)
+
+
+def _read_failure_finding(rel: str, error: BaseException) -> ValidationFinding:
+    """Classify a read failure into the finding both seams agree on.
+
+    `UnicodeDecodeError` before `OSError` would matter if the two ever
+    overlapped; they do not today, and the loop reflects the declared order so
+    that adding an overlapping class is a visible decision rather than a silent
+    reordering.
+    """
+    for exc_type, code, template in READ_FAILURE_CODES:
+        if isinstance(error, exc_type):
+            return ValidationFinding(path=rel, reason=template.format(error=error), code=code)
+    # Unreachable while callers only pass `READ_FAILURES`; raising rather than
+    # inventing a code keeps a future mismatch loud.
+    raise AssertionError(f"unclassified read failure: {type(error).__name__}: {error}")
+
+
 def validate_snapshots(directory: str | Path) -> ValidationReport:
     """Walk ``directory`` for snapshot files and lint each in collecting mode.
 
@@ -157,26 +211,21 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
         try:
             with path.open("r", encoding="utf-8") as f:
                 data: Any = yaml.safe_load(f)
-        except OSError as e:
-            # The *read* sibling of the decode failure handled just below. Both
-            # surface at this one seam; only the decode half was ever brought
-            # into collecting mode, so a single unreadable file — `chmod 000`, a
+        except READ_FAILURES as e:
+            # Three ways this read fails, all routed by `READ_FAILURE_CODES`.
+            #
+            # `OSError` -> `unreadable`: a single unreadable file — `chmod 000`, a
             # directory whose name ends in `.yaml` (the globs match it), a broken
-            # symlink — escaped as an OSError, hit the CLI's directory-level
-            # `except OSError` arm, and took the whole report down at exit 2:
+            # symlink — used to escape, hit the CLI's directory-level
+            # `except OSError` arm, and take the whole report down at exit 2:
             # zero findings for every other file in the pass, mis-labelled
             # "failed to walk snapshots directory" when the walk had succeeded
-            # (#133). Nothing was parsed here, so this is not a `parse` finding.
-            findings.append(
-                ValidationFinding(path=rel, reason=f"unreadable: {e}", code="unreadable")
-            )
-            continue
-        except (yaml.YAMLError, UnicodeDecodeError) as e:
-            # UnicodeDecodeError (a ValueError subclass, not a YAMLError) surfaces
-            # at this same read seam when the file isn't valid UTF-8 — a decode
-            # failure is a parse failure, so route it to the same `parse` finding
-            # rather than letting it escape as a raw traceback at exit 1.
-            findings.append(ValidationFinding(path=rel, reason=f"invalid YAML: {e}", code="parse"))
+            # (#133). Nothing was parsed, so it is not a `parse` finding.
+            #
+            # `UnicodeDecodeError` (a `ValueError` subclass, not a `YAMLError`)
+            # and `yaml.YAMLError` -> `parse`: a decode failure is a parse
+            # failure, and both would otherwise escape as a raw traceback.
+            findings.append(_read_failure_finding(rel, e))
             continue
         if not isinstance(data, dict):
             findings.append(
@@ -189,14 +238,23 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
             continue
         try:
             snap = load_snapshot(path)
-        except OSError as e:
+        except READ_FAILURES as e:
             # `load_snapshot` re-opens the file, so this is a second read seam,
             # not a redundant guard: the file can become unreadable between the
             # two opens (deleted mid-walk, permissions changed by a concurrent
             # sync). Same collecting-mode routing as the first seam (#133).
-            findings.append(
-                ValidationFinding(path=rel, reason=f"unreadable: {e}", code="unreadable")
-            )
+            #
+            # That reason was already here and is correct — and it covers every
+            # way a read can fail, while the guard under it caught `OSError`
+            # alone (#157). The same concurrent writer that can make a file
+            # unreadable can make it un-parseable (a partial `rsync`/`git
+            # checkout`) or un-decodable (an editor rewriting the encoding), and
+            # both escaped `validate_snapshots` as a raw traceback — from the one
+            # command whose contract is to collect rather than abort, and which
+            # `stats` points operators at by name. Both seams now classify
+            # through `READ_FAILURE_CODES`, so they cannot answer differently
+            # about the same file again.
+            findings.append(_read_failure_finding(rel, e))
             continue
         except SnapshotValidationError as e:
             # Distinguish schema_version mismatch from other schema errors so
