@@ -260,17 +260,23 @@ def test_validate_out_with_unencodable_name_never_exits_one(tmp_path: Path) -> N
         ],
         cwd=str(Path(__file__).resolve().parents[1]),
         capture_output=True,
-        text=True,
         check=False,
     )
+    # Captured as bytes, not `text=True`. On a filesystem that accepts the name
+    # (ext4, i.e. CI) the write succeeds and anything the child prints carries
+    # the original raw byte, because `sys.stdout` uses `surrogateescape`.
+    # `text=True` decodes that strictly *in the parent* and raises
+    # `UnicodeDecodeError` inside `subprocess` — a failure of the harness, not
+    # of the code under test.
+    stderr = proc.stderr.decode("utf-8", errors="replace")
 
-    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "Traceback" not in stderr, stderr
     assert proc.returncode != 1, (
         "exit 1 means 'findings'; this snapshots dir is clean, so a 1 here is "
-        f"the write crash wearing the content code. stderr:\n{proc.stderr}"
+        f"the write crash wearing the content code. stderr:\n{stderr}"
     )
     if out_path.exists():
         assert proc.returncode == 0
     else:
         assert proc.returncode == 2
-        assert "error: failed to write" in proc.stderr
+        assert "error: failed to write" in stderr
