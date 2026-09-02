@@ -132,11 +132,47 @@ def iter_snapshot_paths(snapshots_dir: PathArg) -> list[Path]:
 _MAX_TEMP_BASE_BYTES = 200
 
 
+def _name_bytes(base: str) -> int:
+    """Length of *base* in the bytes the filesystem actually sees.
+
+    ``os.fsencode``, not ``base.encode("utf-8")`` (#159). Both halves of the
+    comment above are true and the old implementation still counted the wrong
+    bytes: NAME_MAX limits the bytes handed to the kernel, which is
+    ``os.fsencode`` — ``sys.getfilesystemencoding()`` together with
+    ``sys.getfilesystemencodeerrors()``, i.e. ``surrogateescape`` on POSIX.
+
+    That handler is why the distinction bites rather than being pedantry. A
+    path byte that is not valid UTF-8 arrives in Python as a lone surrogate in
+    ``U+DC80..U+DCFF``, and strict ``str.encode("utf-8")`` refuses to encode
+    it — so ``_cap_base_for_temp`` used to raise ``UnicodeEncodeError`` on a
+    destination the OS can name, *before* reaching the length question.
+    ``sys.argv`` decodes with the same handler, so a shell
+    ``--out $'report\\xff'`` is enough.
+
+    ``UnicodeEncodeError`` is a ``ValueError``, so none of the three write-seam
+    guards catches it: ``cli._write_output`` (the shared ``run`` / ``diff`` /
+    ``validate`` ``--out`` seam), ``cli``'s ``update`` snapshot save, and
+    ``scripts/render_regression_demo.py`` all catch ``OSError`` alone. The
+    interpreter's uncaught-exception path then exits 1 — and 1 is not a generic
+    error in this CLI. The read-seam guards name it every time they are
+    explained: a bad input "must land as a clean ``error:`` + exit 2, not
+    escape ``main`` as a raw traceback at exit 1 — the *regressions found*
+    code". On a clean snapshots directory that hands a gating CI job the answer
+    "regressions were found" over a byte in the filename.
+
+    ``os.fsencode`` never raises: ``surrogateescape`` on POSIX,
+    ``surrogatepass`` on Windows, so every ``str`` a ``Path`` can hold
+    round-trips. For a name that is valid UTF-8 it returns exactly the old
+    number, so the budget is unchanged for every name that worked before.
+    """
+    return len(os.fsencode(base))
+
+
 def _cap_base_for_temp(base: str) -> str:
-    if len(base.encode("utf-8")) <= _MAX_TEMP_BASE_BYTES:
+    if _name_bytes(base) <= _MAX_TEMP_BASE_BYTES:
         return base
     out = base
-    while out and len(out.encode("utf-8")) > _MAX_TEMP_BASE_BYTES:
+    while out and _name_bytes(out) > _MAX_TEMP_BASE_BYTES:
         out = out[:-1]
     return out
 
