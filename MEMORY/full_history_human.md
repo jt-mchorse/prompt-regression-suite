@@ -1586,3 +1586,70 @@ one does not.
 **Open questions / blockers:** none.
 
 **Next session:** the repo is again at zero open issues.
+
+## 2026-09-02 — #159: an unencodable `--out` exited 1, the "regressions found" code
+
+`io._cap_base_for_temp` shortens a destination's basename before it goes into
+the temp filename `.<base>.<random>.tmp`. Its comment says "Budget is in BYTES
+(NAME_MAX is a byte limit)", and that is true. The code under it counted
+`base.encode("utf-8")` with the strict error handler, which is a *different*
+set of bytes from the ones NAME_MAX limits.
+
+The two counts agree for every name that is valid UTF-8. They disagree for the
+rest by raising. POSIX path bytes — and `sys.argv` — decode through
+`surrogateescape`, so a byte that isn't valid UTF-8 arrives as a lone surrogate
+in U+DC80–U+DCFF, and strict encoding refuses it. `validate --out
+$'report\xff.json'` was enough: the cap raised `UnicodeEncodeError` before it
+ever got as far as measuring anything.
+
+**Three write seams, one class, and a code they all name.** `cli._write_output`
+(shared by `run` / `diff` / `validate`), `cli`'s `update` snapshot save, and
+`scripts/render_regression_demo.py` all catch `OSError` and nothing else.
+`UnicodeEncodeError` is a `ValueError`, so the interpreter's uncaught-exception
+path exits **1** — and 1 is not a generic error here. The read-seam guards in
+`cli.py` spell it out in four separate comments: a bad input "must land as a
+clean `error:` + exit 2, not escape `main` as a raw traceback at exit 1 — the
+*regressions found* code". Measured in a real process against a snapshots
+directory holding one well-formed snapshot, the pre-fix run returns rc 1 with a
+`UnicodeEncodeError` traceback: a gating CI job reads "regressions were found"
+over a byte in the filename it was told to write to.
+
+The fix is one line: measure with `os.fsencode`, the filesystem encoding plus
+its own error handler, which is exactly what the kernel receives.
+
+**The most useful thing that happened was a test failure I nearly believed.**
+The first version of the exit-code test ran in-process with `capsys`, and it
+went red *inside the guard's own* `print(f"error: failed to write {path}: {e}")`
+— the unencodable path being interpolated into a message on its way to stderr.
+That looked like a second bug. It isn't: `capsys` substitutes a strict-encoding
+buffer for `sys.stderr`, while CPython gives a real process a `sys.stderr` with
+`errors="backslashreplace"`, so the shipped CLI prints `report\udcff.json` and
+returns 2 normally. I ran both before deciding. The test moved to a subprocess,
+where it gets real stream semantics — an assertion about operator-visible
+behaviour belongs where the operator stands — and the underlying asymmetry with
+`llm-eval-harness`, which does route such text through `ascii()`, is filed as
+#160 with the measurement attached.
+
+**On the rest of the testing.** ext4 accepts any non-NUL byte in a filename, so
+on CI the write succeeds and the exit is 0; APFS returns `EILSEQ` and it is 2
+through the existing guard. Both are correct statements about the snapshots, so
+what is asserted is "never 1, and if nothing was written it is 2". The
+pure-function half is a variant table over short/long crossed with ASCII,
+multibyte, surrogate-bearing and mixed, asserting the capped name is a
+character-boundary prefix, within budget, and **maximal** — that last one
+because a cap returning `""` for everything satisfies the first two.
+
+Reverting the single measurement line turns 9 of the 15 new assertions red and
+leaves the 6 encodable-name controls green.
+
+**Why this work, this session:** found by grepping the portfolio for
+`_MAX_TEMP_BASE_BYTES` after hitting the same defect in `llm-eval-harness#226`.
+Nine repos carry a verbatim copy; the work per repo is establishing what the
+local write-seam callers catch and what the leaked exit code *means* there.
+
+**Open questions / blockers:** none.
+
+**Next session:** #160 (the `ascii()` parity note above), and the remaining
+copies of the helper in `embedding-model-shootout`, `vector-search-at-scale`,
+`python-async-llm-pipelines`, and `mcp-server-cookbook`'s
+`filesystem-sandbox-py`.
