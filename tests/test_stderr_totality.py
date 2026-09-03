@@ -158,58 +158,108 @@ def _run_under_strict_stderr(argv: list[str]) -> tuple[Any, str]:
     return rc, err.buffer.getvalue().decode()  # type: ignore[attr-defined]
 
 
-def _cases(tmp_path: Path, snaps: Path) -> list[tuple[str, list[str]]]:
-    """The five measured failures, labelled by the seam each one is.
+def _cases(tmp_path: Path, snaps: Path) -> list[tuple[str, list[str], bool]]:
+    r"""``(label, argv, host_independent)`` for the five measured failures.
 
     Read seams outnumber write seams here, which is the whole correction to
     #160's enumeration.
+
+    ``host_independent`` is load-bearing. The **read** rows fail because the
+    path does not exist, which is true on every filesystem. The **write** row
+    is not: `report\udcff.json` is a perfectly legal name on ext4, which
+    accepts any non-NUL byte, so the write *succeeds* and the CLI exits 0 with
+    no message at all. On APFS the same call returns `EILSEQ` and exits 2.
+    Asserting exit 2 for that row passed locally on macOS and failed CI on
+    Linux — a filesystem assertion wearing a guard's clothes.
+
+    So the row stays (it is the seam #160 was filed about) and its assertion is
+    the *class*: whatever the filesystem decides, the CLI must not die inside
+    its own `print`.
     """
     bad_file = str(tmp_path / f"report{SURROGATE}.json")
     bad_dir = str(tmp_path / f"dir{SURROGATE}")
     snap = str(snaps / "a.yml")
     return [
-        ("validate --out (write seam)", ["validate", str(snaps), "--json", "--out", bad_file]),
-        ("validate <bad dir> (read seam)", ["validate", bad_dir]),
-        ("stats <bad dir> (read seam)", ["stats", bad_dir]),
+        (
+            "validate --out (write seam)",
+            ["validate", str(snaps), "--json", "--out", bad_file],
+            False,
+        ),
+        ("validate <bad dir> (read seam)", ["validate", bad_dir], True),
+        ("stats <bad dir> (read seam)", ["stats", bad_dir], True),
         (
             "diff --snapshot <bad> (read seam)",
             ["diff", "--snapshot", bad_file, "--candidate", snap],
+            True,
         ),
         (
             "run --snapshots <bad dir> (read seam)",
             ["run", "--snapshots", bad_dir, "--candidates", bad_dir],
+            True,
         ),
     ]
 
 
-def test_every_measured_case_exits_two_under_a_strict_stderr(
+def test_no_case_dies_inside_its_own_message_under_a_strict_stderr(
     tmp_path: Path, snapshots_dir: Path
 ) -> None:
-    """Before the fix each of these died inside its own `print`."""
-    for label, argv in _cases(tmp_path, snapshots_dir):
+    """The property, stated so it holds on every filesystem.
+
+    Before the fix these raised `UnicodeEncodeError` out of `print`. The
+    assertion is "an exit code came back, and any message written is intact" —
+    not "the write failed", which is the filesystem's call, not this repo's.
+    """
+    for label, argv, _host_independent in _cases(tmp_path, snapshots_dir):
+        rc, written = _run_under_strict_stderr(argv)  # must not raise
+        assert rc in (0, 2), f"{label}: unexpected exit {rc!r}"
+        if rc == 2:
+            assert "error:" in written, f"{label}: exited 2 with no error line — {written!r}"
+            assert "\\udcff" in written, (
+                f"{label}: the offending byte vanished from the message — {written!r}"
+            )
+
+
+def test_the_host_independent_cases_all_report_the_escaped_path(
+    tmp_path: Path, snapshots_dir: Path
+) -> None:
+    """Anti-vacuous floor for the test above.
+
+    On a filesystem that accepts the name, the write row exits 0 and asserts
+    nothing. The read rows fail because the path is absent, which no filesystem
+    disagrees about — so at least these must exercise the message path, or the
+    whole file could pass without a single diagnostic being written.
+    """
+    checked = 0
+    for label, argv, host_independent in _cases(tmp_path, snapshots_dir):
+        if not host_independent:
+            continue
         rc, written = _run_under_strict_stderr(argv)
         assert rc == 2, f"{label}: expected exit 2, got {rc!r}"
         assert "error:" in written, f"{label}: no error line — {written!r}"
-        assert "\\udcff" in written, (
-            f"{label}: the offending byte vanished from the message entirely — {written!r}"
-        )
+        assert "\\udcff" in written, f"{label}: offending byte missing — {written!r}"
+        checked += 1
+    assert checked >= 3, f"only {checked} host-independent rows; the floor is not being met"
 
 
 def test_the_case_table_covers_both_seam_kinds(tmp_path: Path, snapshots_dir: Path) -> None:
     """#160 counted write seams and missed read seams. If this table ever
     narrows back to one kind, the correction has been undone."""
-    labels = [label for label, _ in _cases(tmp_path, snapshots_dir)]
+    labels = [label for label, _, _ in _cases(tmp_path, snapshots_dir)]
     assert sum("write seam" in x for x in labels) >= 1, labels
     assert sum("read seam" in x for x in labels) >= 3, labels
 
 
-def test_the_same_cases_still_exit_two_on_an_ordinary_stderr(
+def test_the_same_cases_behave_identically_on_an_ordinary_stderr(
     tmp_path: Path, snapshots_dir: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Anti-vacuous partner: the fix must not have turned every path into a 2
-    by breaking the commands. A well-formed run still succeeds below."""
-    for label, argv in _cases(tmp_path, snapshots_dir):
-        assert main(argv) == 2, label
+    by breaking the commands, and a lenient stderr must not change the verdict.
+    """
+    for label, argv, host_independent in _cases(tmp_path, snapshots_dir):
+        rc = main(argv)
+        assert rc in (0, 2), label
+        if host_independent:
+            assert rc == 2, label
     capsys.readouterr()
 
 
