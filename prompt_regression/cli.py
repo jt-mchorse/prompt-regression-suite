@@ -53,6 +53,7 @@ from .diff import (
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import (
     SNAPSHOT_GLOBS,
+    _eprint,
     atomic_write_text,
     iter_snapshot_paths,
     load_snapshot,
@@ -91,7 +92,7 @@ def _write_output(path: str, rendered: str) -> int | None:
     try:
         atomic_write_text(path, rendered)
     except OSError as e:
-        print(f"error: failed to write {path}: {e}", file=sys.stderr)
+        _eprint(f"error: failed to write {path}: {e}")
         return 2
     return None
 
@@ -131,7 +132,7 @@ def _resolve_embedder(name: str) -> Embedder | None:
     try:
         return make_embedder(name)
     except (NotImplementedError, ValueError) as e:
-        print(f"error: {e}", file=sys.stderr)
+        _eprint(f"error: {e}")
         return None
 
 
@@ -156,13 +157,13 @@ def _validate_thresholds(threshold: float, warn_band: float) -> bool:
     Returns ``False`` on a bad value; the caller returns 2.
     """
     if not 0.0 < threshold <= 1.0:
-        print(f"error: threshold must be in (0, 1]; got {threshold}", file=sys.stderr)
+        _eprint(f"error: threshold must be in (0, 1]; got {threshold}")
         return False
     if not math.isfinite(warn_band):
-        print(f"error: warn_band must be finite; got {warn_band}", file=sys.stderr)
+        _eprint(f"error: warn_band must be finite; got {warn_band}")
         return False
     if warn_band < 0:
-        print(f"error: warn_band must be non-negative; got {warn_band}", file=sys.stderr)
+        _eprint(f"error: warn_band must be non-negative; got {warn_band}")
         return False
     return True
 
@@ -240,15 +241,12 @@ def _row_for(path: Path, snap: Snapshot, result: DiffResult) -> dict:
 def _run_command(args: argparse.Namespace) -> int:
     snapshots_dir = Path(args.snapshots).resolve()
     if not snapshots_dir.is_dir():
-        print(f"error: snapshots dir not found: {snapshots_dir}", file=sys.stderr)
+        _eprint(f"error: snapshots dir not found: {snapshots_dir}")
         return 2
     snapshot_paths = _iter_snapshot_paths(snapshots_dir)
     if not snapshot_paths:
         patterns = ", ".join(_SNAPSHOT_GLOBS)
-        print(
-            f"error: no snapshot files under {snapshots_dir} (patterns considered: {patterns})",
-            file=sys.stderr,
-        )
+        _eprint(f"error: no snapshot files under {snapshots_dir} (patterns considered: {patterns})")
         return 2
 
     # The operator-supplied candidates file is a usage/I-O input, exactly like
@@ -260,7 +258,7 @@ def _run_command(args: argparse.Namespace) -> int:
     try:
         candidates = _load_candidates(Path(args.candidates))
     except (OSError, ValueError) as e:
-        print(f"error: {e}", file=sys.stderr)
+        _eprint(f"error: {e}")
         return 2
     embedder = _resolve_embedder(args.embedder)
     if embedder is None:
@@ -272,10 +270,7 @@ def _run_command(args: argparse.Namespace) -> int:
     # dump it into a terminal. Mirrors the loud-failure stance the
     # `update --force` flag takes elsewhere in this CLI.
     if args.format == "html" and not args.out:
-        print(
-            "error: --format html requires --out: HTML writes to a file, not stdout.",
-            file=sys.stderr,
-        )
+        _eprint("error: --format html requires --out: HTML writes to a file, not stdout.")
         return 2
 
     rows: list[dict] = []
@@ -301,11 +296,10 @@ def _run_command(args: argparse.Namespace) -> int:
         try:
             snap = load_snapshot(path)
         except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
-            print(f"error: could not load snapshot {rel}: {e}", file=sys.stderr)
-            print(
+            _eprint(f"error: could not load snapshot {rel}: {e}")
+            _eprint(
                 f"hint: run 'prompt-snap validate {snapshots_dir}' to list every "
-                "malformed snapshot in one pass.",
-                file=sys.stderr,
+                "malformed snapshot in one pass."
             )
             return 2
         # `rel` takes precedence over `snap.id`, but check key membership
@@ -438,17 +432,15 @@ def _run_command(args: argparse.Namespace) -> int:
     if unmatched and not args.allow_unmatched_candidates:
         listed = ", ".join(repr(k) for k in unmatched[:10])
         more = f" (and {len(unmatched) - 10} more)" if len(unmatched) > 10 else ""
-        print(
+        _eprint(
             f"error: {len(unmatched)} candidate row(s) matched no snapshot under "
-            f"{snapshots_dir}: {listed}{more}",
-            file=sys.stderr,
+            f"{snapshots_dir}: {listed}{more}"
         )
-        print(
+        _eprint(
             "hint: keys are the snapshot path RELATIVE to --snapshots, or the "
             "snapshot's `id`. Pass --allow-unmatched-candidates to report them "
             "without failing (e.g. one shared candidates file across several "
-            "snapshot dirs).",
-            file=sys.stderr,
+            "snapshot dirs)."
         )
         return 2
 
@@ -469,17 +461,15 @@ def _run_command(args: argparse.Namespace) -> int:
     # `0 == 0`.
     total = len(snapshot_paths)
     if skipped == total:
-        print(
+        _eprint(
             f"error: no snapshot was compared against a candidate "
-            f"(total={total} skipped={total}); the run checked nothing",
-            file=sys.stderr,
+            f"(total={total} skipped={total}); the run checked nothing"
         )
-        print(
+        _eprint(
             "hint: every snapshot was skipped for want of a candidate row. Check "
             "that --candidates keys match the snapshot paths relative to "
             "--snapshots (or their `id`), and that --snapshots points at the "
-            "directory this candidates file was written for.",
-            file=sys.stderr,
+            "directory this candidates file was written for."
         )
         return 2
 
@@ -553,10 +543,9 @@ def _format_text_table(
 
 def _update_command(args: argparse.Namespace) -> int:
     if not args.force:
-        print(
+        _eprint(
             "error: refusing to update without --force "
-            "(prevents accidental re-baselining of a failing snapshot)",
-            file=sys.stderr,
+            "(prevents accidental re-baselining of a failing snapshot)"
         )
         return 2
 
@@ -567,7 +556,7 @@ def _update_command(args: argparse.Namespace) -> int:
     try:
         snap = load_snapshot(snapshot_path)
     except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
-        print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
+        _eprint(f"error: could not load snapshot {args.snapshot}: {e}")
         return 2
     embedder = _resolve_embedder(args.embedder)
     if embedder is None:
@@ -576,7 +565,7 @@ def _update_command(args: argparse.Namespace) -> int:
     try:
         new_text = _read_text_arg(args.canonical, args.canonical_stdin)
     except _UsageError as e:
-        print(str(e), file=sys.stderr)
+        _eprint(str(e))
         return 2
     new_embedding = embedder.embed(new_text)
     new_canonical = CanonicalResponse(
@@ -610,7 +599,7 @@ def _update_command(args: argparse.Namespace) -> int:
     try:
         save_snapshot(updated, snapshot_path)
     except OSError as e:
-        print(f"error: failed to write {snapshot_path}: {e}", file=sys.stderr)
+        _eprint(f"error: failed to write {snapshot_path}: {e}")
         return 2
     print(f"updated {snapshot_path}: embedder={embedder.model_name} text_len={len(new_text)}")
     return 0
@@ -647,10 +636,7 @@ def _diff_command(args: argparse.Namespace) -> int:
     # dump it into a terminal. Mirrors the loud-failure stance `run`
     # takes on the same arg (post-#29) and `update --force` elsewhere.
     if args.format == "html" and not args.out:
-        print(
-            "error: --format html requires --out: HTML writes to a file, not stdout.",
-            file=sys.stderr,
-        )
+        _eprint("error: --format html requires --out: HTML writes to a file, not stdout.")
         return 2
 
     # A malformed/missing snapshot is an operator input error: land it as a clean
@@ -660,7 +646,7 @@ def _diff_command(args: argparse.Namespace) -> int:
     try:
         snap = load_snapshot(Path(args.snapshot).resolve())
     except (OSError, UnicodeDecodeError, SnapshotValidationError, yaml.YAMLError) as e:
-        print(f"error: could not load snapshot {args.snapshot}: {e}", file=sys.stderr)
+        _eprint(f"error: could not load snapshot {args.snapshot}: {e}")
         return 2
     embedder = _resolve_embedder(args.embedder)
     if embedder is None:
@@ -670,7 +656,7 @@ def _diff_command(args: argparse.Namespace) -> int:
     try:
         candidate = _read_text_arg(args.candidate, args.candidate_stdin)
     except _UsageError as e:
-        print(str(e), file=sys.stderr)
+        _eprint(str(e))
         return 2
     try:
         result = diff_response(
@@ -692,7 +678,7 @@ def _diff_command(args: argparse.Namespace) -> int:
         # not escape as a raw traceback (exit 1) — the diff-side completion of #85.
         WarnBandThresholdError,
     ) as e:
-        print(f"error: {e}", file=sys.stderr)
+        _eprint(f"error: {e}")
         return 2
 
     rendered: str
@@ -774,7 +760,7 @@ def _stats_command(args: argparse.Namespace) -> int:
     try:
         report = collect_stats(args.snapshots)
     except StatsError as e:
-        print(f"error: {e}", file=sys.stderr)
+        _eprint(f"error: {e}")
         return 2
     if args.as_json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
@@ -796,7 +782,7 @@ def _validate_command(args: argparse.Namespace) -> int:
     try:
         report = validate_snapshots(args.snapshots)
     except FileNotFoundError as e:
-        print(f"error: snapshots directory not found: {e}", file=sys.stderr)
+        _eprint(f"error: snapshots directory not found: {e}")
         return 2
     except OSError as e:
         # Directory-level only. A *per-file* read failure used to land here too
@@ -804,7 +790,7 @@ def _validate_command(args: argparse.Namespace) -> int:
         # other file in the pass, under a message blaming a walk that had in fact
         # succeeded. Those are `unreadable` findings now (#133), so anything
         # still reaching this arm really is a failure to enumerate the directory.
-        print(f"error: failed to walk snapshots directory: {e}", file=sys.stderr)
+        _eprint(f"error: failed to walk snapshots directory: {e}")
         return 2
 
     if args.as_json:
@@ -814,7 +800,7 @@ def _validate_command(args: argparse.Namespace) -> int:
         # channel is preserved even when stdout is captured to a file. Parity
         # with llm-eval-harness validate (#66) and chunking_lab.validate (#45).
         for finding in report.findings:
-            print(f"{finding.path} [{finding.code}]: {finding.reason}", file=sys.stderr)
+            _eprint(f"{finding.path} [{finding.code}]: {finding.reason}")
         status = "ok" if report.ok else "fail"
         rendered = (
             f"{status}: {args.snapshots} files={report.n_files} valid={report.n_valid} "

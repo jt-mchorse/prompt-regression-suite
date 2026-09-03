@@ -37,7 +37,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from prompt_regression.diff import HashEmbedder, diff_response  # noqa: E402
 from prompt_regression.html_report import ReportEntry, render_report  # noqa: E402
-from prompt_regression.io import atomic_write_text  # noqa: E402
+from prompt_regression.io import _eprint, atomic_write_text  # noqa: E402
 from prompt_regression.schema import (  # noqa: E402
     CanonicalResponse,
     Prompt,
@@ -188,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         atomic_write_text(out_html, html)
     except OSError as e:
-        print(f"error: failed to write {out_html}: {e}", file=sys.stderr)
+        _eprint(f"error: failed to write {out_html}: {e}")
         return 2
     print(f"html wrote {out_html} (verdict: {diff.verdict}, cosine: {diff.cosine_score:.3f})")
 
@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             out_png.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            print(f"error: failed to create screenshot dir {out_png.parent}: {e}", file=sys.stderr)
+            _eprint(f"error: failed to create screenshot dir {out_png.parent}: {e}")
             return 2
         print(_maybe_screenshot(out_html, out_png))
 
