@@ -1787,3 +1787,28 @@ context_for_next_session:
 decisions_made: []
 followups: ["#160"]
 ---
+
+---
+session: 2026-09-03T07:55Z
+issue: 160
+focus: my_own_issues_enumeration_was_wrong_three_write_seams_vs_five_sites_including_read_seams
+phase: night_session_multi_issue_loop_issue_4
+delta:
+  files_changed: 5
+  tests_added: 13
+  suite: 611_to_624_green
+measured:
+  correction: "filed as 'all three write-seam guards'. Under a strict-handler stderr: 5 failing sites across 4 subcommands, and 3 of the 5 are READ seams (validate <bad dir>, stats <bad dir>, diff --snapshot <bad>, run --snapshots <bad dir>)"
+  out_of_scope_measured: "argparse interpolates the same path into its own `error: unrecognized arguments:` and dies before any repo code runs - stdlib, unreachable by a message-level fix, pinned as test_argparse_is_a_known_gap"
+  anti_vacuous: "THREE variants - bare print 4 red; ascii() on every message 3 red (the ordinary-non-ASCII row); bypassing the funnel in ONE file 1 red (the source lock)"
+context_for_next_session:
+  - I_MADE_THE_ENUMERATION_MISTAKE_IN_MY_OWN_ISSUE_BODY_AND_THE_LENS_CAUGHT_IT_ON_RE_READ_i_wrote_all_three_write_seam_guards_and_the_population_was_stderr_messages_that_interpolate_an_operator_path_WHICH_INCLUDES_READ_SEAMS_RE_MEASURE_BEFORE_IMPLEMENTING_A_FILED_ISSUE_the_issue_body_is_a_claim_not_a_spec
+  - THE_FIX_SHAPE_FOLLOWS_FROM_THE_MISCOUNT_ascii_at_three_interpolation_sites_would_have_been_a_HAND_LIST_and_a_sixth_message_rejoins_the_gap_ONE_FUNNEL_PLUS_A_LOCK_ON_nothing_writes_to_sys_stderr_except_the_funnel_is_a_population_a_SCAN_CAN_CHECK
+  - backslashreplace_THROUGH_STDERRS_OWN_ENCODING_NOT_ascii_because_ascii_makes_the_error_path_total_AND_EVERY_NON_ASCII_DIAGNOSTIC_UNREADABLE_that_is_the_plausible_over_broad_neighbour_and_the_cafe_plus_CJK_row_is_the_only_thing_that_kills_it
+  - GOTCHA_THAT_COST_15_MINUTES_A_LONE_SURROGATE_ESCAPE_IN_A_NON_RAW_DOCSTRING_MAKES_THE_MODULE_UNIMPORTABLE_i_wrote_report_backslash_udcff_json_in_a_normal_docstring_and_backslash_u_IS_AN_ESCAPE_so_the_COMPILED_docstring_held_a_real_surrogate_and_writing_the_pyc_raised_UnicodeEncodeError_AT_IMPORT_with_a_ONE_FRAME_TRACEBACK_that_names_nothing_THE_FIX_IS_A_RAW_DOCSTRING_r_triple_quote_and_this_is_the_same_family_as_literal_control_chars_dont_survive_a_round_trip
+  - AND_THE_SYMPTOM_IS_WORTH_RECOGNISING_pytest_reported_8_COLLECTION_ERRORS_all_UnicodeEncodeError_at_the_same_position_a_module_that_cannot_be_MARSHALLED_looks_like_a_test_suite_problem_not_a_docstring_problem
+  - capture_demo_RELAYS_A_CHILDS_STDERR_and_subprocess_decodes_with_the_LOCALE_HANDLER_so_that_string_carries_a_surrogate_for_THE_SAME_REASON_sys_argv_does_a_relay_is_an_interpolation_site
+  - STATE_THE_BOUNDARY_YOU_DID_NOT_CROSS_AS_A_TEST_argparse_is_out_of_reach_and_a_named_known_gap_test_stops_the_file_reading_as_proof_of_a_totality_it_does_not_deliver_THIS_IS_THE_ANTIDOTE_TO_THE_to_sse_is_total_CLAIM_I_FALSIFIED_EARLIER_THE_SAME_NIGHT
+decisions_made: []
+followups: []
+---
