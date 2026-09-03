@@ -1762,3 +1762,28 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-09-02T07:38Z
+issue: 159
+focus: the_temp_name_byte_budget_was_measured_in_strict_utf8_so_an_unencodable_out_exited_1_the_regressions_found_code
+phase: night_session_multi_issue_loop_issue_5
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: 596_to_611_green
+measured:
+  pre_fix_exit_code: "real subprocess, validate --json --out <tmp>/report<U+DCFF>.json over a snapshots dir holding ONE well-formed snapshot -> rc 1 with UnicodeEncodeError traceback; post-fix rc 2 with 'error: failed to write ... [Errno 92]' on APFS, rc 0 with the file written on ext4"
+  capsys_artifact: "in-process with capsys the SAME case fails inside the guard's own print because capsys replaces sys.stderr with a STRICT encoding buffer; the real sys.stderr CPython hands a process has errors=backslashreplace so the message prints fine and rc is 2 - VERIFIED BY RUNNING BOTH"
+  equivalence: "os.fsencode and str.encode('utf-8') give the same count for every valid-utf8 NAME_VARIANTS row"
+  anti_vacuous: "reverting the single measurement line turns 9 of 15 red and leaves the 6 encodable-name controls green"
+context_for_next_session:
+  - PORTFOLIO_CLASS_FIFTH_OF_NINE_leh_226_lco_205_rag_199_csl_178_and_this_ONE_SHARED_LINE_NINE_DIFFERENT_CONSEQUENCES
+  - NEW_AND_THE_MOST_TRANSFERABLE_THING_THIS_RUN_A_TEST_HARNESS_CAN_MANUFACTURE_AN_ENCODING_FAILURE_THE_REAL_STREAM_DOES_NOT_HAVE_my_in_process_test_went_red_inside_the_guards_own_print_f_error_failed_to_write_path_and_i_nearly_filed_it_as_a_SECOND_bug_capsys_SUBSTITUTES_A_STRICT_ENCODING_BUFFER_FOR_sys_stderr_while_CPYTHON_GIVES_A_REAL_PROCESS_sys_stderr_errors_EQUALS_backslashreplace_SO_THE_SHIPPED_CLI_PRINTS_IT_FINE_I_RAN_BOTH_BEFORE_DECIDING_when_a_test_only_fails_UNDER_THE_HARNESS_REPRODUCE_IT_IN_A_SUBPROCESS_BEFORE_BELIEVING_IT
+  - AND_THE_FIX_FOR_THAT_IS_TO_MOVE_THE_TEST_NOT_THE_CODE_the_exit_code_assertion_now_runs_python_m_prompt_regression_cli_IN_A_SUBPROCESS_which_gets_the_real_stream_semantics_AN_ASSERTION_ABOUT_OPERATOR_VISIBLE_BEHAVIOUR_BELONGS_WHERE_THE_OPERATOR_STANDS
+  - THE_EXIT_CODE_COLLISION_IS_THE_SAME_SHAPE_AS_csl_178_BUT_STATED_MORE_OFTEN_HERE_this_repos_read_seam_guards_say_not_escape_main_as_a_raw_traceback_at_exit_1_THE_REGRESSIONS_FOUND_CODE_in_at_least_four_separate_comments_and_THREE_write_seams_all_catch_OSError_ALONE_A_PHRASE_REPEATED_IN_FOUR_COMMENTS_IS_A_CONTRACT_GO_FIND_THE_INPUT_CLASS_THAT_STILL_BREAKS_IT
+  - THE_TEST_NEEDS_A_PROVABLY_CLEAN_INPUT_a_snapshots_dir_with_one_well_formed_snapshot_built_from_the_SAME_shape_test_atomic_write_uses_so_ON_THAT_INPUT_1_CAN_ONLY_MEAN_THE_CRASH
+  - HOST_SKEW_ext4_ACCEPTS_ANY_NON_NUL_BYTE_IN_A_NAME_so_ON_CI_THE_WRITE_SUCCEEDS_AND_IT_IS_0_while_APFS_RETURNS_EILSEQ_AND_IT_IS_2_assert_NEVER_1_AND_IF_NOTHING_WAS_WRITTEN_IT_IS_2
+decisions_made: []
+followups: ["#160"]
+---
