@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import os
+import sys
 import tempfile
 from os import PathLike
 from pathlib import Path
@@ -262,3 +263,51 @@ def load_snapshot(path: PathArg) -> Snapshot:
     # Normalize to the canonical string before `from_dict`, whose strict
     # `_require_str(schema_version)` would otherwise re-reject the int form.
     return Snapshot.from_dict({**data, "schema_version": SCHEMA_VERSION})
+
+
+def _eprint(message: str) -> None:
+    r"""Write *message* to `sys.stderr`, and never raise doing it (#160).
+
+    Every diagnostic in this CLI interpolates operator input -- a `--out`
+    destination, a snapshots directory, a snapshot path. `sys.argv` decodes
+    with `surrogateescape`, so any of those can hold a lone surrogate in
+    `U+DC80..U+DCFF`, which has no UTF-8 encoding. Writing the message is then
+    a candidate for the very `UnicodeEncodeError` the message is reporting, and
+    the guard dies inside its own `print` instead of returning 2.
+
+    It does not fire on a real process: CPython gives `sys.stderr`
+    `errors="backslashreplace"`, so the message renders as `report\udcff.json`
+    and the exit code is 2 as documented. It fires the moment `sys.stderr` is a
+    stream with a strict handler -- which `pytest`'s `capsys` is, and which is
+    how this was found while writing the tests for #159.
+
+    **The helper, rather than `ascii()` at each interpolation site.** #160 was
+    filed against "all three write-seam guards"; re-measuring found five sites
+    across four subcommands, and the two the count missed were *read* seams
+    (`validate <bad dir>`, `diff --snapshot <bad>`). Hand-listing the sites is
+    what produced that miscount, and a sixth message added later would rejoin
+    the gap silently. Every write to `sys.stderr` is a population a lock can
+    check mechanically; "every message that happens to interpolate a path" is
+    not. `tests/test_stderr_totality.py` holds both halves.
+
+    The retry escapes through stderr's *own* encoding rather than through
+    `ascii()`, so an ordinary non-ASCII diagnostic -- a snapshot id with an
+    accent, a CJK path -- is still printed as itself, and only the run that
+    genuinely cannot be encoded degrades. `ascii()` on every message would make
+    the error path total and every non-ASCII message unreadable, which is the
+    plausible over-broad fix rather than this one.
+
+    **Not claimed:** that the CLI is total. `argparse` interpolates the same
+    operator path into its own `error: unrecognized arguments: ...` and writes
+    it to `sys.stderr` before any code here runs. That is stdlib and out of
+    reach of a message-level fix; the scope here is every message this package
+    writes.
+    """
+    try:
+        print(message, file=sys.stderr)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stderr, "encoding", None) or "utf-8"
+        print(
+            message.encode(encoding, "backslashreplace").decode(encoding, "replace"),
+            file=sys.stderr,
+        )

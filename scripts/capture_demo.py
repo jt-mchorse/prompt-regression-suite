@@ -46,6 +46,8 @@ import webbrowser
 from contextlib import redirect_stdout
 from pathlib import Path
 
+from prompt_regression.io import _eprint
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "docs" / "demo-artifacts"
 
@@ -72,7 +74,7 @@ def _fail(message: str) -> int:
     entry point too, so it owes the same documented `0 / 1 / 2` contract the
     library CLI honors (#140).
     """
-    print(f"error: {message}", file=sys.stderr)
+    _eprint(f"error: {message}")
     return 2
 
 
@@ -235,10 +237,9 @@ def main(argv: list[str] | None = None) -> int:
         # Propagate the render script's own code verbatim — a write failure is
         # a 2 and must stay a 2. It has already printed its own `error:` line,
         # so don't restate the cause; just say which stage aborted (#140).
-        print(
+        _eprint(
             f"[capture] scripts/render_regression_demo.py exited {render_rc}; "
-            "aborting demo capture.",
-            file=sys.stderr,
+            "aborting demo capture."
         )
         return render_rc
     print(f"[capture] HTML written to: {out_html}")
@@ -257,15 +258,15 @@ def main(argv: list[str] | None = None) -> int:
     if out:
         print(out, end="")
     if err:
-        print(err, end="", file=sys.stderr)
+        # A child's stderr, decoded by `subprocess` with the locale handler --
+        # so it can carry a lone surrogate for exactly the same reason `sys.argv`
+        # can. Passing it through the shared helper keeps this relay total (#160).
+        _eprint(err.rstrip("\n"))
     # The diff returning non-zero IS the demo point. Don't propagate
     # as a script failure unless something exploded outright (rc < 0
     # or a Python-level traceback in stderr).
     if rc < 0:
-        print(
-            f"[capture] prompt-snap diff exited unexpectedly ({rc}); aborting.",
-            file=sys.stderr,
-        )
+        _eprint(f"[capture] prompt-snap diff exited unexpectedly ({rc}); aborting.")
         return 1
     print(f"[capture] prompt-snap exit code: {rc}  (non-zero = failing diff; that's the demo)")
 

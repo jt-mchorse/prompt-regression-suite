@@ -1653,3 +1653,51 @@ local write-seam callers catch and what the leaked exit code *means* there.
 copies of the helper in `embedding-model-shootout`, `vector-search-at-scale`,
 `python-async-llm-pipelines`, and `mcp-server-cookbook`'s
 `filesystem-sandbox-py`.
+
+## 2026-09-03 — #160: my own issue counted three sites; there were five
+
+#160 was mine, filed as a parity note: three write-seam guards interpolate a
+path into their stderr message, and `sys.argv` decodes with `surrogateescape`,
+so that path can hold a lone surrogate with no UTF-8 encoding. Writing the
+message is then a candidate for the very `UnicodeEncodeError` the message is
+reporting.
+
+I re-measured before implementing, and the issue's own enumeration was wrong in
+exactly the way the issue describes. Under a strict-handler `sys.stderr`, five
+sites fail across four subcommands — and three of the five are **read** seams
+(`validate <bad dir>`, `stats <bad dir>`, `diff --snapshot <bad>`,
+`run --snapshots <bad dir>`). The population was never "write-seam guards"; it
+was "stderr messages that interpolate operator input".
+
+That correction decides the fix. `ascii()` at three interpolation sites would
+have been another hand-list, and a sixth message added next month rejoins the
+gap silently. So there is one `io._eprint`, used by `cli.py`,
+`render_regression_demo.py` and `capture_demo.py`, and the lock is on a
+population a scan can actually check: nothing outside that helper writes to
+`sys.stderr`. Stated positively — the helper must be *used* — because a
+negative rule is satisfied by a file that does nothing.
+
+The retry escapes through stderr's own encoding with `backslashreplace`, not
+`ascii()`. Routing every message through `ascii()` also makes the error path
+total, and makes every non-ASCII diagnostic unreadable; a `café` + CJK message
+is the only row that separates the two. `capture_demo`'s relay of a child
+process's stderr goes through the funnel too — `subprocess` decodes with the
+locale handler, so that string carries a surrogate for the same reason
+`sys.argv` does.
+
+**What this does not claim.** Not that the CLI is total. `argparse`
+interpolates the same operator path into its own `error: unrecognized
+arguments: ...` and writes it before any code here runs. That is stdlib and out
+of reach of a message-level fix, so it is pinned as
+`test_argparse_is_a_known_gap` rather than left unstated — a fix that stops
+short of a boundary should say where the boundary is.
+
+**One gotcha worth fifteen minutes of someone else's life.** I wrote
+`report\udcff.json` inside an ordinary (non-raw) docstring to illustrate the
+rendered output. `\u` is a live escape there, so the *compiled* docstring held
+a real lone surrogate — and writing the `.pyc` marshals it, which raises
+`UnicodeEncodeError` at import with a one-frame traceback that names nothing.
+It surfaced as eight pytest *collection* errors, which reads like a suite
+problem rather than a docstring problem. The fix is a raw docstring.
+
+**Next session:** the repo is back to zero open issues.
