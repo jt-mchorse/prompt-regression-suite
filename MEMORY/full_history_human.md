@@ -1701,3 +1701,53 @@ It surfaced as eight pytest *collection* errors, which reads like a suite
 problem rather than a docstring problem. The fix is a raw docstring.
 
 **Next session:** the repo is back to zero open issues.
+
+## 2026-09-08 — Issue #163: the guard went on the stream that was already safe
+**Duration:** ~45 min · **Branch:** `session/2026-09-08-1520-issue-163`
+
+- `_eprint`'s own docstring explains why the stderr bug was hard to see: "It
+  does not fire on a real process: CPython gives `sys.stderr`
+  `errors="backslashreplace"`." That sentence is the finding. The property it
+  names is exactly what `sys.stdout` lacks — stdout is `strict` in an ordinary
+  environment, so the same write raises on a real process.
+- **Two lines apart in `cli._update_command`**, the `except OSError` arm went
+  through `_eprint` and the line after `return 2` printed the same
+  `snapshot_path` bare. A successful update on an unencodable path wrote the
+  file and *then* died announcing it, at exit 1, after the operation had
+  happened.
+- `capture_demo` relayed a child's stdout with a bare `print(out, end="")` two
+  lines above the comment explaining that the *same child's* stderr can carry a
+  surrogate "for exactly the same reason `sys.argv` does". Same child, same
+  `subprocess` call, same locale handler.
+- **My own first lock repeated the bug's mistake.** I widened the regex from
+  `file=sys.stderr` to any mention of either stream — and restoring a bare
+  `print` at a funnelled site left it green, because **a bare `print` names no
+  stream**. Stdout is `print`'s default, so the most ordinary way to write to it
+  is invisible to any rule phrased over `sys.stdout`. The population is *writes
+  to a stream*; `sys.stdout` is a spelling of one of them.
+- The lock is now an AST scan over three spellings —
+  `print(..., file=sys.stderr)`, `sys.stdout.write(...)`, and a bare `print(...)`
+  — with a fixture-based anti-vacuous test per spelling, so a scanner that stops
+  matching one form goes red rather than leaving that form unlocked. Parsed, not
+  grepped: the paragraphs documenting the forbidden forms name all three.
+- Two of the ten sites were `sys.stdout.write(rendered)`, which my initial
+  `print(` grep could not see. The lock is what found them.
+- **I was wrong about the boundary, and the test said so.** I predicted
+  `--json` would be where the escape changes bytes a consumer parses.
+  `json.dumps` defaults to `ensure_ascii=True`, so an unencodable id is written
+  as the ASCII escape and round-trips exactly; the exposed format is the *text*
+  one. The test now pins that, so a later switch to `ensure_ascii=False` cannot
+  quietly make it lossy.
+- Six neighbours built and run: `ascii()` instead of the encoding round trip
+  (3 red), `_print` holding its own copy of the escape (1 red, structural only),
+  `end=` dropped from the retry branch (1 red), and three restore-a-bare-write
+  neighbours that the regex lock did not catch at all. Suite 625 → 639.
+
+**Why this work, this session:** prompt-regression-suite had zero open issues
+and had not been touched since 2026-09-04, so the hunt was the work — and the
+entry point was its own most recent merge.
+
+**Open questions / blockers:** none.
+
+**Next session:** nothing outstanding on the write seams; `argparse` remains the
+one stated gap and is unchanged.
