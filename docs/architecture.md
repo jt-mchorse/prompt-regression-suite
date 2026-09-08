@@ -185,6 +185,46 @@ locked by the matching test in `tests/test_cli.py`.
   the healthy population) and `run` (consume it). Locked by
   `tests/test_validate.py`.
 
+- **Stream write totality (#160, #163).** Every write this package
+  makes to a standard stream goes through one of two funnels in
+  `prompt_regression/io.py` — `_eprint` for stderr, `_print` for
+  stdout — which share one retry, so they cannot answer differently
+  for the same string. Any diagnostic or report interpolates operator
+  input (a `--out` destination, a snapshots directory, a snapshot id
+  read off the filesystem), and `sys.argv` / `os.listdir` decode with
+  `surrogateescape`, so any of them can hold a lone surrogate with no
+  UTF-8 encoding. The retry escapes through the stream's *own*
+  encoding with `backslashreplace`, not `ascii()`, so an ordinary
+  non-ASCII message stays readable and only the run that genuinely
+  cannot be encoded degrades.
+
+  #160 covered stderr, which CPython already gives
+  `errors="backslashreplace"` — so that half only ever fired under a
+  strict-handler stream like `pytest`'s `capsys`. `sys.stdout` is
+  `strict` in an ordinary environment, so #163's half fires on a real
+  process: in `cli._update_command` the failure path was funnelled and the
+  success path printed the same `snapshot_path` bare, meaning a
+  successful update wrote the file and then died announcing it.
+
+  The lock is on a population a scan can check: no file outside
+  `io.py` may write to a standard stream. It is an **AST** scan
+  covering three spellings — `print(..., file=sys.stderr)`,
+  `sys.stdout.write(...)`, and a bare `print(...)`. The third is the
+  one that matters: stdout is `print`'s default, so the most ordinary
+  way to write to it names no stream, and a rule phrased over
+  `sys.stdout` misses it entirely. `tests/test_stderr_totality.py`
+  holds the lock; `tests/test_stdout_totality.py` holds the stdout
+  behaviour.
+
+  **Two boundaries, both stated rather than inferable.** `argparse`
+  writes its own `error: unrecognized arguments: ...` before any code
+  here runs — stdlib, out of reach, pinned as
+  `test_argparse_is_a_known_gap`. And `--json` is safe by
+  construction, not by this fix: `json.dumps` defaults to
+  `ensure_ascii=True`, so an unencodable id is written as the ASCII
+  escape `\udcff` and round-trips exactly. A later switch to
+  `ensure_ascii=False` would change that, and a test says so.
+
 ## Type checking (D-009)
 
 A non-strict `mypy` gate runs over `prompt_regression` in the CI lint

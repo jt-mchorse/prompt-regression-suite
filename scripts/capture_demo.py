@@ -46,7 +46,7 @@ import webbrowser
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from prompt_regression.io import _eprint
+from prompt_regression.io import _eprint, _print
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "docs" / "demo-artifacts"
@@ -229,10 +229,10 @@ def main(argv: list[str] | None = None) -> int:
         return _fail(f"failed to create output directory {output_dir}: {e}")
 
     # STAGE 1 — regenerate the regression report under a temp out path.
-    print(_banner(1, "Regenerate regression report (scripts/render_regression_demo.py)"))
+    _print(_banner(1, "Regenerate regression report (scripts/render_regression_demo.py)"))
     out_html = output_dir / STABLE_REGRESSION_HTML
     render_rc, render_stdout = _run_render_demo_into(out_html)
-    print(render_stdout, end="")
+    _print(render_stdout, end="")
     if render_rc != 0:
         # Propagate the render script's own code verbatim — a write failure is
         # a 2 and must stay a 2. It has already printed its own `error:` line,
@@ -242,21 +242,24 @@ def main(argv: list[str] | None = None) -> int:
             "aborting demo capture."
         )
         return render_rc
-    print(f"[capture] HTML written to: {out_html}")
+    _print(f"[capture] HTML written to: {out_html}")
     _pause(args.pause_seconds)
 
     # STAGE 2 — browser open on the freshly-rendered HTML.
-    print(_banner(2, "Inspect the report in a browser"))
-    print(f"[capture] opening: {out_html}")
+    _print(_banner(2, "Inspect the report in a browser"))
+    _print(f"[capture] opening: {out_html}")
     if not args.no_open:
         webbrowser.open(out_html.as_uri())
     _pause(args.pause_seconds)
 
     # STAGE 3 — prompt-snap diff with a tight threshold making it fail.
-    print(_banner(3, "prompt-snap diff with --threshold 0.9 (benign drift → fail)"))
+    _print(_banner(3, "prompt-snap diff with --threshold 0.9 (benign drift → fail)"))
     rc, out, err = _run_prompt_snap_diff_fail()
     if out:
-        print(out, end="")
+        # The same child, the same `subprocess` call, the same locale
+        # handler as the `err` relay two lines below — whose comment is the
+        # reason this one needed the funnel too (#163).
+        _print(out, end="")
     if err:
         # A child's stderr, decoded by `subprocess` with the locale handler --
         # so it can carry a lone surrogate for exactly the same reason `sys.argv`
@@ -268,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     if rc < 0:
         _eprint(f"[capture] prompt-snap diff exited unexpectedly ({rc}); aborting.")
         return 1
-    print(f"[capture] prompt-snap exit code: {rc}  (non-zero = failing diff; that's the demo)")
+    _print(f"[capture] prompt-snap exit code: {rc}  (non-zero = failing diff; that's the demo)")
 
     return 0
 

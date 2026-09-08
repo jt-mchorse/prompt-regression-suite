@@ -54,6 +54,7 @@ from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import (
     SNAPSHOT_GLOBS,
     _eprint,
+    _print,
     atomic_write_text,
     iter_snapshot_paths,
     load_snapshot,
@@ -504,8 +505,11 @@ def _run_command(args: argparse.Namespace) -> int:
         if (rc := _write_output(args.out, rendered)) is not None:
             return rc
     else:
-        # text/json keep their trailing newline; print() would add a second one.
-        sys.stdout.write(rendered)
+        # text/json keep their trailing newline, so `end=""`; `print()`'s
+        # default would add a second one. Through the funnel, not
+        # `sys.stdout.write`, because `rendered` carries snapshot ids read off
+        # the filesystem and stdout is a strict stream (#163).
+        _print(rendered, end="")
     return 1 if failed > 0 else 0
 
 
@@ -601,7 +605,7 @@ def _update_command(args: argparse.Namespace) -> int:
     except OSError as e:
         _eprint(f"error: failed to write {snapshot_path}: {e}")
         return 2
-    print(f"updated {snapshot_path}: embedder={embedder.model_name} text_len={len(new_text)}")
+    _print(f"updated {snapshot_path}: embedder={embedder.model_name} text_len={len(new_text)}")
     return 0
 
 
@@ -702,9 +706,10 @@ def _diff_command(args: argparse.Namespace) -> int:
         if (rc := _write_output(args.out, rendered)) is not None:
             return rc
     else:
-        # text/json keep their trailing newline; sys.stdout.write avoids
-        # the doubled newline `print()` would add.
-        sys.stdout.write(rendered)
+        # text/json keep their trailing newline, so `end=""` avoids the
+        # doubled newline `print()`'s default would add. Through the funnel
+        # (#163): `rendered` interpolates the operator's `--snapshot` path.
+        _print(rendered, end="")
     return 0 if result.verdict != "fail" else 1
 
 
@@ -763,9 +768,9 @@ def _stats_command(args: argparse.Namespace) -> int:
         _eprint(f"error: {e}")
         return 2
     if args.as_json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
-        print(render_summary(report))
+        _print(render_summary(report))
     return 0
 
 
@@ -810,7 +815,7 @@ def _validate_command(args: argparse.Namespace) -> int:
         if (rc := _write_output(args.out, rendered)) is not None:
             return rc
     else:
-        print(rendered, end="")
+        _print(rendered, end="")
     return 0 if report.ok else 1
 
 
