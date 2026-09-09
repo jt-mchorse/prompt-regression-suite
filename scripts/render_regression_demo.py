@@ -37,7 +37,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from prompt_regression.diff import HashEmbedder, diff_response  # noqa: E402
 from prompt_regression.html_report import ReportEntry, render_report  # noqa: E402
-from prompt_regression.io import _eprint, atomic_write_text  # noqa: E402
+from prompt_regression.io import _eprint, _print, atomic_write_text  # noqa: E402
 from prompt_regression.schema import (  # noqa: E402
     CanonicalResponse,
     Prompt,
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as e:
         _eprint(f"error: failed to write {out_html}: {e}")
         return 2
-    print(f"html wrote {out_html} (verdict: {diff.verdict}, cosine: {diff.cosine_score:.3f})")
+    _print(f"html wrote {out_html} (verdict: {diff.verdict}, cosine: {diff.cosine_score:.3f})")
 
     if not args.no_screenshot:
         out_png = Path(args.out_png)
@@ -203,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as e:
             _eprint(f"error: failed to create screenshot dir {out_png.parent}: {e}")
             return 2
-        print(_maybe_screenshot(out_html, out_png))
+        _print(_maybe_screenshot(out_html, out_png))
 
     return 0
 

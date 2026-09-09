@@ -18,7 +18,7 @@ import sys
 import tempfile
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import yaml
 
@@ -303,11 +303,56 @@ def _eprint(message: str) -> None:
     reach of a message-level fix; the scope here is every message this package
     writes.
     """
+    _write(message, sys.stderr)
+
+
+def _print(message: str, *, end: str = "\n") -> None:
+    r"""Write *message* to `sys.stdout`, and never raise doing it (#163).
+
+    The stdout half of :func:`_eprint`, and the half that matters more on a
+    real process. #160 built the stderr funnel and stated the reason the bug
+    was hard to see: CPython gives `sys.stderr` ``errors="backslashreplace"``,
+    so it only fires under a strict-handler stream like `pytest`'s `capsys`.
+    That is true, and it is exactly the property `sys.stdout` does **not**
+    have -- stdout is ``strict`` in an ordinary environment:
+
+        stdout=strict  stderr=backslashreplace
+
+    So the fix hardened the stream the interpreter had already made lenient
+    and left the strict one bare. Two lines apart in ``cli.update``, the
+    failure path went through ``_eprint`` and the success path through a bare
+    ``print`` of the same ``snapshot_path`` -- meaning a successful update on
+    an unencodable path wrote the file and *then* died announcing success.
+
+    ``end`` passes through because two callers are relays
+    (``capture_demo`` echoing a child's stdout, ``cli`` writing a
+    pre-terminated rendered report) and a relay must not gain a newline.
+
+    **Not claimed:** that the escape is invisible to a machine consumer.
+    ``--format json`` emits a `str` this package built with `json.dumps`, so a
+    snapshot id that cannot be encoded is written escaped -- valid JSON, and
+    not byte-identical to the id on disk. `test_json_format_escape_is_stated`
+    pins that rather than leaving it inferable; refusing such an id at load
+    would be a snapshot-format policy, not a write-seam fix.
+    """
+    _write(message, sys.stdout, end=end)
+
+
+def _write(message: str, stream: TextIO, *, end: str = "\n") -> None:
+    """The retry both funnels share, so they cannot answer differently.
+
+    Escaping through the stream's *own* encoding rather than `ascii()`: routing
+    every message through `ascii()` makes the write total and every non-ASCII
+    diagnostic unreadable, which is the plausible over-broad fix #160 measured
+    and rejected. A `café` message with CJK in it is the row that separates the
+    two, and it is asserted against both funnels.
+    """
     try:
-        print(message, file=sys.stderr)
+        print(message, file=stream, end=end)
     except UnicodeEncodeError:
-        encoding = getattr(sys.stderr, "encoding", None) or "utf-8"
+        encoding = getattr(stream, "encoding", None) or "utf-8"
         print(
             message.encode(encoding, "backslashreplace").decode(encoding, "replace"),
-            file=sys.stderr,
+            file=stream,
+            end=end,
         )

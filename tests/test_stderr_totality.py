@@ -30,9 +30,9 @@ a known gap rather than letting it read as coverage.
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import io
-import re
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +40,7 @@ import pytest
 
 from prompt_regression import cli as cli_module
 from prompt_regression.cli import build_parser, main
-from prompt_regression.io import _eprint, load_snapshot, save_snapshot
+from prompt_regression.io import _eprint, _print, load_snapshot, save_snapshot
 
 #: What `surrogateescape` produces for the raw byte 0xFF — the shape an
 #: operator actually creates with `--out $'report\xff.json'`.
@@ -276,7 +276,43 @@ def test_a_well_formed_run_is_untouched(
 # ---------------------------------------------------------------------------
 
 _SOURCE_ROOTS = ("prompt_regression", "scripts")
-_STDERR_WRITE = re.compile(r"file\s*=\s*sys\.stderr")
+
+
+def _stream_writes(source: str) -> list[str]:
+    r"""Every write to a standard stream in *source*, found by parsing.
+
+    Three spellings, and the history of this lock is the reason all three are
+    here rather than a regex over the ones that had bitten so far:
+
+    * ``print(..., file=sys.stderr)`` — what #160 matched, with
+      ``re.compile(r"file\s*=\s*sys\.stderr")``.
+    * ``sys.stdout.write(x)`` — names no ``file=`` keyword. Two of these sat in
+      ``cli.py`` writing an operator path to the *strict* stream (#163).
+    * ``print(x)`` — **names no stream at all.** This is the one that matters:
+      stdout is `print`'s default, so the most ordinary way to write to it is
+      invisible to any rule phrased over ``sys.stdout``. Restoring a bare
+      ``print`` at a funnelled site left the regex version of this lock green,
+      which is the same wrong-unit mistake the bug itself is: the population is
+      *writes to a stream*, and ``sys.stdout`` is a spelling of one of them.
+
+    Parsed rather than grepped so the paragraphs above — which name every
+    forbidden form — are not themselves offenders.
+    """
+    found: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name) and node.func.id == "print":
+            found.append("print()")
+        if (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Attribute)
+            and isinstance(node.func.value.value, ast.Name)
+            and node.func.value.value.id == "sys"
+            and node.func.value.attr in {"stdout", "stderr"}
+        ):
+            found.append(f"sys.{node.func.value.attr}.{node.func.attr}()")
+    return found
 
 
 def _source_files() -> list[Path]:
@@ -297,23 +333,50 @@ def test_the_source_scan_is_not_vacuous() -> None:
     assert "capture_demo.py" in names
 
 
-def test_only_the_helper_writes_to_sys_stderr() -> None:
+def test_only_the_helpers_write_to_a_standard_stream() -> None:
     """The population #160 should have been stated over.
 
     Stated as "which files may", not "which messages must be safe": a rule
     about messages is a hand-list again, and a sixth message added next month
     would rejoin the gap silently. This one cannot be satisfied by adding a
-    message — only by routing it through the funnel.
+    message — only by routing it through a funnel.
+
+    Widened twice (#163). First from `sys.stderr` to both streams, because #160
+    locked the stream CPython had already made lenient
+    (``errors="backslashreplace"``) and left `sys.stdout`, which is ``strict``,
+    unlocked. Then from "mentions a stream" to "writes to one", because a bare
+    ``print`` names no stream — so the first widening still passed with a
+    funnelled site reverted to ``print``. Measured: two neighbours, a restored
+    bare ``print`` in ``cli.update`` and in ``capture_demo``'s child-stdout
+    relay, were both green against the regex version.
     """
-    offenders = [
-        str(f.relative_to(Path(__file__).resolve().parent.parent))
+    root = Path(__file__).resolve().parent.parent
+    offenders = {
+        str(f.relative_to(root)): sorted(set(_stream_writes(f.read_text(encoding="utf-8"))))
         for f in _source_files()
-        if _STDERR_WRITE.search(f.read_text(encoding="utf-8"))
-    ]
-    assert offenders == ["prompt_regression/io.py"], (
-        "only `io._eprint` may write to sys.stderr directly; these files bypass "
-        f"the funnel: {offenders}"
+        if _stream_writes(f.read_text(encoding="utf-8"))
+    }
+    assert list(offenders) == ["prompt_regression/io.py"], (
+        "only `io._eprint` / `io._print` may write to a standard stream; these "
+        f"files bypass the funnels: {offenders}"
     )
+
+
+def test_the_stream_write_scan_finds_all_three_spellings() -> None:
+    """Anti-vacuous, per spelling.
+
+    A walk that silently stopped matching one form would leave that form
+    unlocked, which is how this lock reached its second widening. Each is
+    asserted against a fixture rather than against the tree, so tightening the
+    tree cannot make the scanner untested.
+    """
+    assert _stream_writes("print('x')") == ["print()"]
+    assert _stream_writes("print('x', file=sys.stderr)") == ["print()"]
+    assert _stream_writes("sys.stdout.write('x')") == ["sys.stdout.write()"]
+    assert _stream_writes("sys.stderr.write('x')") == ["sys.stderr.write()"]
+    assert _stream_writes("_print('x')") == []
+    assert _stream_writes("'a docstring naming print() and sys.stdout.write'") == []
+    assert _stream_writes("# print('x')") == []
 
 
 def test_the_helper_is_actually_used() -> None:
@@ -322,6 +385,10 @@ def test_the_helper_is_actually_used() -> None:
     users = [f for f in _source_files() if "_eprint(" in f.read_text(encoding="utf-8")]
     assert len(users) >= 3, [str(f) for f in users]
     assert cli_module._eprint is _eprint  # noqa: SLF001 - one definition, not a copy
+
+    printers = [f for f in _source_files() if "_print(" in f.read_text(encoding="utf-8")]
+    assert len(printers) >= 3, [str(f) for f in printers]
+    assert cli_module._print is _print  # noqa: SLF001 - one definition, not a copy
 
 
 # ---------------------------------------------------------------------------
