@@ -1751,3 +1751,48 @@ entry point was its own most recent merge.
 
 **Next session:** nothing outstanding on the write seams; `argparse` remains the
 one stated gap and is unchanged.
+
+## 2026-09-09 — Issue #165: the writer never checked the version its own reader requires
+**Branch:** `session/2026-09-09-0829-issue-165`
+
+`load_snapshot` required `str(schema_version) == SCHEMA_VERSION`. `save_snapshot`
+required nothing — `Snapshot.__post_init__` runs `_require_str` and stops, so the
+field was checked for being a string and never for being the supported version.
+`'2'`, `'1.5'` and `'01'` all round-tripped out and failed on the way back in.
+
+`'01'` is the row that makes the case. The comparison is on `str(version)`
+deliberately, because YAML parses an unquoted `schema_version: 1` as the int `1`
+and rejecting a hand-authored snapshot with "is 1 … supports '1'" reads as
+nonsense. `'01'` is a string that survives that leniency and still fails — the
+kind of input a hand-written list of test cases never contains.
+
+That leniency is why the rule had to be shared rather than copied. The
+comparison is the obvious half; the `str()` is the half someone re-deriving
+would omit. Dropping it turns four tests red, **two of them pre-existing**,
+which is the evidence the split was right.
+
+The most useful thing that happened was catching my own vacuous measurement.
+The first probe table put three of its five values in the *label* only, with no
+kwarg — so three rows silently exercised the default snapshot and reported
+"round-trips OK". A table that agrees with the unfixed code is indistinguishable
+from a clean hunt. The helper now asserts it received an override. The same
+draft also only asked "did it raise", which would have passed for a writer that
+silently replaced a character; the surrogate rows now compare the value.
+
+Two axes came back clean and are committed as passing controls rather than
+recorded as prose: a lone surrogate round-trips byte-identically through all
+four string fields, and `CanonicalResponse` rejects a non-finite embedding at
+construction, so the `nan`/`inf` class two sibling repos hit today cannot reach
+this writer. A measured-clean axis is worth a test, not a sentence in a memory
+file.
+
+**Why this work, this session:** the repo had zero open issues, so the hunt was
+the work, and the surface was the PR this run merged during Phase A.
+
+**Open questions / blockers:** none.
+
+**Also swept and empty, recorded so it is not re-hunted:** #163's stdout/stderr
+AST scan covers `prompt_regression` and `scripts`, there are no Python files
+outside those two roots, and none of the spellings it cannot see
+(`traceback.print_exc`, `os.write`, `logging`, `sys.__stdout__`, `from sys import
+stdout`) appears anywhere. The enumeration gap is theoretical here.
