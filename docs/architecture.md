@@ -185,6 +185,27 @@ locked by the matching test in `tests/test_cli.py`.
   the healthy population) and `run` (consume it). Locked by
   `tests/test_validate.py`.
 
+- **The schema-version rule is shared by both seams (#165).**
+  `load_snapshot` required `str(schema_version) == SCHEMA_VERSION` and
+  raised with the dedicated `code="schema_version"`; `save_snapshot`
+  required nothing, because `Snapshot.__post_init__` runs
+  `_require_str(self.schema_version)` and stops — the field was
+  checked for being *a string* and never for being *the supported
+  version*. So the canonical writer emitted files its own loader
+  refuses: `'2'`, `'1.5'` and `'01'` all round-tripped out and failed
+  on the way back in. `'01'` is the one worth naming, because the
+  comparison is on `str(version)` deliberately (an unquoted YAML
+  `schema_version: 1` parses as the int `1`, and rejecting a
+  hand-authored snapshot with "is 1 … supports '1'" reads as
+  nonsense) — `'01'` is a string that survives that leniency and still
+  fails. `_require_supported_schema_version` is now the one
+  definition, called by both, with the leniency inside it rather than
+  at the caller: the comparison is the obvious half and the `str()` is
+  the half someone re-deriving would omit. Locked by
+  `tests/test_snapshot_version_write_path.py`, which also pins the
+  representability and non-finite axes as *measured clean* so they are
+  not re-hunted.
+
 - **Stream write totality (#160, #163).** Every write this package
   makes to a standard stream goes through one of two funnels in
   `prompt_regression/io.py` — `_eprint` for stderr, `_print` for
