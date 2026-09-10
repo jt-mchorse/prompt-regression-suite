@@ -222,6 +222,11 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
     Atomic via ``atomic_write_text``.
     """
     p = Path(path)
+    # The rule `load_snapshot` states, applied here too (#165). Before any bytes
+    # are written, so a refusal cannot truncate or half-overwrite a snapshot
+    # that was already on disk -- and through the same helper, because the
+    # comparison's `str()` leniency is the half a second copy would omit.
+    _require_supported_schema_version(snapshot.schema_version, str(p))
     payload = snapshot.to_dict()
     rendered = yaml.safe_dump(
         payload,
@@ -231,6 +236,45 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
     )
     atomic_write_text(p, rendered)
     return p
+
+
+def _require_supported_schema_version(version: Any, where: str) -> None:
+    """Raise unless *version* is the schema version this package reads (#165).
+
+    One definition, called by ``load_snapshot`` on the way in and by
+    ``save_snapshot`` on the way out. Before this, only the reader had the rule:
+    ``Snapshot.__post_init__`` runs ``_require_str(self.schema_version)`` and
+    stops, so the field was checked for being *a string* and never for being
+    *the supported version*. The canonical writer therefore emitted files its
+    own loader refuses. Measured::
+
+        schema_version='1'   (control)   round-trips identically
+        schema_version='2'               written, then refused on read
+        schema_version='1.5'             written, then refused on read
+        schema_version='01'              written, then refused on read
+        schema_version=''                already refused at construction
+
+    ``'01'`` is the row worth naming. The comparison is on ``str(version)`` --
+    deliberately, because YAML parses an unquoted ``schema_version: 1`` as the
+    int ``1`` while ``save_snapshot`` writes the quoted ``'1'``, and rejecting a
+    hand-authored snapshot (the D-003 workflow) with "is 1 ... supports '1'"
+    reads as nonsense. ``'01'`` is a string that survives that leniency and
+    still fails, and nothing on the write side ever looked at it.
+
+    The leniency is part of the shared rule rather than a caller's business,
+    because a second copy of *it* is what would drift: the comparison is the
+    obvious half and the ``str()`` is the half someone re-deriving would omit.
+
+    ``code="schema_version"`` is preserved on both paths -- ``CODES`` exists so
+    "migration tooling can route on the code without parsing the prose" (#155),
+    and a write-side refusal is the same classification as a read-side one.
+    """
+    if str(version) != SCHEMA_VERSION:
+        raise SnapshotValidationError(
+            f"{where}: snapshot schema_version is {version!r}, "
+            f"this reader only supports {SCHEMA_VERSION!r}",
+            code="schema_version",
+        )
 
 
 def load_snapshot(path: PathArg) -> Snapshot:
@@ -252,14 +296,10 @@ def load_snapshot(path: PathArg) -> Snapshot:
     # and an int-vs-str rejection here reads as a baffling "is 1 … supports
     # '1'". Compare on the string form so `1` and `'1'` are the same version,
     # while a genuinely-different version ("2", 2, "1.5") still rejects.
-    if str(version) != SCHEMA_VERSION:
-        raise SnapshotValidationError(
-            f"{p}: snapshot schema_version is {version!r}, "
-            f"this reader only supports {SCHEMA_VERSION!r}",
-            # The single source of the `schema_version` finding code (#155).
-            # Every other raise in this package takes the `"schema"` default.
-            code="schema_version",
-        )
+    # The single source of the `schema_version` finding code (#155) and, since
+    # #165, of the rule itself -- `save_snapshot` calls the same helper, so the
+    # writer cannot emit a version this reader refuses.
+    _require_supported_schema_version(version, str(p))
     # Normalize to the canonical string before `from_dict`, whose strict
     # `_require_str(schema_version)` would otherwise re-reject the int form.
     return Snapshot.from_dict({**data, "schema_version": SCHEMA_VERSION})
