@@ -62,7 +62,7 @@ from .io import (
 )
 from .schema import CanonicalResponse, Snapshot, SnapshotValidationError
 from .stats import StatsError, collect_stats, render_summary
-from .validate import validate_snapshots
+from .validate import FirstSeenIds, validate_snapshots
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
 # Re-exported under the historical private name so existing callers and
@@ -283,6 +283,12 @@ def _run_command(args: argparse.Namespace) -> int:
     # by a since-renamed `snapshot.id`, or with a typo, and every one of them used
     # to produce a clean-looking report and exit 0 (#150, D-010).
     consumed: set[str] = set()
+    # The directory-level uniqueness rule, from `validate`'s definition (#167).
+    # `validate` has flagged `duplicate_id` since #49 and this path had no
+    # equivalent, while being the path CI executes. Driven per file, in the same
+    # sorted order `validate_snapshots` walks, so the two agree on *which* file
+    # is the shadow rather than by two mirrored edits.
+    ids = FirstSeenIds()
     for path in snapshot_paths:
         rel = path.relative_to(snapshots_dir).as_posix()
         # A malformed snapshot under the run dir is an operator input error, not
@@ -303,6 +309,35 @@ def _run_command(args: argparse.Namespace) -> int:
                 "malformed snapshot in one pass."
             )
             return 2
+        # A file whose id is already claimed is not a testable row (#167).
+        # Left unchecked, the `snap.id in candidates` lookup below hands it the
+        # *first* file's candidate: measured, that turns an honest `skipped`
+        # into `verdict=pass, cosine=1.0, exit 0` for a snapshot that received
+        # no candidate of its own. An `ErrorEntry` is what this package already
+        # uses for "errored before a DiffResult could be produced ... rather
+        # than a synthetic DiffResult that would fabricate numbers", it is
+        # counted in `failed` so the run exits non-zero, and it carries into the
+        # HTML artifact so the report cannot read "all pass" (#71). No new
+        # verdict value and no README table change: the shape was already here.
+        shadow = ids.shadow_reason_for(snap.id, rel)
+        if shadow is not None:
+            failed += 1
+            rows.append(
+                {
+                    "snapshot_path": str(path),
+                    "snapshot_id": snap.id,
+                    "verdict": "error",
+                    "cosine": None,
+                    "threshold": args.threshold,
+                    "embedder": embedder.model_name,
+                    "snapshot_embedder": snap.canonical.embedding_model,
+                    "slot_failures": [],
+                    "notes": [shadow],
+                }
+            )
+            entries.append(ErrorEntry(snapshot_id=snap.id, message=shadow))
+            continue
+
         # `rel` takes precedence over `snap.id`, but check key membership
         # explicitly: an `or` chain treats a present empty-string candidate
         # (the model returned nothing — itself a regression) as missing and
