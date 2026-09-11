@@ -188,6 +188,62 @@ def _read_failure_finding(rel: str, error: BaseException) -> ValidationFinding:
     raise AssertionError(f"unclassified read failure: {type(error).__name__}: {error}")
 
 
+class FirstSeenIds:
+    """The directory-level uniqueness rule for ``Snapshot.id``, drivable one
+    file at a time (#167).
+
+    ``Snapshot.__post_init__`` cannot enforce this: uniqueness is a property of
+    the *directory*, not of a snapshot, so there is nowhere in the dataclass to
+    put it. It lived here, in ``validate_snapshots``, and ``run`` -- the path
+    CI executes -- had no equivalent. This module's own docstring already said
+    what that cost: "the run path silently key-collides on identical
+    ``Snapshot.id`` across files".
+
+    Measured end to end through the CLI, two files and one candidate keyed by
+    the shared id::
+
+        distinct ids   b.yml -> verdict=skipped  cosine=None   exit 0   honest
+        same id        b.yml -> verdict=fail     cosine=0.0    exit 1
+        same id, copy  b.yml -> verdict=pass     cosine=1.0    exit 0
+
+    The control is the crux. With distinct ids the second file is correctly
+    ``skipped`` with "no candidate supplied"; a duplicate id makes it
+    *evaluated*, so the collision converts an honest "you did not test this"
+    into a verdict computed from another snapshot's candidate. The third row is
+    the one worth the change -- a ``pass`` at cosine 1.0, exit 0, for a snapshot
+    that received no candidate of its own. That is the silently-clean report
+    #150/D-010 established ``run`` must not produce, and the collision defeats
+    D-010's own mechanism, because ``consumed.add(snap.id)`` marks the key used.
+
+    An accumulator rather than a function over the whole list, for the reason
+    ``run`` needs: both callers walk the directory in sorted order and act on
+    each file as they reach it, so the *first-seen* file has to be whichever one
+    came first in that walk. Collecting up front would let the two sides
+    disagree about which file is the shadow.
+    """
+
+    def __init__(self) -> None:
+        self._first_seen: dict[str, str] = {}
+
+    def shadow_reason_for(self, snapshot_id: str, where: str) -> str | None:
+        """Reason string when *snapshot_id* was already claimed, else ``None``.
+
+        Records *where* as the first-seen location when the id is new, so the
+        next collision can name it. The wording is the single source for both
+        callers; ``tests/test_validate.py`` and ``tests/test_run_duplicate_id.py``
+        assert the two sides produce the identical sentence.
+        """
+        first = self._first_seen.get(snapshot_id)
+        if first is not None:
+            return (
+                f"duplicate snapshot id {snapshot_id!r}; "
+                f"first seen at {first}; "
+                "ids must be unique across the directory"
+            )
+        self._first_seen[snapshot_id] = where
+        return None
+
+
 def validate_snapshots(directory: str | Path) -> ValidationReport:
     """Walk ``directory`` for snapshot files and lint each in collecting mode.
 
@@ -203,7 +259,7 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
 
     paths = _iter_snapshot_paths(snapshots_dir)
     findings: list[ValidationFinding] = []
-    seen_ids: dict[str, str] = {}
+    ids = FirstSeenIds()
     n_valid = 0
 
     for path in paths:
@@ -275,22 +331,12 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
             findings.append(ValidationFinding(path=rel, reason=str(e), code=code))
             continue
 
-        if snap.id in seen_ids:
-            findings.append(
-                ValidationFinding(
-                    path=rel,
-                    reason=(
-                        f"duplicate snapshot id {snap.id!r}; "
-                        f"first seen at {seen_ids[snap.id]}; "
-                        "ids must be unique across the directory"
-                    ),
-                    code="duplicate_id",
-                )
-            )
+        shadow = ids.shadow_reason_for(snap.id, rel)
+        if shadow is not None:
+            findings.append(ValidationFinding(path=rel, reason=shadow, code="duplicate_id"))
             # Don't count the shadow file as valid; the run path would
             # silently overwrite the prior candidate lookup.
             continue
-        seen_ids[snap.id] = rel
         n_valid += 1
 
     if not paths:

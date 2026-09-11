@@ -322,6 +322,53 @@ the partial run.
 candidates file shared across several snapshot directories. It turns
 off the failure, not the report.
 
+## A duplicate snapshot id is an error in `run`, not only in `validate` (#167)
+
+`validate` has reported `duplicate_id` since #49, and its module
+docstring named the cost of the gap in its own words: *"the run path
+silently key-collides on identical `Snapshot.id` across files"*. `run`
+is the path CI executes and had no equivalent, while `Snapshot`'s
+docstring said the id *"should be unique within a repo's snapshot
+directory"* — an operator obligation with no check where it matters.
+
+Measured end to end through the CLI, two snapshot files and **one**
+candidate keyed by the shared id:
+
+| snapshot dir | `b.yml` verdict | cosine | exit |
+|---|---|---|---|
+| distinct ids (control) | `skipped` | — | 0 |
+| same id, different prompt | `fail` | **0.0** | 1 |
+| same id, a renamed copy | `pass` | **1.0** | **0** |
+
+The control is the crux. With **distinct** ids and a missing candidate
+the second file is correctly `skipped` with "no candidate supplied";
+with a **duplicate** id it is *evaluated*, so the collision converts an
+honest "you did not test this" into a verdict computed against another
+snapshot's candidate. The third row is the one worth the change — a
+`pass` at cosine 1.0 and exit 0 for a snapshot that received no
+candidate of its own. That is precisely the silently-clean report D-010
+above established `run` must not produce, and the collision defeats
+D-010's own mechanism, because `consumed.add(snap.id)` marks the key
+*used* and the orphan detector sees nothing wrong.
+
+The rule now lives once, in `validate.FirstSeenIds`, driven per file by
+both `validate_snapshots` and the `run` loop. An accumulator rather
+than a pass over the whole list, because both callers walk the
+directory in sorted order and act on each file as they reach it — so
+the *first-seen* file is whichever came first in that walk, and the two
+sides agree on which file is the shadow by construction rather than by
+two mirrored edits. A test asserts they emit the byte-identical
+sentence.
+
+No new verdict value ships. `ErrorEntry` already existed for a snapshot
+that errored "before a `DiffResult` could be produced ... rather than a
+synthetic `DiffResult` that would fabricate numbers", is counted in
+`failed` so the run exits non-zero, and carries into the HTML artifact
+so the report cannot read "all pass" (#71). Deliberately **not**
+enforced in `Snapshot.__post_init__`: uniqueness is a property of the
+directory, not of a snapshot, and the dataclass cannot see its
+siblings.
+
 ## Where to look next
 
 - **Layer code** — `prompt_regression/<module>.py` per the directory

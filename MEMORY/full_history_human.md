@@ -1796,3 +1796,66 @@ AST scan covers `prompt_regression` and `scripts`, there are no Python files
 outside those two roots, and none of the spellings it cannot see
 (`traceback.print_exc`, `os.write`, `logging`, `sys.__stdout__`, `from sys import
 stdout`) appears anywhere. The enumeration gap is theoretical here.
+
+---
+
+## 2026-09-10 — the validator justified itself by naming a bug in its sibling (#167)
+
+**Focus:** `prompt-snap run`, and the id-uniqueness rule that lived only in
+`validate`.
+
+**What got done.** `validate.py`'s module docstring explains why it carries a
+`duplicate_id` check, and in doing so states a live defect in another module:
+"the run path silently key-collides on identical `Snapshot.id` across files, so
+surfacing those at validate time saves a separate audit." `run` is the path CI
+executes. `Snapshot`'s own docstring says the id "should be unique within a
+repo's snapshot directory" — an operator obligation with no check where it
+matters. And nothing makes `validate` a prerequisite: `run`'s hint pointing at
+it only fires when a snapshot *fails to load*, and a duplicate id loads fine.
+
+The control is what made the severity legible. With **distinct** ids and one
+candidate, the second snapshot is correctly reported `skipped` with "no
+candidate supplied". With a **duplicate** id it is *evaluated* — so the
+collision converts an honest "you did not test this" into a verdict computed
+against another snapshot's candidate. Measured through the CLI, the third
+scenario is the one worth the change: a renamed copy produced `verdict=pass`,
+`cosine=1.0`, **exit 0**, for a snapshot that received no candidate of its own.
+A green CI run reporting two snapshots tested when one candidate was supplied.
+
+That is precisely the silently-clean report D-010 established `run` must not
+produce, and the collision defeats D-010's own mechanism:
+`consumed.add(snap.id)` marks the key *used*, so the orphan-candidate detector
+sees nothing wrong. A dedupe set keyed on a field that turns out not to be
+unique launders the very condition it tracks.
+
+**The answer was already in the repo.** `ErrorEntry` exists for a snapshot that
+errored "before a `DiffResult` could be produced ... rather than a synthetic
+`DiffResult` that would fabricate numbers", is counted in `failed` so the run
+exits non-zero, and carries into the HTML artifact so the report cannot read
+"all pass". So no new verdict value, no README table change, and no decision to
+record — the shape had already been argued for; the only question was whether
+anything routed to it.
+
+The rule now lives once, in `validate.FirstSeenIds`, driven per file by both
+walkers. An accumulator rather than a pass over the whole list, because both
+callers walk sorted and act on each file as they reach it — so "first seen" has
+to mean whichever came first in that walk, and collecting up front would let the
+two sides disagree about which file is the shadow. A test asserts they emit the
+byte-identical sentence. Uniqueness deliberately does not go in
+`Snapshot.__post_init__`: it is a property of the directory, and the dataclass
+cannot see its siblings.
+
+**One assertion worth isolating.** `verdict == "error"` is not enough. The
+neighbour that relabels the row but still computes the cosine passes it; only
+the separate `cosine is None` assertion catches that, and it is 2 red on its
+own. The "no fabricated number" claim needs its own line.
+
+**Why this was prioritized.** The priority tier was already worked this run, so
+selection rotated to the next non-tier repo in build sequence, which had zero
+open issues.
+
+**Open questions / blockers:** none. Noticed and deliberately not filed on
+speculation: `load_snapshot` does `data.get("schema_version", SCHEMA_VERSION)`,
+defaulting a *missing* version to the supported one rather than abstaining. That
+is a separate question about what an unversioned file means, and #165 has just
+settled the neighbouring rule.
