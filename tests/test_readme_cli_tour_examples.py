@@ -60,10 +60,24 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _readme_tour() -> str:
-    """The shell fence carrying the CLI tour."""
+    """The whole shell fence carrying the CLI tour.
+
+    From the fence, not from `"# Ad-hoc diff"` (#169). The README says of this
+    fence that "Every verdict, cosine and count in the block above is the tool's
+    actual output, pinned by tests/test_readme_cli_tour_examples.py" — and the
+    old slice started *after* the `prompt-snap run` demonstration that opens it,
+    so the first nine lines of "the block above" were outside the lock the
+    sentence cites. Widening the slice makes the sentence true rather than
+    narrowing the sentence to match the slice.
+
+    The run table inside this fence is compared to measured output by
+    `tests/test_readme_run_tables.py`, which discovers every run block in the
+    README rather than just this one.
+    """
     text = README.read_text(encoding="utf-8")
-    start = text.index("# Ad-hoc diff: one snapshot vs one candidate")
-    end = text.index("```", start)
+    anchor = text.index("# Walk a snapshot dir, diff each against candidates in a JSONL")
+    start = text.rindex("```", 0, anchor)
+    end = text.index("```", anchor)
     return text[start:end]
 
 
@@ -85,16 +99,36 @@ def test_the_pass_example_produces_the_documented_verdict_and_cosine() -> None:
 def test_the_pass_cosine_is_the_same_number_the_run_table_reports() -> None:
     """The two examples in one fence must not disagree about one candidate.
 
-    The `run` table above prints `0.806` for this snapshot; the `diff` example
-    prints `0.8058`. Same measurement, different rounding — asserted here so a
-    future edit to either cannot silently make them describe different runs.
+    The `run` table prints `0.806` for this snapshot; the `diff` example prints
+    `0.8058`. Same measurement, different rounding.
+
+    Rewritten in #169 to assert what the name says. It used to finish with
+    `assert "0.806" in README.read_text()` — "the substring appears somewhere in a
+    400-line file", and `0.806` appears at four separate places, so any one of them
+    satisfied it. Measured: rewriting BOTH run tables to `0.900` left all 683 tests
+    green, across the exact edit the docstring claimed could not happen silently.
+
+    Now the number comes out of the **tour fence's own run table** and out of
+    `diff`, and the rounding relationship between them is the assertion. The
+    table-vs-tool comparison is `tests/test_readme_run_tables.py`; this is the
+    table-vs-`diff` half, which is what "the two examples in one fence" means.
     """
     proc = _run("diff", "--snapshot", KITE, "--candidate", PASS_CANDIDATE)
     match = re.search(r"cosine:\s+([0-9.]+)", proc.stdout)
     assert match, proc.stdout
     cosine = float(match.group(1))
-    assert f"{cosine:.3f}" == "0.806"
-    assert "0.806" in README.read_text(encoding="utf-8")
+
+    tour = _readme_tour()
+    rows = re.findall(r"^#?\s*pass\s+([0-9.]+)\s+\S+\s*$", tour, re.M)
+    assert len(rows) == 1, (
+        f"expected exactly one passing row in the tour's run table; found {rows}. "
+        f"Without it this test would fall back to searching the whole README, which "
+        f"is the defect #169 closed."
+    )
+    assert f"{cosine:.3f}" == rows[0], (
+        f"`diff` prints {cosine} ({cosine:.3f} rounded) but the tour's run table "
+        f"says {rows[0]}; the README describes these as one measurement."
+    )
 
 
 def test_the_fail_example_exits_1_as_the_fence_claims() -> None:
