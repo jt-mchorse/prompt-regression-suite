@@ -214,7 +214,7 @@ Run against the committed examples this exits 1, and the two verdicts are
 worth reading — the text format shows the same result:
 
 ```text
-# prompt-snap run  total=2 failed=1 skipped=0
+# prompt-snap run  total=2 failed=1 skipped=0 unmatched=0
 verdict   cosine  snapshot
 -------- -------  ------------------------
 pass      0.806   examples/snapshots/creative_kite_v1.yml

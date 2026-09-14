@@ -1859,3 +1859,56 @@ speculation: `load_snapshot` does `data.get("schema_version", SCHEMA_VERSION)`,
 defaulting a *missing* version to the supported one rather than abstaining. That
 is a separate question about what an unversioned file means, and #165 has just
 settled the neighbouring rule.
+
+## 2026-09-11 — two README run tables, neither pinned (#169)
+
+**What got done.** The README shows `prompt-snap run`'s output twice — once in the
+feature narrative and once opening the CLI-tour fence — and neither was pinned. One
+had already drifted: its header read `total=2 failed=1 skipped=0` where the tool
+prints `... unmatched=0`. The field was added and only one copy was updated, so the
+README showed two different "same results".
+
+Two prose claims would each have caught it, and each covered a smaller scope than it
+reads as. The sentence "Every verdict, cosine and count in the block above is the
+tool's actual output, pinned by `tests/test_readme_cli_tour_examples.py`" was true
+only after that module's slice boundary, which started at `"# Ad-hoc diff"` — after
+the `run` demonstration opening the same fence. I widened the slice rather than
+narrowing the sentence.
+
+And the one test named for the cross-block check did not make it.
+`test_the_pass_cosine_is_the_same_number_the_run_table_reports` ran `diff`, never
+`run`, never parsed a table, and finished with `assert "0.806" in
+README.read_text()` — the substring anywhere in a 400-line file, which four separate
+mentions satisfy. Its docstring says it exists "so a future edit to either cannot
+silently make them describe different runs". I made that edit: rewrote **both** run
+tables to `0.900`, left every `diff` example's `0.806` alone, and the whole suite
+stayed green at 683 passed. It is 2 red now.
+
+The fix discovers the population instead of listing it — every run block is located
+by the header signature the tool itself prints, so a third block is covered
+automatically. It compares the header's field *set* as well as its values, because
+the original drift was a missing field and a cosine-only comparison is green on
+that; both shapes have their own arm rather than one standing in for the pair. And
+one parser serves both the CLI output and the README blocks, so the README side
+cannot quietly accept a shape the tool never emits.
+
+**A correction to my own work.** I wrote `1144 passed` into the issue body's
+falsification block when the measured number is 683 — a placeholder that survived
+into a filed report. Corrected in place with a note on the issue. The result was
+unchanged, but a number nobody measured is exactly what this repo exists to prevent,
+and it does not get a pass for being in prose rather than in a table.
+
+**Two things measured clean, recorded so the next hunt reads them as answered.**
+`docs/demo-artifacts/regression_demo.html` differs from the committed
+`docs/regression_demo.html` by three `.error` CSS rules — and it is genuinely
+gitignored and untracked, so it is local scratch rather than a stale committed
+artifact, and `capture_demo.py`'s "(gitignored)" comment is true. And
+`test_regression_demo_snapshot.py` already runs the render script and compares
+byte-for-byte, which is the stronger lock shape; the gap here was only on the CLI
+table axis.
+
+**Why this was prioritized.** `prompt-regression-suite` has no open issues at all,
+so the work came from hunting, and the README's own claim that its numbers are "a
+tested artifact rather than prose to hand-sync" was the thing worth testing.
+
+**Open questions / blockers:** none.

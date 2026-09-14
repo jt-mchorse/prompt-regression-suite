@@ -160,6 +160,34 @@ locked by the matching test in `tests/test_cli.py`.
 - **HTML demo snapshot (#12).**
   `tests/test_regression_demo_snapshot.py` locks the committed
   `docs/regression_demo.html` to the renderer output.
+- **Every README `run` table is pinned to measured output (#169).** The
+  README shows `run`'s output twice — once in the feature narrative and
+  once opening the CLI-tour fence — and neither was pinned. One had
+  already drifted: its header read `total=2 failed=1 skipped=0` where the
+  tool prints `... unmatched=0`.
+
+  Two prose claims each covered a smaller scope than they read as. The
+  sentence "Every verdict, cosine and count in the block above is the
+  tool's actual output, pinned by
+  `tests/test_readme_cli_tour_examples.py`" was true only after that
+  module's slice boundary, which began at `"# Ad-hoc diff"` — *after* the
+  `run` demonstration opening the same fence. And
+  `test_the_pass_cosine_is_the_same_number_the_run_table_reports` ran
+  `diff`, never `run`, and ended with `assert "0.806" in
+  README.read_text()` — the substring anywhere in a 400-line file, which
+  four separate mentions satisfy. Measured: rewriting **both** run tables
+  to `0.900` while leaving the `diff` examples alone left all 683 tests
+  green, across exactly the edit that test's docstring said could not
+  happen silently.
+
+  `tests/test_readme_run_tables.py` closes it by **discovering** every run
+  block in the README from the header signature the tool prints, rather
+  than listing them — a hand list is what produced two blocks and one
+  lock. It compares the header's *field set* as well as its values,
+  because the original drift was a missing field and a cosine-only
+  comparison would not have seen it. The tour slice now starts at the
+  fence, so the sentence about it is true, and the cross-block test takes
+  its number from the tour's own table instead of from the file at large.
 - **README session-framing pivot (#14).** Drove the previous round
   of README rewrites; the snapshot tests above are the lock against
   reverting.
