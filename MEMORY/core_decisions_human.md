@@ -225,3 +225,71 @@ positive on the partial run.
 **Reversibility.** Cheap. Worth recording because it changes an exit code: a run
 that previously passed CI can now fail. That is the intended outcome — those runs
 were passing without checking anything.
+
+---
+
+## D-011 — the uniqueness rule covers the whole candidate key space
+**Date:** 2026-09-21 · **Extends:** D-010 · **Reversibility:** cheap
+
+**Decision.** The directory-level uniqueness rule is stated over the key space
+`run` actually reads — each snapshot's relative path *and* its `Snapshot.id` —
+rather than over the id namespace alone.
+
+**Why.** `run`'s candidate lookup tries `rel` first, then `snap.id`. #167 made
+the *id* namespace collision-free. Nothing kept the two namespaces disjoint, and
+`Snapshot.id` is validated only as a non-empty string, so an id may be spelled
+exactly like another file's relative path. One candidate row is then consumed by
+two different snapshots — and `FirstSeenIds` cannot see it, because the two
+*ids* are distinct.
+
+Measured end to end, `a.yml` with id `refund-v1`, `b.yml` with id `"a.yml"`, one
+candidate keyed `"a.yml"`:
+
+| case | exit | `b.yml` |
+|---|---:|---|
+| control — distinct ids | 0 | `skipped`, "no candidate supplied" |
+| collision, `b` differs | 1 | `fail`, cosine 0.000 |
+| **collision, `b` is a copy** | **0** | **`pass`, cosine 1.0** |
+
+The third row is the silently-clean report #150/D-010 established `run` must not
+produce, reached through a different collision. D-010's own mechanism is
+defeated the same way #167 describes: `consumed.add(rel)` marks the key used, so
+`unmatched_candidates` comes back empty. And `validate` called the directory
+`ok: True`.
+
+**The judgment call: which file is the shadow.** For an id/id collision, walk
+order decides — both claims are ids and order is the only tie-break available.
+For an id shadowing a *path*, it must not. A relative path is a file's identity:
+unique by construction and not changeable without moving the file. An id is
+operator-chosen metadata. So the id-carrier is always the offender, whether it
+sorts before or after the file whose path it shadows. Both directions occur and
+are symmetric — measured — and the order-dependent neighbour (first-seen over
+the union) goes red on exactly the "id shadows a later path" case.
+
+**A file claiming a key twice is not a collision.** A snapshot whose own id
+equals its own relative path claims one key, and the lookup consumes it once.
+Hence the `snapshot_id != where` clause; dropping it turns two arms red.
+
+**One finding code, not two.** `duplicate_id` is broadened rather than joined by
+a new code. `FINDING_CODES` is a stable, JSON-routable tuple locked against both
+the module docstring and the README, and this repo's own precedent (#133) is
+that a new code exists when an operator routing on it "needs to fix a
+[different] kind of problem". Here the operator's action is identical in both
+cases — rename a `Snapshot.id`. So the code *list* is unchanged; only its
+documented meaning widens, and the reason string says which collision occurred.
+
+**Alternatives considered:**
+- A new `key_collision` code — rejected; same operator action, and it changes
+  what `duplicate_id` means for anyone already filtering on it.
+- Constrain `Snapshot.id` to a path-free character set — rejected *here*. It
+  closes the overlap at the source, but it is a schema change that could reject
+  snapshots already on disk, and the README documents keying by path *or* id as
+  a deliberate convenience, so the namespaces overlap by design. Refusing the
+  collision is smaller than refusing the shape; refusing the shape has migration
+  cost and deserves its own evidence.
+- First-seen over the union — rejected, and measured wrong: it makes the shadow
+  depend on walk order and flags the wrong file in one of the two directions.
+- Claim only paths and drop #167's id rule — rejected; six arms red, including
+  #167's own tests.
+
+**Related issues:** #171, #167, #150
