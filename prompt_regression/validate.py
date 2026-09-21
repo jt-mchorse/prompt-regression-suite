@@ -12,7 +12,9 @@ the snapshot files in one pass, collect every problem as a
 can render or emit as JSON. The lone supplemental check (over what
 ``load_snapshot`` does file-by-file) is ``duplicate_id`` — the run path
 silently key-collides on identical ``Snapshot.id`` across files, so
-surfacing those at validate time saves a separate audit.
+surfacing those at validate time saves a separate audit. Since #171 it
+covers the whole key space `run` reads: an id that shadows another
+file's relative path collides just as an id that repeats one does.
 
 Finding codes (stable, JSON-routable):
 
@@ -24,7 +26,14 @@ Finding codes (stable, JSON-routable):
                        ``Snapshot.from_dict`` (missing required field,
                        wrong type, malformed embedding vector, ...).
 - ``duplicate_id``   — two snapshot files in the dir resolve to the
-                       same ``Snapshot.id``.
+                       same *candidate key*: either the same
+                       ``Snapshot.id``, or an id spelled exactly like
+                       another file's relative path (#171). `run` looks
+                       candidates up by path **then** id, so both claim
+                       one key for two files, and both are fixed the
+                       same way — rename a ``Snapshot.id``. One code
+                       rather than two because the operator's action is
+                       identical; the reason string says which.
 - ``unreadable``     — the file matched a snapshot glob but could not
                        be *read* (permission denied, a directory whose
                        name ends in ``.yaml``, a broken symlink, a file
@@ -48,6 +57,7 @@ directory. Same convention as ``eval-harness validate`` and
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -222,17 +232,62 @@ class FirstSeenIds:
     disagree about which file is the shadow.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, snapshot_paths: Iterable[str] = ()) -> None:
         self._first_seen: dict[str, str] = {}
+        # Every snapshot file's path relative to the directory, POSIX-style --
+        # the same spelling `run` uses as a candidate key (#171). Known up front
+        # by both callers, which walk the directory before the loop.
+        self._paths: frozenset[str] = frozenset(snapshot_paths)
 
     def shadow_reason_for(self, snapshot_id: str, where: str) -> str | None:
-        """Reason string when *snapshot_id* was already claimed, else ``None``.
+        """Reason string when *snapshot_id* collides, else ``None``.
+
+        Two ways to collide, because `run` looks a candidate up in **two
+        namespaces** -- the file's relative path first, then its ``Snapshot.id``
+        -- and the property it actually depends on is that no candidate key is
+        claimed by two different snapshots (#171):
+
+        1. the id was already claimed by an earlier file (#167); or
+        2. the id is spelled exactly like *another* file's relative path, so a
+           candidate keyed that way is consumed by both of them.
+
+        (2) is not reachable through (1), because the two files' **ids** are
+        distinct -- which is why the #167 rule could not see it. Measured end to
+        end, `a.yml` with id `refund-v1` and `b.yml` with id `"a.yml"`, one
+        candidate keyed `"a.yml"`::
+
+            control  distinct ids  b.yml -> verdict=skipped  cosine=None  exit 0
+            collide  b differs     b.yml -> verdict=fail     cosine=0.0   exit 1
+            collide  b is a copy   b.yml -> verdict=pass     cosine=1.0   exit 0
+
+        The third row is the silently-clean report #150/D-010 established `run`
+        must not produce. Both directions occur and they are symmetric: an id
+        equal to a *later* file's path double-consumes just as one equal to an
+        *earlier* file's path does.
+
+        **A file claiming a key twice is not a collision.** A snapshot whose own
+        id equals its own relative path claims one key, and `run`'s lookup takes
+        the path branch and consumes it once. Hence ``snapshot_id != where``.
+
+        **Which file is the shadow, for (2), does not depend on walk order.** A
+        relative path is a file's identity -- unique by construction and not
+        changeable without moving the file -- while an id is operator-chosen
+        metadata. So the file carrying the *id* is always the offender, whether
+        it sorts before or after the file whose path it shadows. (1) keeps its
+        first-seen rule, where both claims are ids and order is the only thing
+        that can break the tie.
 
         Records *where* as the first-seen location when the id is new, so the
         next collision can name it. The wording is the single source for both
         callers; ``tests/test_validate.py`` and ``tests/test_run_duplicate_id.py``
         assert the two sides produce the identical sentence.
         """
+        if snapshot_id in self._paths and snapshot_id != where:
+            return (
+                f"snapshot id {snapshot_id!r} is also the relative path of another "
+                f"snapshot file in this directory; a candidate keyed {snapshot_id!r} "
+                "would be consumed by both, so an id must not shadow a snapshot path"
+            )
         first = self._first_seen.get(snapshot_id)
         if first is not None:
             return (
@@ -259,7 +314,9 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
 
     paths = _iter_snapshot_paths(snapshots_dir)
     findings: list[ValidationFinding] = []
-    ids = FirstSeenIds()
+    # Seeded with every file's relative path, because `run` accepts those as
+    # candidate keys too and an id that shadows one is the same collision (#171).
+    ids = FirstSeenIds(p.relative_to(snapshots_dir).as_posix() for p in paths)
     n_valid = 0
 
     for path in paths:

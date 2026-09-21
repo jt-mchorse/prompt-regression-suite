@@ -350,6 +350,53 @@ the partial run.
 candidates file shared across several snapshot directories. It turns
 off the failure, not the report.
 
+## The candidate key space is ids UNION relative paths (#171, D-011)
+
+#167 (below) made the *id* namespace collision-free. `run`'s lookup reads
+**two** namespaces, though — the snapshot's path relative to the snapshots
+dir first, then its `Snapshot.id` — and `Snapshot.id` is validated only as
+a non-empty string. So an id may be spelled exactly like another file's
+relative path, one candidate row is consumed by two different snapshots,
+and `FirstSeenIds` cannot see it because the two *ids* are distinct.
+
+`a.yml` has id `refund-v1`; `b.yml` has id `"a.yml"`; one candidate keyed
+`"a.yml"`:
+
+| snapshot dir | `b.yml` verdict | cosine | exit |
+|---|---|---|---|
+| distinct ids (control) | `skipped` | — | 0 |
+| id shadows a path, `b` differs | `fail` | **0.0** | 1 |
+| id shadows a path, `b` is a copy | `pass` | **1.0** | **0** |
+
+The same shape as #167's table, and the third row is the same harm: the
+silently-clean report #150/D-010 says `run` must not produce. D-010's own
+mechanism is defeated identically — `consumed.add(rel)` marks the key used,
+so `unmatched_candidates` comes back empty. `validate` called that directory
+`ok: True`.
+
+So the rule is stated over the key space `run` reads, and `FirstSeenIds` is
+seeded with every file's relative path.
+
+**Which file is the shadow, and why it differs between the two cases.** For
+an id/id collision, walk order decides: both claims are ids, and order is
+the only tie-break there is. For an id shadowing a *path*, it must not. A
+relative path is a file's identity — unique by construction, not changeable
+without moving the file — while an id is operator-chosen metadata. The
+id-carrier is the offender whether it sorts before or after the file whose
+path it shadows; both directions occur and are symmetric.
+
+**A file claiming a key twice is not a collision.** A snapshot whose own id
+equals its own relative path claims one key, and the lookup consumes it
+once. That is the over-broad neighbour, and it has an arm.
+
+**One finding code, not two.** `duplicate_id` is broadened rather than
+joined by a new code: `FINDING_CODES` is stable and JSON-routable, and
+#133's precedent is that a new code exists when an operator routing on it
+needs to fix a different *kind* of problem. Here the fix is the same in
+both cases — rename a `Snapshot.id`. The code list is unchanged; its
+documented meaning widens, and the reason string says which collision it
+was.
+
 ## A duplicate snapshot id is an error in `run`, not only in `validate` (#167)
 
 `validate` has reported `duplicate_id` since #49, and its module
