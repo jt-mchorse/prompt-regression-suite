@@ -288,7 +288,13 @@ def _run_command(args: argparse.Namespace) -> int:
     # equivalent, while being the path CI executes. Driven per file, in the same
     # sorted order `validate_snapshots` walks, so the two agree on *which* file
     # is the shadow rather than by two mirrored edits.
-    ids = FirstSeenIds()
+    #
+    # Seeded with every relative path (#171). The lookup below reads TWO
+    # namespaces -- `rel` then `snap.id` -- so the property this needs is that no
+    # candidate key is claimed by two different snapshots. #167 made the id
+    # namespace collision-free; an id spelled like another file's path still
+    # handed one candidate to both, at `pass` / cosine 1.0 / exit 0.
+    ids = FirstSeenIds(p.relative_to(snapshots_dir).as_posix() for p in snapshot_paths)
     for path in snapshot_paths:
         rel = path.relative_to(snapshots_dir).as_posix()
         # A malformed snapshot under the run dir is an operator input error, not

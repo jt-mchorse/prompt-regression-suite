@@ -1912,3 +1912,55 @@ so the work came from hunting, and the README's own claim that its numbers are "
 tested artifact rather than prose to hand-sync" was the thing worth testing.
 
 **Open questions / blockers:** none.
+
+## 2026-09-21 — Issue #171: the guard walked one of the lookup's two namespaces
+**Duration:** 8 min (measured) · **Branch:** `session/2026-09-21-0806-issue-171`
+
+**How it was found.** prs had no open issues, so this was hunted from #167 — the
+most recent fix, which gave `run` the directory-level uniqueness rule for
+`Snapshot.id`. That guard is correct and complete *for ids*. The lookup it
+protects reads two namespaces:
+
+```python
+if rel in candidates:          ...
+elif snap.id in candidates:    ...
+```
+
+So the property `run` actually depends on is that no candidate key is claimed by
+two different snapshots. The guard was applied to one namespace of two.
+
+**And the overlap is by design**, which is why it is easy to miss: the README
+documents keying candidates by path *or* id as a convenience, and `Snapshot.id`
+is validated only as a non-empty string. Nothing keeps an id from looking like a
+path.
+
+**The table reproduced #167's own table exactly.** Control: distinct ids,
+`b.yml` honestly `skipped`. Collision: `fail` at cosine 0.000. Collision with a
+copy: **`pass`, cosine 1.0, exit 0** — the silently-clean report #150/D-010 says
+`run` must not produce. `validate` called the same directory `ok: True`. The
+control is what makes the rest legible; without the `skipped` row the `fail` row
+looks like a working detector.
+
+**A judgment call I nearly made quietly.** For an id/id collision, walk order
+decides which file is the shadow. For an id shadowing a *path*, it must not — a
+relative path is a file's identity, unique by construction and unchangeable
+without moving the file, while an id is operator-chosen metadata. I only saw
+this because I measured *both* directions (`b.id == a.rel` and `a.id == b.rel`)
+and found them symmetric; the order-dependent neighbour goes red on exactly the
+"id shadows a later path" case. Recorded as D-011 rather than settled in a
+comment.
+
+**Broadening a stable code rather than adding one.** `FINDING_CODES` is
+JSON-routable and locked against both the module docstring and the README.
+#133's precedent is that a new code exists when an operator routing on it needs
+to fix a different *kind* of problem — and here the fix is the same either way:
+rename a `Snapshot.id`. So one code, two reason strings, and the code list is
+unchanged.
+
+**Anti-vacuity.** 7 arms red at the pre-change sha, 3 green — the control, the
+self-claim non-collision, and the inert no-arg default. Dropping the
+`snapshot_id != where` clause turns two red via the self-claim arm. That is the
+third time this run that an arm green on *both* trees was the only discriminator
+for a neighbour; they are not filler.
+
+**Suite:** 689 → 699 green. ruff, `ruff format --check` and mypy clean.
