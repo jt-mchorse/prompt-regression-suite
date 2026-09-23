@@ -1964,3 +1964,16 @@ third time this run that an arm green on *both* trees was the only discriminator
 for a neighbour; they are not filler.
 
 **Suite:** 689 → 699 green. ruff, `ruff format --check` and mypy clean.
+
+## 2026-09-23 — Issue #173: "the one elision" was three
+**Duration:** ~7 min (measured) · **Branch:** session/2026-09-23-0750-issue-173
+
+- The README tells the reader the CLI-tour block is the tool's actual output and names one departure from literal — `update`'s `<abs-path>`. Running the documented `run` command shows three: the snapshot paths are absolute where the block shows repo-relative ones, and each row carries a detail line the block omits.
+- The repo already knew about the second one. `tests/test_readme_run_tables.py` compares basenames, with a comment saying the CLI resolves to an absolute path and the README shows the relative one — a lock compensating for an elision the prose three sections down denies exists.
+- Fixed the paragraph to enumerate all three with reasons, and added a lock that *derives* the elision set by diffing real output against the block rather than trusting the list. It runs in both directions: an elision that disappears makes the paragraph over-stated and reddens it.
+
+**Why this work, this session:** the repo had no open issues, and running a documented command and diffing its output against the fence that quotes it is the cheapest probe available.
+
+**Open questions / blockers:** none.
+
+**Next session:** `stats.py` is the least-worked module and came back clean on this pass; the one oddity is `_hist` tie-breaking on `str(key)`, which orders the int-keyed slot-count histogram lexicographically — reachable only at ten-plus structured slots with tied counts, and the docstring declares the rule, so it was not filed.
