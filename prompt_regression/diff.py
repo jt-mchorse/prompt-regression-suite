@@ -31,6 +31,62 @@ from prompt_regression.schema import Snapshot
 DEFAULT_THRESHOLD = 0.85
 DEFAULT_WARN_BAND = 0.05  # warn if cosine in [threshold - warn_band, threshold)
 
+#: Decimal places the comparison surfaces have always used, and still use
+#: whenever three is enough to tell the two numbers apart.
+COMPARISON_PLACES = 3
+#: Ceiling on widening. A double needs at most 17 significant digits to
+#: round-trip, so 17 decimal places separates any two distinct doubles whose
+#: magnitudes are near 1 -- which `threshold`'s ``(0, 1]`` contract and
+#: `cosine`'s ``[-1, 1]`` range make the operating region. It is a ceiling and
+#: not a guarantee: two subnormal-scale values (``1e-300`` vs ``2e-300``) render
+#: identically at *any* fixed number of places, which is what the `repr`
+#: fallback below is for.
+COMPARISON_MAX_PLACES = 17
+
+
+def render_comparison(value: float, other: float) -> tuple[str, str]:
+    """Render two numbers so an ordering stated between them stays visible.
+
+    `diff_response` decides pass/fail at full float precision and then explains
+    the decision in prose. Rendering both sides of that explanation at a fixed
+    three places made the explanation contradict itself at a near miss (#175)::
+
+        cosine=0.8499996  threshold=0.85  verdict=fail
+        -> "cosine 0.850 below threshold 0.850"
+
+    A *near-threshold* failure is the ordinary shape of a marginal regression,
+    and it is exactly when an operator reads the note most carefully. So the
+    width is chosen by asking whether the two values actually render
+    differently, and widening while they do not.
+
+    **A wider fixed width is not the same fix.** Moving to ``.6f`` makes the
+    collision need a tighter margin (``0.8499999995``) without removing it, and
+    a rule expressed as a hand-picked width has no way to say what it is for.
+    Deciding on the rendered strings cannot drift from what the reader sees,
+    because it *is* what the reader sees. Same shape as the wall-clock cell in
+    `chunking-strategies-lab` D-016, where a magnitude threshold missed the one
+    value half-to-even rounding sends the other way.
+
+    Equal inputs return the narrow rendering unwidened: there is nothing to
+    distinguish, and widening would imply a difference that is not there. The
+    callers never rely on that -- the fail and warn notes are reached only when
+    ``cosine_score < effective_threshold`` strictly, and the tolerance note is
+    guarded by ``!=`` -- but the function is total, so it says what it does.
+
+    Returns both renderings rather than one, because a caller that widened only
+    its own side would print two numbers at different precisions and invite the
+    reader to compare them as written.
+    """
+    if value == other:
+        return (f"{value:.{COMPARISON_PLACES}f}", f"{other:.{COMPARISON_PLACES}f}")
+    for places in range(COMPARISON_PLACES, COMPARISON_MAX_PLACES + 1):
+        rendered = (f"{value:.{places}f}", f"{other:.{places}f}")
+        if rendered[0] != rendered[1]:
+            return rendered
+    # Two distinct doubles too small for any fixed-point rendering to separate.
+    # `repr` round-trips a float by definition, so it always distinguishes them.
+    return (repr(value), repr(other))
+
 
 # ----------------------------------------------------------------------
 # Embedder Protocol + dep-free reference
@@ -738,10 +794,13 @@ def diff_response(
 
     notes: list[str] = []
     if snapshot.tolerance is not None and snapshot.tolerance != threshold:
-        notes.append(
-            f"per-snapshot tolerance {snapshot.tolerance:.3f} overrides run threshold "
-            f"{threshold:.3f}"
-        )
+        # The cleanest case of #175's class: the `!=` on the line above has
+        # *already established* the two values differ, and rendering both at a
+        # fixed three places could then publish "tolerance 0.850 overrides run
+        # threshold 0.850" -- an override the sentence describes as doing
+        # nothing. The guard proved the difference; the rendering hid it.
+        tol_str, thr_str = render_comparison(snapshot.tolerance, threshold)
+        notes.append(f"per-snapshot tolerance {tol_str} overrides run threshold {thr_str}")
     candidate_vec = embedder.embed(candidate_text)
     # The D-006 model-name guard above is a string compare and dimension-blind.
     # A snapshot whose embedding_model matches the active embedder but whose
@@ -791,13 +850,16 @@ def diff_response(
         verdict = "pass"
     elif cosine_warn:
         verdict = "warn"
-        notes.append(
-            f"cosine {cosine_score:.3f} below threshold {effective_threshold:.3f} "
-            "but inside warn band"
-        )
+        # Both notes say "below", which is a claim about an ordering, so both
+        # render through `render_comparison` (#175). Reached only when
+        # `cosine_score < effective_threshold` strictly, so the two values are
+        # never equal here.
+        score_str, thr_str = render_comparison(cosine_score, effective_threshold)
+        notes.append(f"cosine {score_str} below threshold {thr_str} but inside warn band")
     else:
         verdict = "fail"
-        notes.append(f"cosine {cosine_score:.3f} below threshold {effective_threshold:.3f}")
+        score_str, thr_str = render_comparison(cosine_score, effective_threshold)
+        notes.append(f"cosine {score_str} below threshold {thr_str}")
 
     return DiffResult(
         cosine_score=cosine_score,

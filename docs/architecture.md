@@ -444,6 +444,50 @@ enforced in `Snapshot.__post_init__`: uniqueness is a property of the
 directory, not of a snapshot, and the dataclass cannot see its
 siblings.
 
+## A stated ordering stays visible when rendered (#175, D-012)
+
+`diff_response` decides the cosine channel at full float precision --
+`cosine_pass = cosine_score >= effective_threshold` -- and then explains
+the decision in prose. Rendering both sides of that explanation at a
+fixed three places made the explanation contradict itself at a near
+miss: a run with a cosine of `0.8499996` against a threshold of `0.85`
+published `cosine 0.850 below threshold 0.850`. The verdict was right in
+every such case, which is why the whole suite stayed green over it -- the
+defect was never in the gate, only in how the gate was reported.
+
+`render_comparison` renders a pair so the ordering the surrounding
+sentence asserts stays readable: three places when three places suffice,
+widening only while the two render identically, and always returning
+both sides at the same precision. The rule is on the rendered strings
+rather than on a width, because a wider fixed width relocates the
+collision instead of removing it -- `.6f` still collides at
+`0.8499999995`. Two distinct subnormal-scale values cannot be separated
+by any fixed number of places, so the helper falls back to `repr`, which
+round-trips a float by definition.
+
+Both sides at the same precision is the harder half. Widening only the
+value looks correct while the *cosine* is the side carrying the long
+decimal expansion, which is what happens whenever the threshold is a
+round configured number. In the other orientation -- a threshold derived
+by arithmetic -- that neighbour renders `cosine 0.8500000000 below
+threshold 0.850`, which read as written states the reverse of the
+verdict.
+
+Four surfaces render the pair and all four go through the helper: the
+fail note, the warn note, the per-snapshot tolerance note, and the HTML
+report's meta line beside the verdict badge. The tolerance note is the
+clearest of them, because it is emitted under `snapshot.tolerance !=
+threshold` -- the inequality is established one line above the
+rendering, so at three places the report could describe an override that
+changes nothing.
+
+The CLI's `cosine: ... (threshold ...)` line is deliberately outside
+this rule. It renders the two sides at different precisions, so trailing
+zeros keep them from ever reading as the same number, and the sentence
+asserts no ordering -- it reports a score and, parenthetically, the
+configured threshold. That exclusion is held by a test rather than a
+comment, so it fails if the asymmetry it depends on is ever removed.
+
 ## Where to look next
 
 - **Layer code** — `prompt_regression/<module>.py` per the directory
