@@ -333,9 +333,31 @@ prompt-snap update \
 Every verdict, cosine and count in the block above is the tool's actual output,
 pinned by `tests/test_readme_cli_tour_examples.py` — the commands are run and
 their exit codes and printed numbers asserted, so the block is a tested artifact
-rather than prose to hand-sync. The one elision is `update`'s `<abs-path>`
-prefix: it echoes the resolved absolute path, which differs per machine (on
-macOS `/tmp` resolves to `/private/tmp`), so the lock asserts the suffix.
+rather than prose to hand-sync.
+
+Three things in the block are **not** literal, all of them in service of a
+per-machine path or of keeping the fence readable. They are listed because a
+completeness claim that is wrong is worse than none — a reader who runs the
+command and sees different text needs to know which differences are expected
+(#173):
+
+1. `update`'s `<abs-path>` prefix. It echoes the resolved absolute path, which
+   differs per machine (on macOS `/tmp` resolves to `/private/tmp`), so the lock
+   asserts the suffix.
+2. The `run` table's **snapshot paths**. `run` resolves `--snapshots` and prints
+   absolute paths; the block shows the repo-relative ones, because the absolute
+   form is per-machine for the same reason as (1) and is three times the width of
+   the column. `tests/test_readme_run_tables.py` compares basenames for exactly
+   this reason, and says so at the line that does it.
+3. The `run` table's per-row **detail lines**. Each row is followed by an
+   indented `- …` note in real output — for these fixtures, the tolerance
+   override on the `pass` row and the embedder-mismatch message on the `error`
+   row. Both texts appear verbatim elsewhere in this fence, under `diff`, so the
+   block omits them rather than printing each twice.
+
+`tests/test_readme_run_block_elisions.py` derives that list by diffing real
+output against the block rather than trusting this paragraph, so an elision that
+appears or disappears turns it red.
 
 The candidates JSONL row shape is
 `{"snapshot": "<path-relative-to-snapshots-dir>", "candidate": "<text>"}`
