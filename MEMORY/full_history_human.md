@@ -1977,3 +1977,17 @@ for a neighbour; they are not filler.
 **Open questions / blockers:** none.
 
 **Next session:** `stats.py` is the least-worked module and came back clean on this pass; the one oddity is `_hist` tie-breaking on `str(key)`, which orders the int-keyed slot-count histogram lexicographically — reachable only at ten-plus structured slots with tied counts, and the docstring declares the rule, so it was not filed.
+
+## 2026-09-24 — Issue #175: a near miss no longer reads "cosine 0.850 below threshold 0.850"
+**Duration:** ~7 min · **Branch:** `session/2026-09-24-0741-issue-175` · **Decision:** D-012
+
+- `diff_response` decides pass/fail at full float precision and explained the decision at a fixed three places, so a near-threshold failure published a note that contradicted itself. That is the ordinary shape of a marginal regression, and the moment an operator reads the note most carefully. The guard was never wrong — only its explanation — which is why 704 tests stayed green over it.
+- `render_comparison` now widens from three places only while the two values render identically, and always returns both sides at the same precision. The rule is on the rendered strings rather than on a width: `.6f` merely needs a tighter margin to collide.
+- Four surfaces render the pair and all four go through the helper. The clearest is the per-snapshot tolerance note, which fires under `snapshot.tolerance != threshold` — the inequality is established one line above the rendering, so at three places it could describe an override that changes nothing.
+- The CLI's `cosine: … (threshold …)` line is deliberately excluded, and that exclusion is written as a test rather than a comment, so it fails loudly if the asymmetry it depends on is ever removed.
+
+**Why this work, this session:** the portfolio's entire non-gated backlog was cleared earlier in this same run, so this was hunted. It came out of re-running the previous session's fixed-decimal sweep **by column instead of by repo** — which also turned up `chunking-strategies-lab#198`, filed not worked.
+
+**Open questions / blockers:** none. The README's CLI tour output is byte-identical on all three pinned lines and the tracked demo report regenerates with zero diff.
+
+**Next session:** the transferable finding is about my own testing, not the code: a pairwise sweep where one side is always the "interesting" one walks half the population. The neighbour that widens only one side passed all 42 arms until a reversed-orientation sweep and a structural same-precision arm were added.
