@@ -49,6 +49,7 @@ from .diff import (
     NonFiniteEmbeddingError,
     WarnBandThresholdError,
     diff_response,
+    render_comparison,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import (
@@ -754,6 +755,13 @@ def _diff_command(args: argparse.Namespace) -> int:
     return 0 if result.verdict != "fail" else 1
 
 
+#: Decimal places the CLI's `cosine:` line has always published, and the width
+#: `tests/test_readme_cli_tour_examples.py` pins byte-for-byte. Deliberately not
+#: `diff.COMPARISON_PLACES` — this surface and the notes disagree about width,
+#: and #177 is what happens when one of them silently adopts the other's.
+_CLI_COSINE_PLACES = 4
+
+
 def _format_diff_text(result: DiffResult) -> str:
     """Render the human-readable text shape of a single `diff_response` result.
 
@@ -762,9 +770,23 @@ def _format_diff_text(result: DiffResult) -> str:
     sink decision (`--out` vs. stdout) lives in one place and the text
     shape is exercisable from tests without `capsys`.
     """
+    # `render_comparison`, not a bare `.4f` against an unformatted threshold
+    # (#177). #175 excluded this line on two claims and both were false. The
+    # first — different precisions plus trailing zeros mean the two can never
+    # render alike — holds only while the threshold's `repr` has fewer than
+    # four decimals; `--threshold 0.8501` renders `0.8501` on both sides. The
+    # second — "the sentence asserts no ordering" — is true of the sentence and
+    # false of the output, because `verdict:` is the line directly above, and
+    # the gate is `>=`, so a cosine equal to the threshold *passes*.
+    # Four places, the width this line has always published and the one the
+    # README CLI tour pins. Passed explicitly rather than defaulted — see
+    # `render_comparison`'s docstring on why that parameter is required.
+    score_str, thr_str = render_comparison(
+        result.cosine_score, result.threshold, places=_CLI_COSINE_PLACES
+    )
     lines: list[str] = [
         f"verdict: {result.verdict}",
-        f"cosine:  {result.cosine_score:.4f} (threshold {result.threshold})",
+        f"cosine:  {score_str} (threshold {thr_str})",
         f"embedder: {result.embedder_model}  (snapshot: {result.snapshot_embedding_model})",
     ]
     if result.slot_deltas:

@@ -233,7 +233,7 @@ def test_both_sides_are_rendered_at_the_same_precision(value: float, other: floa
     This is the arm that rejects the widen-one-side neighbour in every
     orientation, rather than only where the outcome happens to be visible.
     """
-    rendered_value, rendered_other = render_comparison(value, other)
+    rendered_value, rendered_other = render_comparison(value, other, places=COMPARISON_PLACES)
     assert _decimal_places(rendered_value) == _decimal_places(rendered_other), (
         f"render_comparison({value!r}, {other!r}) returned "
         f"{(rendered_value, rendered_other)} — the two sides are at different "
@@ -270,8 +270,8 @@ def test_ordinary_values_keep_the_narrow_rendering() -> None:
     0.750` and `docs/regression_demo.html` is tracked with `0.218` / `0.850`; a
     wider fixed width churns both.
     """
-    assert render_comparison(0.0508, 0.75) == ("0.051", "0.750")
-    assert render_comparison(0.218, 0.85) == ("0.218", "0.850")
+    assert render_comparison(0.0508, 0.75, places=COMPARISON_PLACES) == ("0.051", "0.750")
+    assert render_comparison(0.218, 0.85, places=COMPARISON_PLACES) == ("0.218", "0.850")
     result = _diff_at(0.0508, 0.75)
     assert "cosine 0.051 below threshold 0.750" in result.notes, (
         f"the README-pinned note text moved: {result.notes}"
@@ -285,7 +285,7 @@ def test_equal_values_are_not_widened() -> None:
     `>=`. The notes never see it (they are reached only on a strict `<`), but the
     HTML meta line renders the pair for every verdict.
     """
-    assert render_comparison(0.85, 0.85) == ("0.850", "0.850")
+    assert render_comparison(0.85, 0.85, places=COMPARISON_PLACES) == ("0.850", "0.850")
 
 
 def test_values_too_small_for_any_fixed_width_fall_back_to_repr() -> None:
@@ -296,12 +296,12 @@ def test_values_too_small_for_any_fixed_width_fall_back_to_repr() -> None:
     separate them. `repr` round-trips a float by definition.
     """
     assert f"{1e-300:.{COMPARISON_MAX_PLACES}f}" == f"{2e-300:.{COMPARISON_MAX_PLACES}f}"
-    assert render_comparison(1e-300, 2e-300) == ("1e-300", "2e-300")
+    assert render_comparison(1e-300, 2e-300, places=COMPARISON_PLACES) == ("1e-300", "2e-300")
 
 
 def test_a_negative_cosine_still_renders() -> None:
     """An orthogonal-or-opposed candidate is a legitimate score, not an edge case."""
-    assert render_comparison(-0.5, 0.85) == ("-0.500", "0.850")
+    assert render_comparison(-0.5, 0.85, places=COMPARISON_PLACES) == ("-0.500", "0.850")
 
 
 def test_the_warn_note_is_covered_too() -> None:
@@ -388,26 +388,144 @@ def test_the_html_report_and_its_notes_agree_on_precision() -> None:
     )
 
 
-def test_the_cli_line_cannot_read_as_a_contradiction() -> None:
-    """`cli.py`'s `cosine: … (threshold …)` is excluded, and this is the reason.
+# Thresholds, chosen to make the population visible rather than to pass.
+# #177's finding is that the #175 exclusion for the CLI line rested on the
+# threshold's `repr` being SHORTER than the cosine's fixed width — true of every
+# round default, false as soon as the operator passes one with four decimals.
+# `--threshold` is `type=float` on both `check` and `diff`, so both halves of
+# this table are one flag away.
+_CLI_THRESHOLDS = (
+    pytest.param(0.85, id="round-default"),
+    pytest.param(0.5, id="round-half"),
+    pytest.param(0.6, id="round-0.6"),
+    pytest.param(0.8501, id="four-decimal-repr"),
+    pytest.param(0.1234, id="four-decimal-low"),
+    pytest.param(0.9999, id="four-decimal-high"),
+    pytest.param(0.1 + 0.2 - 0.25, id="arithmetic-derived"),
+)
 
-    It renders the cosine at `.4f` and the threshold *unformatted*, so the two
-    sides are at different precisions and the trailing zeros mean they can never
-    render as the same string — `f"{0.85:.4f}"` is `'0.8500'` while `str(0.85)`
-    is `'0.85'`. And the sentence asserts no ordering: it reports a score and,
-    parenthetically, the configured threshold. The line in that output which
-    *does* assert an ordering is the note, which is fixed.
 
-    Stated as a test rather than a comment because the exclusion is only valid
-    while that asymmetry holds. If someone formats the threshold to match the
-    cosine, this arm fails and the exclusion has to be revisited.
+@pytest.mark.parametrize("threshold", _CLI_THRESHOLDS)
+def test_the_cli_verdict_and_cosine_lines_cannot_contradict_each_other(
+    threshold: float,
+) -> None:
+    """The `verdict:` / `cosine:` pair, read as a reader reads it (#177).
+
+    #175 excluded this surface on two claims and both were false.
+
+    *"Trailing zeros keep them from ever reading as the same number"* holds only
+    while the threshold's `repr` is shorter than four decimals. At `0.8501` a
+    near-miss rendered ``cosine:  0.8501 (threshold 0.8501)`` — the exact #175
+    collision, in the one surface #175 decided it could not reach.
+
+    *"The sentence asserts no ordering"* is true of the sentence and false of
+    the output, because `_format_diff_text` puts `verdict:` on the line directly
+    above. The gate is ``cosine_score >= effective_threshold``, so a cosine
+    equal to the threshold **passes** — and the old rendering let a `fail`
+    verdict sit above two numbers that read as equal.
+
+    So this arm asserts the *relationship*, not the strings: read both lines
+    back and require them to agree. Same lens as
+    `agent-orchestration-platform#147`, where a headline and its own body were
+    each correct alone.
+
+    The old arm was a single call at `0.85` behind a docstring that claimed a
+    universal, and it asserted only that the two *strings* differed. Measured
+    against the pre-#177 line, this arm goes red on **6 of these 7** ids — and
+    `round-default` is one of them. So the surface was already broken at the
+    shipped default, by a mechanism neither #175 nor #177's own issue named:
+    `f"{0.85 - 1e-9:.4f}"` is `'0.8500'` against `str(0.85)` = `'0.85'`, which
+    are different strings that read as the *same value*, so the pair states
+    "0.85 is below 0.85" under a `fail` verdict. Asserting inequality of the
+    rendered strings was the wrong unit; asserting the pair agrees with the
+    verdict is the right one.
+
+    The one id this arm does *not* catch is `arithmetic-derived`, and
+    `test_the_cli_renders_both_sides_at_the_same_precision` catches exactly
+    that one plus the three round ones. The two arms are complementary on this
+    table and neither covers it alone — which is the argument for keeping both.
     """
     from prompt_regression.cli import _format_diff_text
 
-    text = _format_diff_text(_diff_at(0.8499996, 0.85))
+    text = _format_diff_text(_diff_at(threshold - 1e-9, threshold))
+    verdict = re.search(r"verdict: (\S+)", text)
+    match = re.search(r"cosine:\s+(\S+) \(threshold (\S+)\)", text)
+    assert verdict is not None, text
+    assert match is not None, text
+    rendered_cosine, rendered_threshold = match.groups()
+
+    assert rendered_cosine != rendered_threshold, (
+        f"the CLI renders cosine and threshold identically at threshold="
+        f"{threshold!r}, above a {verdict.group(1)!r} verdict:\n{text}"
+    )
+    # A `fail` means the cosine was strictly below; the rendering must say so.
+    assert float(rendered_cosine) < float(rendered_threshold), (
+        f"the rendered pair states the reverse of the {verdict.group(1)!r} "
+        f"verdict at threshold={threshold!r}:\n{text}"
+    )
+
+
+@pytest.mark.parametrize("threshold", _CLI_THRESHOLDS)
+def test_the_cli_renders_both_sides_at_the_same_precision(threshold: float) -> None:
+    """The structural half, and the one that rejects the wrong neighbour.
+
+    Before #177 this line rendered its two sides at *different* precisions by
+    design — `.4f` against an unformatted threshold. That is precisely the
+    "widen only one side" shape #175 measured as reading backwards, so the
+    ordering arm above is not enough on its own.
+
+    Measured against the pre-#177 line: this arm goes red on `round-default`,
+    `round-half`, `round-0.6` and `arithmetic-derived` — and stays green on all
+    three four-decimal ids, where the two sides happen to land on the same
+    width. That is the exact complement of the ordering arm above, which goes
+    red on the four-decimal ids and green on `arithmetic-derived`. Together
+    they cover all seven; separately neither does.
+    """
+    from prompt_regression.cli import _format_diff_text
+
+    text = _format_diff_text(_diff_at(threshold - 1e-9, threshold))
     match = re.search(r"cosine:\s+(\S+) \(threshold (\S+)\)", text)
     assert match is not None, text
-    assert match.group(1) != match.group(2), (
-        f"the CLI line now renders cosine and threshold identically ({text!r}); "
-        f"the #175 exclusion for this surface assumed it could not."
+    left, right = match.groups()
+    assert "." in left, text
+    assert "." in right, text
+    assert len(left.split(".")[1]) == len(right.split(".")[1]), (
+        f"the CLI renders its two sides at different precisions ({left!r} vs "
+        f"{right!r}) at threshold={threshold!r}:\n{text}"
     )
+
+
+def test_the_cli_line_still_publishes_four_places_for_an_ordinary_result() -> None:
+    """The width this surface publishes is its own, not the notes' (#177).
+
+    Routing the line through a helper that hardcoded `COMPARISON_PLACES` (3)
+    republished the README CLI tour's `cosine:  0.8058` as `0.806` — narrowing
+    a documented number while fixing an unrelated defect, which is the
+    regression `llm-eval-harness#252` shipped. `places` is a required argument
+    for that reason, and this arm is what proves the CLI passes its own.
+
+    The cosine here renders differently from the threshold at three places
+    already, so nothing widens: four places is the caller's width showing
+    through, not a collision being resolved.
+    """
+    from prompt_regression.cli import _CLI_COSINE_PLACES, _format_diff_text
+
+    assert _CLI_COSINE_PLACES == 4
+    text = _format_diff_text(_diff_at(0.8058, 0.75))
+    assert "cosine:  0.8058 (threshold 0.7500)" in text, text
+
+
+def test_the_notes_and_the_cli_line_keep_their_own_widths() -> None:
+    """Anti-vacuity for the arm above: prove the two widths really differ.
+
+    If both surfaces published the same number of places, `places` being a
+    required parameter would be untested ceremony and a future default could
+    creep back in unnoticed. They do not: the note renders three, the CLI four,
+    from the same `DiffResult`.
+    """
+    from prompt_regression.cli import _format_diff_text
+
+    result = _diff_at(0.0508, 0.75)
+    text = _format_diff_text(result)
+    assert "cosine:  0.0508 (threshold 0.7500)" in text, text
+    assert "cosine 0.051 below threshold 0.750" in text, text
