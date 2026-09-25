@@ -310,3 +310,77 @@ Both sides of such a sentence now go through `render_comparison`, which starts a
 **`cli.py` is deliberately excluded, and the exclusion is itself a test.** Its `cosine: … (threshold …)` line renders the cosine at `.4f` and the threshold unformatted, so the two sides sit at different precisions and trailing zeros mean they can never render as the same string. It also asserts no ordering: it reports a score and, parenthetically, the configured threshold. The line in that output which *does* assert an ordering is the note, which is fixed. Written as `test_the_cli_line_cannot_read_as_a_contradiction`, so if anyone formats the threshold to match the cosine the exclusion fails loudly instead of rotting.
 
 **Rejected outright:** rounding the *comparison* to match the display. That makes the gate less precise in order to make the message consistent, which is backwards. D-004's two-channel verdict is untouched.
+
+---
+
+## D-013 — the CLI `cosine:` line joins the rule D-012 excluded it from
+
+**Date.** 2026-09-25 · **Issue.** #177 · **Reversibility.** cheap
+**Supersedes.** D-012's CLI-exclusion paragraph only. The rest of D-012 stands.
+
+**Decision.** `cli.py`'s `cosine: … (threshold …)` line renders through
+`render_comparison`, like the other four surfaces. `render_comparison` gains a
+**required** `places` parameter so each surface keeps its own width.
+
+**Why.** D-012 excluded this line on two claims, and both are false.
+
+*"It renders the two sides at different precisions, so trailing zeros keep them
+from ever reading as the same number."* True only while the threshold's `repr`
+has fewer than four decimals. `f"{x:.4f}"` against `str(x)` collides at
+`0.8501`, `0.1234`, `0.9999` — and `--threshold` is `type=float` on both
+`check` and `diff`. The argument silently assumed a *round configured*
+threshold, which the default happens to be.
+
+*"The sentence asserts no ordering."* True of the sentence, false of the output.
+`_format_diff_text` puts `verdict:` on the line directly above, and the gate is
+`>=`, so a cosine equal to the threshold **passes**. Measured:
+
+```
+verdict: fail
+cosine:  0.8501 (threshold 0.8501)
+```
+
+**And the surface was already broken at the shipped default**, by a mechanism
+neither D-012 nor #177's own issue named. Rewritten as a seven-threshold table
+and run against the old line, the ordering arm goes red on **six of seven** —
+including `round-default`. `f"{0.85 - 1e-9:.4f}"` is `'0.8500'` and `str(0.85)`
+is `'0.85'`: two different strings that read as the *same value*, so the pair
+states "0.85 is below 0.85" under a `fail` verdict. The old arm asserted only
+that the two strings *differ*. That was the wrong unit; the right one is whether
+the pair agrees with the verdict.
+
+**The old exclusion was held by one data point behind a universal docstring.**
+A single call at `0.85`, under a docstring claiming the two "can never render as
+the same string". A green arm on a false universal is worse than no arm, because
+it reads as a guarantee.
+
+**The two replacement arms are exactly complementary, measured.** Against the
+old line, the ordering arm is red on six of seven and green on
+`arithmetic-derived`; the structural same-precision arm is red on the three
+round ids plus `arithmetic-derived` and green on the three four-decimal ones.
+Together they cover all seven; separately neither does. That is the argument for
+keeping both, rather than a style preference.
+
+**`places` is now required, and this issue is the evidence.** The helper
+hardcoded `COMPARISON_PLACES` (3). The first caller with a different width
+arrived here — the CLI line publishes four — and routing it through the
+three-place helper republished the README CLI tour's pinned `cosine:  0.8058`
+as `0.806`. Narrowing a documented number while fixing an unrelated defect is
+the regression `llm-eval-harness#252` shipped, and it was caught here only
+because `test_readme_cli_tour_examples` pins the line byte-for-byte.
+
+**Published output did move, and the move is documented rather than silent.**
+The *measured* cosine is byte-identical (`0.8058`, `0.0508`); the threshold
+gains trailing zeros (`0.75` → `0.7500`), which is the same-precision rule doing
+its job. Two independent locks covered that line; the second pins that the
+effective threshold is visibly different from the `0.850` default, and that
+property is unchanged.
+
+**Alternatives considered.** All built and run.
+- *Narrow the exclusion to round thresholds.* Rejected: claim 2 is false for
+  every threshold, so there is no scope on which the stated reason holds.
+- *Route it at the notes' width of 3.* Rejected: 4 red — the `leh#252`
+  regression.
+- *Widen only the cosine side.* Rejected: 10 red, 7 on the structural arm.
+- *Keep the old arm and add cases.* Rejected: its assertion was on the wrong
+  unit, so more cases would not have helped.
