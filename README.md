@@ -78,7 +78,7 @@ prompt_regression/
 
 See [`docs/schema.md`](docs/schema.md) for the full field reference and
 [`docs/architecture.md`](docs/architecture.md) for how the diff and report
-layers plug in, plus the design decisions behind each layer (D-002…D-012).
+layers plug in, plus the design decisions behind each layer (D-002…D-013).
 
 ## Quickstart
 
@@ -295,7 +295,7 @@ prompt-snap diff \
     --snapshot examples/snapshots/creative_kite_v1.yml \
     --candidate "A kite drifts above an empty beach in the late afternoon. The salt wind tugs the string, a child below laughs and tugs back, and the horizon is a thin orange line, almost gone."
 # verdict: pass
-# cosine:  0.8058 (threshold 0.75)
+# cosine:  0.8058 (threshold 0.7500)
 # embedder: hash-embedder-128d-ngram2  (snapshot: hash-embedder-128d-ngram2)
 # notes:
 #   - per-snapshot tolerance 0.750 overrides run threshold 0.850
@@ -305,7 +305,7 @@ prompt-snap diff \
     --snapshot examples/snapshots/creative_kite_v1.yml \
     --candidate "The quarterly revenue forecast was revised upward by nine percent."
 # verdict: fail
-# cosine:  0.0508 (threshold 0.75)
+# cosine:  0.0508 (threshold 0.7500)
 # notes:
 #   - cosine 0.051 below threshold 0.750
 

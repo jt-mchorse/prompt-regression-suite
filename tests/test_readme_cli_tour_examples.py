@@ -91,7 +91,7 @@ def test_the_pass_example_produces_the_documented_verdict_and_cosine() -> None:
     assert proc.returncode == 0, proc.stderr
     out = proc.stdout
     assert "verdict: pass" in out
-    assert "cosine:  0.8058 (threshold 0.75)" in out
+    assert "cosine:  0.8058 (threshold 0.7500)" in out
     assert "embedder: hash-embedder-128d-ngram2  (snapshot: hash-embedder-128d-ngram2)" in out
     assert "per-snapshot tolerance 0.750 overrides run threshold 0.850" in out
 
@@ -135,7 +135,7 @@ def test_the_fail_example_exits_1_as_the_fence_claims() -> None:
     proc = _run("diff", "--snapshot", KITE, "--candidate", FAIL_CANDIDATE)
     assert proc.returncode == 1, proc.stderr
     assert "verdict: fail" in proc.stdout
-    assert "cosine:  0.0508 (threshold 0.75)" in proc.stdout
+    assert "cosine:  0.0508 (threshold 0.7500)" in proc.stdout
     assert "cosine 0.051 below threshold 0.750" in proc.stdout
 
 

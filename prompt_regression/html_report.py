@@ -24,7 +24,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 
-from prompt_regression.diff import DiffResult, render_comparison
+from prompt_regression.diff import COMPARISON_PLACES, DiffResult, render_comparison
 
 
 @dataclass(frozen=True)
@@ -125,7 +125,9 @@ def _render_entry(entry: Entry, anchor: str) -> str:
     # the notes inside it cannot disagree about how many places to show. On a
     # PASS row where cosine == threshold exactly the two are genuinely equal and
     # `render_comparison` leaves them at the narrow width.
-    score, threshold = render_comparison(entry.diff.cosine_score, entry.diff.threshold)
+    score, threshold = render_comparison(
+        entry.diff.cosine_score, entry.diff.threshold, places=COMPARISON_PLACES
+    )
     badge = f'<span class="badge {verdict}">{verdict.upper()}</span>'
 
     parts: list[str] = [

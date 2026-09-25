@@ -481,12 +481,36 @@ threshold` -- the inequality is established one line above the
 rendering, so at three places the report could describe an override that
 changes nothing.
 
-The CLI's `cosine: ... (threshold ...)` line is deliberately outside
-this rule. It renders the two sides at different precisions, so trailing
-zeros keep them from ever reading as the same number, and the sentence
-asserts no ordering -- it reports a score and, parenthetically, the
-configured threshold. That exclusion is held by a test rather than a
-comment, so it fails if the asymmetry it depends on is ever removed.
+The CLI's `cosine: ... (threshold ...)` line was deliberately outside
+this rule until #177. **That exclusion is withdrawn (D-013), because both
+halves of its stated reason were false.**
+
+It rested on the two sides being at different precisions, so that trailing
+zeros would keep them from ever reading as the same number. That holds only
+while the threshold's `repr` has fewer than four decimals -- `f"{x:.4f}"`
+against `str(x)` collides at `0.8501`, `0.1234` and `0.9999`, and
+`--threshold` is `type=float` on both `check` and `diff`. The argument had
+quietly assumed a *round configured* threshold, which the default is.
+
+It also rested on the sentence asserting no ordering. True of the sentence;
+false of the output, because `_format_diff_text` puts `verdict:` on the line
+directly above, and the gate is `>=`, so a cosine equal to the threshold
+passes. `verdict: fail` above `cosine:  0.8501 (threshold 0.8501)` is a
+contradiction between two adjacent published facts.
+
+The exclusion was held by a test, which is the right instinct -- but by a
+single call at `0.85`, under a docstring claiming a universal, asserting only
+that the two strings *differ*. That is the wrong unit: at the default
+threshold `'0.8500'` and `'0.85'` differ as strings and read as the same
+value. The replacement is a seven-threshold table asserting the pair agrees
+with the verdict, plus a structural same-precision arm; measured against the
+old line, the two are exactly complementary and neither covers the table
+alone.
+
+`render_comparison` now takes a **required** `places`, because this line
+publishes four places where the notes publish three, and a helper with a
+hardcoded width silently republished the README tour's `cosine:  0.8058` as
+`0.806`.
 
 ## Where to look next
 
