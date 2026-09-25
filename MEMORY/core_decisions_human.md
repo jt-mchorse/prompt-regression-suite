@@ -293,3 +293,20 @@ documented meaning widens, and the reason string says which collision occurred.
   #167's own tests.
 
 **Related issues:** #171, #167, #150
+
+## D-012 — A stated ordering stays visible when its two numbers are rendered
+**Date:** 2026-09-24 · **Reversibility:** cheap · **Issues:** #175 (with #10, #35)
+
+`diff_response` decides `cosine_pass = cosine_score >= effective_threshold` at full float precision and then explained the decision at a fixed three decimal places. So a near-threshold failure published a note that contradicted itself: `cosine 0.850 below threshold 0.850`. A near-threshold failure is the ordinary shape of a marginal regression, and it is exactly when an operator reads the note most carefully. The guard was never wrong — only its explanation was, which is why no existing test caught it: every verdict in every one of these cases is correct.
+
+Both sides of such a sentence now go through `render_comparison`, which starts at three places and widens only while the two render identically, and always returns both sides at the same precision.
+
+**Why the rule is on the rendered strings and not on a width.** A wider fixed width is not the same fix: `.6f` makes the collision need a tighter margin (`0.8499999995`) without removing it — that neighbour was built and run, five arms red. A rule expressed as a hand-picked width also has no way to say what it is *for*. Deciding on the rendered strings cannot drift from what the reader sees, because it *is* what the reader sees.
+
+**Same precision on both sides is a separate and harder requirement.** The neighbour that widens only the value passed the first sweep, because every margin in that sweep sat below a round `0.85`, so the cosine was always the side with the long expansion — half the population. In the other orientation the neighbour renders `cosine 0.8500000000 below threshold 0.850`, where the rendered score is *not* less than the rendered threshold. The note then states the reverse of the verdict, which is worse than hiding it. A reversed-orientation sweep and a structural same-precision arm took that neighbour from zero red to thirteen.
+
+**Four surfaces, and the tolerance note is the cleanest case.** The fail note, the warn note, the per-snapshot tolerance note, and the HTML report's meta line beside the verdict badge. The tolerance note is emitted under `snapshot.tolerance != threshold`, so an inequality is established one line before the rendering; at three places it could publish `per-snapshot tolerance 0.850 overrides run threshold 0.850` — an override described as changing nothing. The guard proved the difference and the rendering hid it.
+
+**`cli.py` is deliberately excluded, and the exclusion is itself a test.** Its `cosine: … (threshold …)` line renders the cosine at `.4f` and the threshold unformatted, so the two sides sit at different precisions and trailing zeros mean they can never render as the same string. It also asserts no ordering: it reports a score and, parenthetically, the configured threshold. The line in that output which *does* assert an ordering is the note, which is fixed. Written as `test_the_cli_line_cannot_read_as_a_contradiction`, so if anyone formats the threshold to match the cosine the exclusion fails loudly instead of rotting.
+
+**Rejected outright:** rounding the *comparison* to match the display. That makes the gate less precise in order to make the message consistent, which is backwards. D-004's two-channel verdict is untouched.

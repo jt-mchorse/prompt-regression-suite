@@ -24,7 +24,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 
-from prompt_regression.diff import DiffResult
+from prompt_regression.diff import DiffResult, render_comparison
 
 
 @dataclass(frozen=True)
@@ -119,8 +119,13 @@ def _render_entry(entry: Entry, anchor: str) -> str:
     verdict = entry.diff.verdict
     klass = f"section {verdict}"
     snap_id = html.escape(entry.snapshot_id)
-    score = f"{entry.diff.cosine_score:.3f}"
-    threshold = f"{entry.diff.threshold:.3f}"
+    # The meta line prints the pair the verdict badge beside it is a claim
+    # about, so on a FAIL row "cosine 0.850 · threshold 0.850" reads as the
+    # badge being wrong (#175). Same helper the notes use, so the document and
+    # the notes inside it cannot disagree about how many places to show. On a
+    # PASS row where cosine == threshold exactly the two are genuinely equal and
+    # `render_comparison` leaves them at the narrow width.
+    score, threshold = render_comparison(entry.diff.cosine_score, entry.diff.threshold)
     badge = f'<span class="badge {verdict}">{verdict.upper()}</span>'
 
     parts: list[str] = [
