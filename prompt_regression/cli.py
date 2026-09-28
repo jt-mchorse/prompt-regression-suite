@@ -49,6 +49,7 @@ from .diff import (
     NonFiniteEmbeddingError,
     WarnBandThresholdError,
     diff_response,
+    render_classified,
     render_comparison,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
@@ -231,7 +232,23 @@ def _row_for(path: Path, snap: Snapshot, result: DiffResult) -> dict:
         "snapshot_path": str(path),
         "snapshot_id": snap.id,
         "verdict": result.verdict,
-        "cosine": round(result.cosine_score, 4),
+        # The exact score, not `round(..., 4)` (#179). The verdict beside it is
+        # decided on `result.cosine_score` at full precision against this same
+        # `threshold`, which is published unrounded — so rounding one side made
+        # the machine-readable row **contradict its own verdict field**.
+        # Measured at the shipped `DEFAULT_THRESHOLD = 0.85`:
+        #
+        #   true 0.84999 -> {"cosine": 0.85, "threshold": 0.85, "verdict": "fail"}
+        #
+        # A consumer re-deriving `cosine >= threshold` from that row gets
+        # `pass`. #175's "mixed precision is worse than matched" argument,
+        # reaching the one surface where a *machine* compares the two numbers.
+        #
+        # The round dates from the original CLI commit (#5/#9) with no stated
+        # reason; `git log -S` finds no argument for it. Nothing needs a
+        # four-place JSON cosine — the text table formats its own width and the
+        # HTML report routes through `render_comparison`.
+        "cosine": result.cosine_score,
         "threshold": result.threshold,
         "embedder": result.embedder_model,
         "snapshot_embedder": result.snapshot_embedding_model,
@@ -563,14 +580,36 @@ def _format_text_table(
     total: int,
     unmatched: Sequence[str] = (),
 ) -> str:
+    # `render_classified`, not a bare `.3f` (#179). The `verdict` column sits
+    # directly beside this one and the table carries **no threshold at all**, so
+    # D-012's and D-013's rule -- which is about a value and the threshold in the
+    # same string -- provably cannot reach here. Measured at the shipped
+    # `DEFAULT_THRESHOLD = 0.85`, three rows of one table read `0.850` with
+    # `fail`, `pass`, `pass`; and since the gate is `>=`, `0.850` beside `fail`
+    # claims both "at or above the threshold" and "did not reach it".
+    #
+    # Per row against that row's own `threshold`, because per-snapshot
+    # tolerances make two rows legitimately showing one cosine with different
+    # verdicts *correct* -- a run-level number would be the wrong unit.
+    cells = [
+        None
+        if row["cosine"] is None
+        else render_classified(row["cosine"], row["threshold"], places=_TABLE_COSINE_PLACES)
+        for row in rows
+    ]
+    # The column width is derived from the widest cell rather than hardcoded, so
+    # a row that had to widen does not break the alignment of every other row.
+    # `_TABLE_COSINE_WIDTH` is the floor, which is what keeps an ordinary table
+    # byte-identical to the four README blocks that pin it.
+    width = max([_TABLE_COSINE_WIDTH, *(len(c) for c in cells if c is not None)])
     lines: list[str] = [
         f"# prompt-snap run  total={total} failed={failed} skipped={skipped} "
         f"unmatched={len(unmatched)}",
-        f"{'verdict':8} {'cosine':>7}  snapshot",
-        f"{'-' * 8} {'-' * 7}  {'-' * 24}",
+        f"{'verdict':8} {'cosine':>{width + 1}}  snapshot",
+        f"{'-' * 8} {'-' * (width + 1)}  {'-' * 24}",
     ]
-    for row in rows:
-        cosine = "  -.-- " if row["cosine"] is None else f"{row['cosine']:>6.3f} "
+    for row, cell in zip(rows, cells, strict=True):
+        cosine = f"{'-.--':>{width}} " if cell is None else f"{cell:>{width}} "
         lines.append(f"{row['verdict']:8} {cosine}  {row['snapshot_path']}")
         for note in row["notes"]:
             lines.append(f"    - {note}")
@@ -760,6 +799,13 @@ def _diff_command(args: argparse.Namespace) -> int:
 #: `diff.COMPARISON_PLACES` — this surface and the notes disagree about width,
 #: and #177 is what happens when one of them silently adopts the other's.
 _CLI_COSINE_PLACES = 4
+
+#: The `run` text table's cosine column: three places, and a six-character floor
+#: on the column width. Both are what the four README blocks pinning this table
+#: already publish, so an ordinary run stays byte-identical; a near-threshold row
+#: widens past the floor and the header and rule widen with it (#179).
+_TABLE_COSINE_PLACES = 3
+_TABLE_COSINE_WIDTH = 6
 
 
 def _format_diff_text(result: DiffResult) -> str:
