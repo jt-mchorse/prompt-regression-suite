@@ -1991,3 +1991,39 @@ for a neighbour; they are not filler.
 **Open questions / blockers:** none. The README's CLI tour output is byte-identical on all three pinned lines and the tracked demo report regenerates with zero diff.
 
 **Next session:** the transferable finding is about my own testing, not the code: a pairwise sweep where one side is always the "interesting" one walks half the population. The neighbour that widens only one side passed all 42 arms until a reversed-orientation sweep and a structural same-precision arm were added.
+
+---
+
+### 2026-09-25 — #177: the exclusion that #175 wrote down was wrong twice
+
+This morning's Phase A merged #175, which routed four surfaces through one
+comparison renderer and deliberately left a fifth out — the CLI's `cosine:
+… (threshold …)` line — with a two-clause reason recorded in the architecture
+doc and held by a test.
+
+Both clauses are false. "Trailing zeros keep them from ever reading as the same
+number" holds only while the threshold has fewer than four decimals, and
+`--threshold` takes any float. "The sentence asserts no ordering" is true of the
+sentence and false of the output, because the verdict is printed on the line
+directly above it.
+
+The surprise was that the line was already broken at the *default* threshold, by
+a mechanism neither the decision nor my own issue named: `0.8500` and `0.85` are
+different strings that read as the same value, so a `fail` verdict sat above a
+pair saying "0.85 is below 0.85". The old test could not see it because it
+asserted the two strings *differ* — the wrong thing to assert. What matters is
+whether the pair agrees with the verdict.
+
+That old test was one call at `0.85` behind a docstring claiming a universal.
+Its replacement is a seven-threshold table plus a structural same-precision arm,
+and the two turn out to be exactly complementary against the old code: each one
+catches the cases the other misses, and neither covers the table alone.
+
+Routing the line also tried to re-run a regression from another repo — the
+shared renderer hardcoded three decimal places, and this line publishes four, so
+the first attempt republished the README tour's `0.8058` as `0.806`. A
+byte-exact README lock caught it. The width is now a required argument.
+
+Published output does move: the measured cosine is unchanged, and the threshold
+gains trailing zeros, which is the same-precision rule doing its job. The README
+tour and both locks that covered that line are updated.

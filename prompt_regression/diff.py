@@ -44,7 +44,7 @@ COMPARISON_PLACES = 3
 COMPARISON_MAX_PLACES = 17
 
 
-def render_comparison(value: float, other: float) -> tuple[str, str]:
+def render_comparison(value: float, other: float, *, places: int) -> tuple[str, str]:
     """Render two numbers so an ordering stated between them stays visible.
 
     `diff_response` decides pass/fail at full float precision and then explains
@@ -76,11 +76,22 @@ def render_comparison(value: float, other: float) -> tuple[str, str]:
     Returns both renderings rather than one, because a caller that widened only
     its own side would print two numbers at different precisions and invite the
     reader to compare them as written.
+
+    **`places` is required, and #177 is the evidence for it.** It was a
+    hardcoded `COMPARISON_PLACES` until the first caller with a different width
+    arrived: `cli.py`'s `cosine:` line publishes four places, and routing it
+    through a three-place helper silently republished the README CLI tour's
+    pinned `cosine:  0.8058 (threshold 0.75)` as `0.806 (threshold 0.750)` —
+    narrowing a documented number to fix an unrelated defect. That is the
+    regression `llm-eval-harness#252` shipped, caught here only because
+    `test_readme_cli_tour_examples` pins the line byte-for-byte. The four
+    original callers pass `COMPARISON_PLACES` explicitly; nothing about this
+    helper should have an opinion on which width a surface publishes.
     """
     if value == other:
-        return (f"{value:.{COMPARISON_PLACES}f}", f"{other:.{COMPARISON_PLACES}f}")
-    for places in range(COMPARISON_PLACES, COMPARISON_MAX_PLACES + 1):
-        rendered = (f"{value:.{places}f}", f"{other:.{places}f}")
+        return (f"{value:.{places}f}", f"{other:.{places}f}")
+    for width in range(places, max(places, COMPARISON_MAX_PLACES) + 1):
+        rendered = (f"{value:.{width}f}", f"{other:.{width}f}")
         if rendered[0] != rendered[1]:
             return rendered
     # Two distinct doubles too small for any fixed-point rendering to separate.
@@ -799,7 +810,9 @@ def diff_response(
         # fixed three places could then publish "tolerance 0.850 overrides run
         # threshold 0.850" -- an override the sentence describes as doing
         # nothing. The guard proved the difference; the rendering hid it.
-        tol_str, thr_str = render_comparison(snapshot.tolerance, threshold)
+        tol_str, thr_str = render_comparison(
+            snapshot.tolerance, threshold, places=COMPARISON_PLACES
+        )
         notes.append(f"per-snapshot tolerance {tol_str} overrides run threshold {thr_str}")
     candidate_vec = embedder.embed(candidate_text)
     # The D-006 model-name guard above is a string compare and dimension-blind.
@@ -854,11 +867,15 @@ def diff_response(
         # render through `render_comparison` (#175). Reached only when
         # `cosine_score < effective_threshold` strictly, so the two values are
         # never equal here.
-        score_str, thr_str = render_comparison(cosine_score, effective_threshold)
+        score_str, thr_str = render_comparison(
+            cosine_score, effective_threshold, places=COMPARISON_PLACES
+        )
         notes.append(f"cosine {score_str} below threshold {thr_str} but inside warn band")
     else:
         verdict = "fail"
-        score_str, thr_str = render_comparison(cosine_score, effective_threshold)
+        score_str, thr_str = render_comparison(
+            cosine_score, effective_threshold, places=COMPARISON_PLACES
+        )
         notes.append(f"cosine {score_str} below threshold {thr_str}")
 
     return DiffResult(

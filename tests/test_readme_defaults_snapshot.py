@@ -252,7 +252,11 @@ def test_the_readme_shows_the_override_rather_than_only_the_default() -> None:
     satisfied by deleting the example entirely.
     """
     body = _readme()
-    assert "cosine:  0.8058 (threshold 0.75)" in body, (
+    # `0.7500`, not `0.75`, since #177 routed this line through
+    # `render_comparison` — both sides now render at the CLI's own four places.
+    # The property this arm protects is unchanged: the effective threshold is
+    # still visibly a different number from the `0.850` default below.
+    assert "cosine:  0.8058 (threshold 0.7500)" in body, (
         "the CLI tour must show the EFFECTIVE threshold the tool printed"
     )
     assert "per-snapshot tolerance 0.750 overrides run threshold 0.850" in body, (
