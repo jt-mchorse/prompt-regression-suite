@@ -384,3 +384,65 @@ property is unchanged.
 - *Widen only the cosine side.* Rejected: 10 red, 7 on the structural arm.
 - *Keep the old arm and add cases.* Rejected: its assertion was on the wrong
   unit, so more cases would not have helped.
+
+## D-014 — A value beside its own verdict (2026-09-28)
+
+**Decision:** The `run` command's two verdict-adjacent surfaces are made
+self-consistent. The JSON publishes the **exact** cosine beside its exact
+threshold; the text table renders each cosine through `render_classified`
+against **that row's own** threshold.
+
+**Why:** D-012 (#175) and D-013 (#177) are about a value and the *threshold* it
+was compared against, both in one string, and both of their population arms
+require a threshold to be in the string. `run` publishes a cosine beside its
+`verdict` with the threshold nowhere in the output, so no arm in this suite
+could reach either surface.
+
+**The JSON surface contradicted its own verdict field, and that is the stronger
+half.** `_row_for` built each row as `round(result.cosine_score, 4)` beside an
+unrounded `threshold`, while the verdict is decided at full precision. At the
+shipped `DEFAULT_THRESHOLD = 0.85`, a true cosine of `0.84999` publishes
+`{"cosine": 0.85, "threshold": 0.85, "verdict": "fail"}` — and a consumer
+re-deriving `cosine >= threshold` from that row gets `pass`. It is invisible to
+every existing arm by construction: those walk f-strings, and this was a
+`round()` in a dict literal.
+
+The fix there is to stop rounding, not to render better: a machine surface needs
+values that are comparable as published. `git log -S` shows the round dates from
+the original CLI commit with no stated reason.
+
+**The text table showed one number with two verdicts in adjacent rows of one
+table** — `0.850` with `fail`, `pass`, `pass`. And the gate is `>=`, so `0.850`
+beside `fail` claims both "at or above the threshold" and "did not reach it".
+
+Per row, against that row's own threshold, because per-snapshot tolerances
+exist: two rows legitimately showing one cosine with different verdicts is
+*correct*, so a run-level number in the header would be the wrong unit. The row
+dict already carried `threshold`; the renderer just never used it.
+
+The column width is derived from the widest cell, and the header and the dashed
+rule derive from the same number. `_TABLE_COSINE_WIDTH` is a **floor**, not the
+width, which is what keeps an ordinary table byte-identical to the four README
+blocks pinning it.
+
+**My own JSON arm was vacuous until I routed it through `_row_for`.** The first
+draft built its own row dict and stayed green against a probe that put the
+`round()` back — one red. Routing it through the real builder took that probe
+from 1 red to 48. That is `llm-cost-optimizer#227`'s shape verbatim.
+
+**Alternatives considered:**
+- *Keep the round and render the JSON better* — rejected; a machine surface needs
+  comparable values, not a prettier rendering.
+- *A bare fixed width in the table* — rejected, built and run, 64 red.
+- *A two-level "did the verdict flip" predicate* — rejected, built and run, 45
+  red. It is satisfied by a below-threshold value rendering *at* the threshold,
+  which is the string a passing row produces.
+- *Hardcode the column width* — rejected, built and run, 2 red.
+- *Add a threshold column* — deferred. It changes a surface four README locks
+  pin, and per-snapshot tolerances make the honest version a per-row column.
+- *Round the verdict's comparison to match the display* — rejected on principle
+  in five repos already.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #179, #175, #177, llm-eval-harness#256
