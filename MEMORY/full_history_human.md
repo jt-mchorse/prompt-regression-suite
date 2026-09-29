@@ -2051,3 +2051,48 @@ decision said it was *not* covering.
 deferred; it would change a surface four README locks pin.
 
 **Next session:** this repo has no other open issues.
+
+## 2026-09-29 — #181: a configured operand was republished as a number nobody set (~9 min)
+
+Found by transferring `llm-eval-harness`#257 / D-029, shipped seventy minutes
+earlier in the same run — and the transfer **falsified that decision's stated
+scope**.
+
+`render_comparison`'s loop stops as soon as the two rendered strings differ.
+That is D-012's contract and it is right for an ordering. It says nothing about
+whether either number survives the trip, and every threshold this package
+compares against is configured: `--threshold` and `--warn-band` are `type=float`
+with no width constraint, and a per-snapshot `tolerance` comes from YAML. A run
+gated at `0.85004` published `threshold 0.8500` on the CLI line — the one surface
+a reader copies a number back *out of* into the flag.
+
+This is not the collision #175/#177 fixed. That one is two equal renderings of
+two different numbers; this is two unequal renderings, each of a number nobody
+configured. The ordering reads correctly and the policy is misstated, so no
+assertion that the two are distinct can fire.
+
+**The finding is `diff.py:813`.** leh's D-029 ships `exact_other` alone and its
+docstring says there is "deliberately no `exact_value`" because "`value` is the
+measured side at all six call sites". True there, false here: the tolerance note
+compares `snapshot.tolerance` against `threshold`, neither measured, and at
+`0.8500001` / `0.9000001` it published "per-snapshot tolerance 0.850 overrides
+run threshold 0.900" — both numbers wrong, in the one sentence that tells an
+operator which of their values won. The asymmetry over there is a fact about that
+repo's call sites, not about the class.
+
+**The exact-by-accident trap fired twice in one day, and the second time I walked
+into it knowingly.** The end-to-end tolerance arm used `0.8500001` /
+`0.9000001` — where both values need seven places — so marking only `other` made
+`value` exact for free, and the arm stayed green against the one-flag neighbour.
+I had already written the *unit* arm on the separating pair and left the
+end-to-end one on the accidental one. The repair is two fixtures, not a better
+one: no single pair can separate both directions, because each leaves the other
+flag satisfied without asking.
+
+Also decided by measurement rather than reflex: leh's `render_configured` is
+**not** ported. #175/#177/#179 already routed every threshold rendering here, and
+exactly one fixed-width interpolation survives — a bare measured cosine with no
+verdict beside it. Porting a sibling's helper would be a guard with no harm to
+name, and an arm pins the survivor list so a new inline spec fails here instead.
+
+Recorded as D-015.
