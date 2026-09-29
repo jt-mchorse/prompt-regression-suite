@@ -125,8 +125,10 @@ def _render_entry(entry: Entry, anchor: str) -> str:
     # the notes inside it cannot disagree about how many places to show. On a
     # PASS row where cosine == threshold exactly the two are genuinely equal and
     # `render_comparison` leaves them at the narrow width.
+    # `exact_other` for the same reason `cli.py` passes it: the threshold cell
+    # states the policy the badge beside it was decided under (#181).
     score, threshold = render_comparison(
-        entry.diff.cosine_score, entry.diff.threshold, places=COMPARISON_PLACES
+        entry.diff.cosine_score, entry.diff.threshold, places=COMPARISON_PLACES, exact_other=True
     )
     badge = f'<span class="badge {verdict}">{verdict.upper()}</span>'
 
