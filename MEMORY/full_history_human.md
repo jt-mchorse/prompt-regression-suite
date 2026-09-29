@@ -2027,3 +2027,27 @@ byte-exact README lock caught it. The width is now a required argument.
 Published output does move: the measured cosine is unchanged, and the threshold
 gains trailing zeros, which is the same-precision rule doing its job. The README
 tour and both locks that covered that line are updated.
+
+## 2026-09-28 — Issue #179: a value beside its own verdict
+**Duration:** ~18 min · **Branch:** `session/2026-09-28-0852-issue-179`
+
+- The `run` command's JSON published `round(cosine, 4)` beside an unrounded
+  `threshold`, so a consumer re-deriving the comparison from the row got the
+  opposite of the `verdict` field sitting next to it. The text table showed one
+  number with two verdicts in adjacent rows of a single table.
+- Neither was reachable by #175's or #177's population arms: both require a
+  threshold to be in the string, and this surface has none — and the JSON half
+  was a `round()` in a dict literal, which no f-string walk can see.
+- On the machine surface the fix is to stop rounding rather than to render
+  better; on the text table it is a band rule per row against that row's own
+  threshold, because per-snapshot tolerances make two rows showing one cosine
+  with different verdicts correct.
+
+**Why this work, this session:** found by hunting this session's own Phase A
+merges — #178 had landed ninety minutes earlier, and the question was what its
+decision said it was *not* covering.
+
+**Open questions / blockers:** none. A `threshold` column for the text table is
+deferred; it would change a surface four README locks pin.
+
+**Next session:** this repo has no other open issues.

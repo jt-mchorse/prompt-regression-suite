@@ -521,5 +521,38 @@ hardcoded width silently republished the README tour's `cosine:  0.8058` as
   `docs/regression_demo.html`,
   `tests/test_render_regression_demo.py`,
   `tests/test_regression_demo_snapshot.py`.
+## A value beside its own verdict (#179, D-014)
+
+D-012 and D-013 cover a value and the *threshold* it was compared against, both
+in one string. Their population arms require a threshold to be in the string,
+and the `run` command publishes a cosine beside its `verdict` with the threshold
+nowhere in the output — so neither arm could reach either surface below.
+
+**The JSON row contradicted its own verdict field.** `_row_for` published
+`round(cosine, 4)` beside an unrounded `threshold`, while the verdict is decided
+at full precision. At the shipped default, a true cosine of `0.84999` emitted
+`{"cosine": 0.85, "threshold": 0.85, "verdict": "fail"}`, and a consumer
+re-deriving `cosine >= threshold` from that row gets `pass`. The fix is to stop
+rounding rather than to render better: a machine surface needs values that are
+comparable as published. It was also invisible to every existing arm by
+construction — those walk f-strings, and this was a `round()` in a dict literal.
+
+**The text table showed one number with two verdicts in adjacent rows.** At
+three places against the shipped threshold, three rows read `0.850` with `fail`,
+`pass`, `pass` — in a single table, not across two runs. And the gate is `>=`,
+so `0.850` beside `fail` claims both "at or above the threshold" and "did not
+reach it".
+
+`render_classified` widens a rendering until it falls in the same band as the
+true value — below the boundary, on it, or above it — per row against that row's
+own threshold, because per-snapshot tolerances make two rows legitimately
+showing one cosine with different verdicts correct. Three levels rather than
+two: a "would the verdict flip" check is satisfied by a below-threshold value
+rendering *at* the threshold, which is the string a passing row produces.
+
+The column width derives from the widest cell, and the header and dashed rule
+derive from the same number. The old width is kept as a **floor**, so an
+ordinary table stays byte-identical to the four README blocks that pin it.
+
 - **Design decisions** — `MEMORY/core_decisions_human.md` for prose,
   `MEMORY/core_decisions_ai.md` for the structured log.

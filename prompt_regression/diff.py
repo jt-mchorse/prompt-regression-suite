@@ -888,3 +888,67 @@ def diff_response(
         snapshot_embedding_model=snapshot.canonical.embedding_model,
         notes=notes,
     )
+
+
+def _band(value: float, boundary: float) -> int:
+    """Which side of *boundary* *value* falls on: ``-1`` below, ``0`` at, ``1`` above."""
+    if value < boundary:
+        return -1
+    if value > boundary:
+        return 1
+    return 0
+
+
+def render_classified(value: float, boundary: float, *, places: int) -> str:
+    """Render one number so a verdict printed beside it cannot contradict it.
+
+    The neighbouring population to :func:`render_comparison`, and the one its
+    own arms provably cannot reach: they require a **threshold** to be in the
+    string, and `cli._format_text_table` publishes a cosine beside its
+    ``verdict`` with no threshold in the table at all (#179).
+
+    At three places against the shipped ``DEFAULT_THRESHOLD = 0.85``, three rows
+    of one table read::
+
+        verdict   cosine  snapshot
+        -------- -------  ------------------------
+        fail      0.850   snapshots/just-below.yml
+        pass      0.850   snapshots/exactly-at.yml
+        pass      0.850   snapshots/just-above.yml
+
+    One published number, two verdicts, **in a single table** rather than across
+    two runs. And the gate is ``>=``, so ``0.850`` beside ``fail`` claims both
+    "at or above the threshold" and "did not reach it".
+
+    **The property is on the band, not on two numbers differing.** There is no
+    second number in the table to widen against, so the rule is stated one level
+    up: *the rendered value, read back as a float, falls on the same side of the
+    boundary as the true value does* -- below, at, or above, the boundary being
+    its own degenerate band. Three levels rather than two, because a "would the
+    verdict flip" check is satisfied by a below-threshold value rendering **at**
+    the threshold, which is exactly the string a passing row produces.
+
+    **Per row, against that row's own threshold.** Per-snapshot tolerances mean
+    two rows legitimately showing the same cosine with different verdicts is
+    *correct*, so a run-level number in the header would be the wrong unit.
+
+    Its own loop rather than ``render_comparison(value, boundary, places=...)[0]``:
+    that delegation is wrong on signed zero (``-0.000`` and ``0.000`` are
+    different strings for one value, so the pairwise loop stops while
+    ``float("-0.000")`` is not below ``0.0``) and on a boundary that does not
+    survive a round trip at *places*. Neither is reachable through
+    ``_format_text_table`` today -- a cosine lives in ``[-1, 1]`` and the shipped
+    threshold is round -- which is the point: a rule stated over the current call
+    sites is not the rule it claims to be. Duplicated from
+    ``llm-eval-harness``' D-028 rather than shared, for the reason D-012 already
+    records for ``render_comparison`` itself.
+
+    ``repr`` is the terminal fallback, as in :func:`render_comparison`: it
+    round-trips a double by definition, so it classifies exactly.
+    """
+    target = _band(value, boundary)
+    for width in range(places, max(places, COMPARISON_MAX_PLACES) + 1):
+        rendered = f"{value:.{width}f}"
+        if _band(float(rendered), boundary) == target:
+            return rendered
+    return repr(value)
