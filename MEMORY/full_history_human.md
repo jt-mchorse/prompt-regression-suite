@@ -2107,3 +2107,14 @@ Recorded as D-015.
 **Open questions / blockers:** none.
 
 **Next session:** none queued.
+
+## 2026-09-30T09:40:28Z — #185: two README commands left files in the checkout
+
+The README's HTML-report example (`--out report.html`) and the CLI tour's
+`update` step (which copies a snapshot to `./creative_kite_v1.copy.yml` and
+rewrites it) both wrote into the repo root. Nothing ignored those files, so
+following the README and then `git add -A` would commit them. An earlier fix
+(#138) moved the tour's copy away from the committed fixtures, which was right,
+but the copy still landed inside the checkout. Both now write under `/tmp/`, and
+the README path test gained a second half: every `--out` value and every `cp`
+destination in a shell block must be under `/tmp/`.
