@@ -2070,3 +2070,21 @@ context_for_next_session:
   - GOTCHA_AN_ARM_THAT_PINS_A_SURVIVOR_BY_FILE_AND_LINE_BREAKS_WHEN_YOU_ADD_A_COMMENT_ABOVE_IT_html_report_py_183_became_185_because_of_MY_OWN_comment_PIN_THE_FILE_AND_THE_EXPRESSION_NOT_THE_LINE
 followups: []
 ---
+
+---
+session: 2026-09-30T08:29Z
+issue: 183
+focus: A_SHARED_HELPER_HARD_CODED_ONE_CALLERS_FLAGS_AND_THE_OTHERS_NOUN
+phase: shipped
+duration_min: 3   # ~08:26 hunt start (issue filed 08:28:48Z) -> 08:29Z close
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "967 -> 972 green"
+decisions_made: []
+measured: "revert to the hard-coded messages 2 red (diff-both, update-blank - the two rows the old text got wrong)"
+context_for_next_session:
+  - FOUND_BY_TRYING_FLAG_COMBINATIONS_a_helper_shared_by_two_subcommands_whose_messages_name_ONE_OF_THEM_is_worth_a_grep_for_UsageError_strings_that_hard_code_a_flag
+  - THE_POPULATION_ARM_TIES_THE_FLAG_IN_THE_MESSAGE_TO_THE_ATTRIBUTE_READ_args_canonical_to_dash_dash_canonical_so_a_third_caller_cannot_inherit_anothers_flags
+followups: []
+---
