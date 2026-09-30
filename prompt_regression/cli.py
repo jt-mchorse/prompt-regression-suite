@@ -827,8 +827,11 @@ def _format_diff_text(result: DiffResult) -> str:
     # Four places, the width this line has always published and the one the
     # README CLI tour pins. Passed explicitly rather than defaulted — see
     # `render_comparison`'s docstring on why that parameter is required.
+    # `exact_other`: `result.threshold` is `--threshold` as the operator typed
+    # it (#181). At four places a run gated at 0.85004 printed `threshold 0.8500`
+    # here, and this line is the one a reader copies back into the flag.
     score_str, thr_str = render_comparison(
-        result.cosine_score, result.threshold, places=_CLI_COSINE_PLACES
+        result.cosine_score, result.threshold, places=_CLI_COSINE_PLACES, exact_other=True
     )
     lines: list[str] = [
         f"verdict: {result.verdict}",

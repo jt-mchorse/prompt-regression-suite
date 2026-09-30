@@ -44,7 +44,14 @@ COMPARISON_PLACES = 3
 COMPARISON_MAX_PLACES = 17
 
 
-def render_comparison(value: float, other: float, *, places: int) -> tuple[str, str]:
+def render_comparison(
+    value: float,
+    other: float,
+    *,
+    places: int,
+    exact_value: bool = False,
+    exact_other: bool = False,
+) -> tuple[str, str]:
     """Render two numbers so an ordering stated between them stays visible.
 
     `diff_response` decides pass/fail at full float precision and then explains
@@ -87,15 +94,53 @@ def render_comparison(value: float, other: float, *, places: int) -> tuple[str, 
     `test_readme_cli_tour_examples` pins the line byte-for-byte. The four
     original callers pass `COMPARISON_PLACES` explicitly; nothing about this
     helper should have an opinion on which width a surface publishes.
+
+    **`exact_value` / `exact_other` mark an operand as a *configured parameter*
+    (#181, D-015).** The loop above stops the instant the two strings differ,
+    which makes the ordering readable and says nothing about whether either
+    number survives the trip. Every threshold this package compares against is
+    something an operator typed -- ``--threshold`` and ``--warn-band`` are
+    ``type=float`` with no width constraint, and a per-snapshot ``tolerance``
+    comes from YAML -- so at four places a run gated at ``0.85004`` published
+    ``threshold 0.8500`` on every surface. A reader who copies that number back
+    into ``--threshold`` gets a different gate. Marking an operand widens the
+    pair until that operand reads back as itself, **still at one shared width**:
+    widening only the configured side is the pre-#175 shape, which renders the
+    ordering backwards.
+
+    **Both flags exist because `diff.py`'s tolerance note has two configured
+    operands**, and that is what separates this helper from its sibling.
+    ``llm-eval-harness``' D-029 ships ``exact_other`` alone and its docstring
+    says there is "deliberately no ``exact_value``" because "``value`` is the
+    measured side at all six call sites". True there; false here. The
+    per-snapshot tolerance note compares ``snapshot.tolerance`` against
+    ``threshold`` -- neither measured -- and at
+    ``tolerance=0.8500001, threshold=0.9000001`` it published "per-snapshot
+    tolerance 0.850 overrides run threshold 0.900", in which *both* numbers are
+    ones nobody set. The asymmetry over there is a property of that repo's call
+    sites, not of the class; neither helper should be harmonised to the other
+    without reading this paragraph.
+
+    Not the collision #175/#177 fixed. That one is two *equal* renderings of two
+    different numbers; this is two *unequal* renderings, each of a number nobody
+    configured. Invisible while a threshold is round, which
+    :data:`DEFAULT_THRESHOLD` is -- which is how five call sites carried it.
     """
-    if value == other:
-        return (f"{value:.{places}f}", f"{other:.{places}f}")
     for width in range(places, max(places, COMPARISON_MAX_PLACES) + 1):
         rendered = (f"{value:.{width}f}", f"{other:.{width}f}")
-        if rendered[0] != rendered[1]:
+        # Round-tripping is monotone in width: a wider rendering is at least as
+        # close to the value, and the intervals that round to a given double
+        # nest. So skipping a width cannot skip past a narrower acceptable one.
+        if exact_value and float(rendered[0]) != value:
+            continue
+        if exact_other and float(rendered[1]) != other:
+            continue
+        if value == other or rendered[0] != rendered[1]:
             return rendered
     # Two distinct doubles too small for any fixed-point rendering to separate.
-    # `repr` round-trips a float by definition, so it always distinguishes them.
+    # `repr` round-trips a float by definition, so it always distinguishes them
+    # and reproduces a configured value exactly. This is the one exit that does
+    # not guarantee a shared precision, which was already true before #181.
     return (repr(value), repr(other))
 
 
@@ -810,8 +855,19 @@ def diff_response(
         # fixed three places could then publish "tolerance 0.850 overrides run
         # threshold 0.850" -- an override the sentence describes as doing
         # nothing. The guard proved the difference; the rendering hid it.
+        # **Both** operands are configured here, and this is the site that
+        # proves the sibling helper's `exact_other`-only signature is a fact
+        # about that repo rather than about the class (#181, D-015).
+        # `snapshot.tolerance` is YAML and `threshold` is the run parameter;
+        # at 0.8500001 / 0.9000001 this note published "tolerance 0.850
+        # overrides run threshold 0.900", two numbers nobody set, in the one
+        # sentence that tells an operator which of their values won.
         tol_str, thr_str = render_comparison(
-            snapshot.tolerance, threshold, places=COMPARISON_PLACES
+            snapshot.tolerance,
+            threshold,
+            places=COMPARISON_PLACES,
+            exact_value=True,
+            exact_other=True,
         )
         notes.append(f"per-snapshot tolerance {tol_str} overrides run threshold {thr_str}")
     candidate_vec = embedder.embed(candidate_text)
@@ -868,13 +924,13 @@ def diff_response(
         # `cosine_score < effective_threshold` strictly, so the two values are
         # never equal here.
         score_str, thr_str = render_comparison(
-            cosine_score, effective_threshold, places=COMPARISON_PLACES
+            cosine_score, effective_threshold, places=COMPARISON_PLACES, exact_other=True
         )
         notes.append(f"cosine {score_str} below threshold {thr_str} but inside warn band")
     else:
         verdict = "fail"
         score_str, thr_str = render_comparison(
-            cosine_score, effective_threshold, places=COMPARISON_PLACES
+            cosine_score, effective_threshold, places=COMPARISON_PLACES, exact_other=True
         )
         notes.append(f"cosine {score_str} below threshold {thr_str}")
 

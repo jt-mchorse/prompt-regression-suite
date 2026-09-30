@@ -446,3 +446,90 @@ from 1 red to 48. That is `llm-cost-optimizer#227`'s shape verbatim.
 **Reversibility:** Cheap.
 
 **Related issues:** #179, #175, #177, llm-eval-harness#256
+
+---
+
+## D-015 — a configured operand reads back as the value that was set (2026-09-29)
+
+**Context.** `render_comparison`'s loop stops as soon as the two rendered strings
+differ. That is D-012's contract and it is the right one for an *ordering*: the
+reader can see which number is larger. It says nothing about whether either
+number survives the trip.
+
+Every threshold this package compares against is something an operator typed.
+`--threshold` and `--warn-band` are `type=float` with no width constraint, and a
+per-snapshot `tolerance` comes from YAML. A run gated at `0.85004` published
+`threshold 0.8500` on the CLI line, `0.850` in the HTML meta line, and `0.8500`
+in the notes. A reader who copies that number back into the flag gets a
+different gate.
+
+**This is not the collision #175/#177 fixed.** That one is two *equal* renderings
+of two different numbers — "cosine 0.850 below threshold 0.850". This is two
+*unequal* renderings, each of a number nobody configured. The ordering reads
+correctly and the policy is misstated, so no assertion that the two are distinct
+can ever fire. It is invisible while the threshold is round, which
+`DEFAULT_THRESHOLD` is, and that is how five call sites carried it.
+
+**The finding is `diff.py:813`, and it falsifies a claim I wrote down seventy
+minutes earlier.** `llm-eval-harness`' D-029 shipped `exact_other` alone, and its
+docstring states there is "deliberately no `exact_value`" because "`value` is the
+measured side at all six call sites". True there. Here the per-snapshot tolerance
+note compares `snapshot.tolerance` (YAML) against `threshold` (the run
+parameter) — neither measured — and at `0.8500001` / `0.9000001` it published
+"per-snapshot tolerance 0.850 overrides run threshold 0.900". **Both numbers
+wrong**, in the one sentence that tells an operator which of their two configured
+values won. The asymmetry over there is a fact about that repo's call sites, not
+about the class, and it is recorded here so nobody harmonises the two helpers
+without reading it.
+
+**Decision.** `exact_value` and `exact_other`, keyword-only, defaulting to
+`False`. A marked pair widens until the ordering is readable *and* every marked
+operand reads back as itself, still at one shared precision.
+
+### One fixture cannot separate both directions, and a probe is what said so
+
+The first version of the end-to-end tolerance arm used `0.8500001` /
+`0.9000001` — where both values need seven places. Marking only `other` therefore
+made `value` exact **by accident**, and the arm stayed green against the one-flag
+neighbour, leaving only the AST arms to reject it. That is the same
+exact-by-accident trap that made `llm-eval-harness`' first arms green against a
+call-site revert this morning; second time in one day.
+
+The fix is two pairs, not a better pair:
+
+| pair | tolerance needs | threshold needs | `exact_other` alone | `exact_value` alone |
+|------|-----------------|-----------------|---------------------|---------------------|
+| A | 9 places | 7 places | **tolerance wrong** | right by accident |
+| B | 2 places | 7 places | right by accident | **threshold wrong** |
+
+Together they reject both one-flag neighbours (3 red each); separately, each
+rejects one. **Ask of any two-sided flag which side each fixture leaves satisfied
+for free.**
+
+### Scope
+
+The population arm is keyed **per argument position**, so the two-operand site is
+not a special case anyone has to remember: six marked operands across five call
+sites. A third arm walks `cli.py` for every `type=float` argument and requires its
+`dest` to be in the closed set, so a future `--min-cosine 0.0001` lands as a red
+test naming itself.
+
+`llm-eval-harness`' `render_configured` — the standalone half, for a configured
+value published with no second number — was **measured and not ported**.
+#175/#177/#179 already routed every threshold rendering here through
+`render_comparison`; exactly one fixed-width interpolation survives
+(`html_report.py`, `cat.cosine_to_response:.3f`) and it is a bare measured cosine
+with no threshold and no status beside it — the same shape leh's D-028 decided out
+by name. Adding the helper would be a guard with no harm to name, and an arm pins
+the survivor list so a new inline spec fails here.
+
+**Rejected.** Widening only the marked side (12 red) — the pre-#175
+mixed-precision shape the helper's own docstring argues against. A wider fixed
+width, `.8f` (12 red) — `0.123456789` needs nine. `repr` for a marked operand
+(14 red) — it round-trips and narrows the README-pinned four-place CLI line.
+Defaulting the flags to `True` — that re-renders every existing caller, which is
+the #177 regression `places` is a required argument to prevent.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #181, #179, #177, #175

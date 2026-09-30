@@ -554,5 +554,49 @@ The column width derives from the widest cell, and the header and dashed rule
 derive from the same number. The old width is kept as a **floor**, so an
 ordinary table stays byte-identical to the four README blocks that pin it.
 
+## A configured operand reads back as itself (#181, D-015)
+
+The third question to ask of a rendered pair, after "is the ordering visible"
+(D-012) and "does the value agree with the verdict beside it" (D-014): **is
+either number one the operator actually set?**
+
+`render_comparison`'s loop stops as soon as the two rendered strings differ.
+That makes the ordering readable and says nothing about the round trip. Every
+threshold this package compares against is configured — `--threshold` and
+`--warn-band` are `type=float` with no width constraint, and a per-snapshot
+`tolerance` comes from YAML — so a run gated at `0.85004` published
+`threshold 0.8500` on the CLI line, `0.850` in the HTML meta line and `0.8500`
+in the notes. A reader who copies that number back into the flag gets a
+different gate.
+
+Not the collision #175/#177 closed. That one is two *equal* renderings of two
+different numbers; this is two *unequal* renderings, each of a number nobody
+configured. The ordering reads correctly and the policy is misstated, so no
+assertion that the two are distinct can fire. Invisible while a threshold is
+round, which `DEFAULT_THRESHOLD` is — which is how five call sites carried it.
+
+`exact_value` and `exact_other` mark an operand as configured; the pair then
+widens until the ordering is readable **and** every marked operand reads back as
+itself, still at one shared precision. Widening only the marked side is the
+pre-#175 mixed-precision shape.
+
+**Both flags exist because `diff.py`'s tolerance note has two configured
+operands.** `llm-eval-harness`' D-029 ships `exact_other` alone and states there
+is "deliberately no `exact_value`" because "`value` is the measured side at all
+six call sites" — true there, false here. The tolerance note compares
+`snapshot.tolerance` against `threshold`, and at `0.8500001` / `0.9000001` it
+published "per-snapshot tolerance 0.850 overrides run threshold 0.900": both
+numbers wrong, in the one sentence that says which of an operator's two values
+won. Neither helper should be harmonised to the other without reading this.
+
+The population arm is keyed **per argument position** — six marked operands
+across five call sites — and a third arm walks `cli.py`'s `type=float` arguments
+so the closed set of configured names cannot go stale silently.
+
+`render_configured`, the standalone half of the sibling decision, is deliberately
+**not** ported: measured, this package has no population for it. Exactly one
+fixed-width interpolation survives, and it is a bare measured cosine with no
+threshold and no status beside it.
+
 - **Design decisions** — `MEMORY/core_decisions_human.md` for prose,
   `MEMORY/core_decisions_ai.md` for the structured log.
