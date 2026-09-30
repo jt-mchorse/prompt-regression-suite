@@ -648,7 +648,9 @@ def _update_command(args: argparse.Namespace) -> int:
         return 2
 
     try:
-        new_text = _read_text_arg(args.canonical, args.canonical_stdin)
+        new_text = _read_text_arg(
+            args.canonical, args.canonical_stdin, flag="--canonical", noun="canonical"
+        )
     except _UsageError as e:
         _eprint(str(e))
         return 2
@@ -701,13 +703,21 @@ class _UsageError(Exception):
     """
 
 
-def _read_text_arg(literal: str | None, from_stdin: bool) -> str:
+def _read_text_arg(literal: str | None, from_stdin: bool, *, flag: str, noun: str) -> str:
+    """Read one text argument from `--<flag>` or `--<flag>-stdin`.
+
+    Shared by `update` (`--canonical`) and `diff` (`--candidate`), which is
+    why the flag and the noun are parameters (#183). Both messages used to be
+    hard-coded -- one to `update`'s flags, the other to `diff`'s noun -- so
+    `diff --candidate x --candidate-stdin` was told to "pass --canonical OR
+    --canonical-stdin", flags `diff` does not have.
+    """
     if literal is not None and from_stdin:
-        raise _UsageError("error: pass --canonical OR --canonical-stdin, not both")
+        raise _UsageError(f"error: pass {flag} OR {flag}-stdin, not both")
     text = sys.stdin.read() if from_stdin else (literal or "")
     text = text.strip()
     if not text:
-        raise _UsageError("error: candidate text was empty after stripping whitespace")
+        raise _UsageError(f"error: {noun} text was empty after stripping whitespace")
     return text
 
 
@@ -739,7 +749,9 @@ def _diff_command(args: argparse.Namespace) -> int:
     if not _validate_thresholds(args.threshold, args.warn_band):
         return 2
     try:
-        candidate = _read_text_arg(args.candidate, args.candidate_stdin)
+        candidate = _read_text_arg(
+            args.candidate, args.candidate_stdin, flag="--candidate", noun="candidate"
+        )
     except _UsageError as e:
         _eprint(str(e))
         return 2
