@@ -2106,3 +2106,22 @@ context_for_next_session:
   - 138s_lock_uses_target_lstrip_dot_slash_which_also_strips_the_leading_slash_of_tmp_it_still_passes_because_it_is_a_substring_check_against_the_cp_line_UNCHANGED
   - SAME_CLASS_SHIPPED_TONIGHT_IN_leh_269_and_rag_239_and_earlier_pyasync_120
 followups: []
+
+---
+session: 2026-10-01T08:54Z
+issue: 189
+focus: ATOMIC_WRITE_TEXT_CREATED_0600_REGARDLESS_OF_UMASK_AND_AN_OVERWRITE_DEMOTED_0644_TO_0600
+phase: shipped
+duration_min: 3   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "973 -> 984 passed; ruff check, ruff format --check and mypy clean"
+decisions_made: []
+measured: "umask 022 before: new 0o600, overwrite of 0644 -> 0o600; after: 0o644 / 0o644. Revert probe (original helper restored): 7 failed of 984. Partial revert (0o666 create kept, mode-preserve dropped): 4 failed of 984. Temp-unlink-on-open-failure dropped: 1 failed."
+context_for_next_session:
+  - TEMP_FILE_NOW_COMES_FROM_open_x_WITH_AN_O_EXCL_0o666_OPENER_AND_A_RANDOM_TOKEN_NOT_NamedTemporaryFile_name_shape_dot_base_dot_8hex_dot_tmp_is_unchanged
+  - NEVER_READ_THE_UMASK_VIA_os_umask_0_it_is_process_wide_and_races_threads_the_kernel_applies_it_to_the_0o666_create
+  - PART_OF_portfolio_ops_81_same_recipe_in_every_atomic_write_helper
+followups: ["portfolio-ops#81"]
+---
