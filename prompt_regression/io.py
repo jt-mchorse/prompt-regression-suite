@@ -12,10 +12,12 @@ Writes route through ``atomic_write_text`` (#39) so an interrupted
 from __future__ import annotations
 
 import contextlib
+import errno
 import fnmatch
 import os
+import secrets
+import stat
 import sys
-import tempfile
 from os import PathLike
 from pathlib import Path
 from typing import Any, TextIO
@@ -126,8 +128,8 @@ def iter_snapshot_paths(snapshots_dir: PathArg) -> list[Path]:
 # and the write fails with `OSError: [Errno 63] File name too long` — even though
 # a plain `Path.write_text` of that same target succeeds (sibling of
 # rag-production-kit#128 and mcp-server-cookbook#96). The base in the temp name
-# is cosmetic (`ls`-ability); uniqueness comes from `NamedTemporaryFile`'s random
-# component, so truncating it is safe. Budget is in BYTES (NAME_MAX is a byte
+# is cosmetic (`ls`-ability); uniqueness comes from the random component
+# `_open_temp` appends (and its `O_EXCL` retry), so truncating it is safe. Budget is in BYTES (NAME_MAX is a byte
 # limit) and we trim on a char boundary so multibyte names are never split
 # mid-codepoint.
 _MAX_TEMP_BASE_BYTES = 200
@@ -178,6 +180,72 @@ def _cap_base_for_temp(base: str) -> str:
     return out
 
 
+# How many random names `_open_temp` tries before giving up. Mirrors
+# `tempfile.TMP_MAX`; a collision on 32 random bits is already vanishingly rare.
+_TEMP_ATTEMPTS = 10000
+
+
+def _open_temp(target: Path) -> tuple[TextIO, Path]:
+    """Create ``.<base>.<random>.tmp`` beside *target*; return ``(file, path)``.
+
+    The file is created with mode ``0o666`` so the KERNEL applies the process
+    umask, exactly as ``Path.write_text`` / ``open(..., "w")`` do (#189). This
+    replaced ``tempfile.NamedTemporaryFile``, which always creates 0600
+    whatever the umask is, so every snapshot and ``--out`` artifact came out
+    owner-only. The umask is deliberately never read through
+    ``os.umask(0); os.umask(old)``: that sets a process-wide umask of 0 for
+    every other thread until it is restored.
+
+    The temp file stays in the target's directory so ``os.replace`` is a
+    same-filesystem rename. The descriptor goes through ``open(..., opener=)``
+    so the file object owns it from birth; if ``open`` fails after the file was
+    created, this function unlinks it, so no ``.tmp`` is left behind.
+    """
+    prefix = f".{_cap_base_for_temp(target.name)}."
+    for _ in range(_TEMP_ATTEMPTS):
+        candidate = target.parent / f"{prefix}{secrets.token_hex(4)}.tmp"
+        created = False
+
+        def _create_0o666(name: str, flags: int) -> int:
+            nonlocal created
+            fd = os.open(name, flags | os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+            created = True
+            return fd
+
+        try:
+            # The caller owns the handle (it writes, fsyncs and closes it).
+            fh = open(candidate, "x", encoding="utf-8", opener=_create_0o666)  # noqa: SIM115
+        except FileExistsError:
+            if created:
+                raise
+            continue
+        except BaseException:
+            if created:
+                with contextlib.suppress(FileNotFoundError):
+                    candidate.unlink()
+            raise
+        return fh, candidate
+    raise FileExistsError(errno.EEXIST, "no usable temporary file name found", str(target.parent))
+
+
+def _preserve_target_mode(tmp_path: Path, target: Path) -> None:
+    """Give *tmp_path* the permission bits *target* has now, if it exists.
+
+    ``os.replace`` carries the TEMP file's mode onto the target, so without
+    this an overwrite silently re-moded the destination: under the old
+    ``NamedTemporaryFile`` temp, a committed 0644 snapshot came back 0600 after
+    ``prompt-snap update`` (#189). ``Path.write_text`` truncates in place and
+    keeps the inode's mode; this is the rename-based equivalent. A missing
+    target is not an error: a new file keeps the umask-derived mode
+    ``_open_temp`` gave it.
+    """
+    try:
+        mode = stat.S_IMODE(os.stat(target).st_mode)
+    except FileNotFoundError:
+        return
+    os.chmod(tmp_path, mode)
+
+
 def atomic_write_text(path: PathArg, text: str) -> None:
     # `Path.write_text` is not atomic: SIGINT/SIGTERM/disk-full/OOM
     # between the implicit `open(..., "w")` truncate and `close()`
@@ -190,22 +258,20 @@ def atomic_write_text(path: PathArg, text: str) -> None:
     # Pattern mirrors `llm-eval-harness/eval_harness/cli.py::_atomic_write_text`
     # (#48 there) and `llm-cost-optimizer/scripts/_io.py::atomic_write_text`
     # (#42 there) so the portfolio-wide shape is uniform.
+    #
+    # File mode matches `Path.write_text` (#189): a new file gets
+    # `0o666 & ~umask` and an overwrite keeps the existing file's mode. See
+    # `_open_temp` and `_preserve_target_mode`.
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=target.parent,
-            prefix=f".{_cap_base_for_temp(target.name)}.",
-            suffix=".tmp",
-            delete=False,
-        ) as tmp:
-            tmp_path = Path(tmp.name)
+        tmp, tmp_path = _open_temp(target)
+        with tmp:
             tmp.write(text)
             tmp.flush()
             os.fsync(tmp.fileno())
+        _preserve_target_mode(tmp_path, target)
         os.replace(tmp_path, target)
         tmp_path = None
     finally:
