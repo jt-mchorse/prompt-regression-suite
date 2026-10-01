@@ -204,7 +204,7 @@ prompt-snap run \
     --snapshots examples/snapshots \
     --candidates examples/candidates.jsonl \
     --format html \
-    --out report.html
+    --out /tmp/report.html
 ```
 
 `--format html` requires `--out` (HTML writes to a file, not stdout); `--out` works for `text` and `json` too. `--out` is written on the
@@ -322,9 +322,9 @@ prompt-snap diff \
 # Re-baseline a snapshot after an intentional change. REQUIRES --force.
 # `update` rewrites the file in place, so copy first — the snapshots under
 # examples/ are committed fixtures.
-cp examples/snapshots/creative_kite_v1.yml ./creative_kite_v1.copy.yml
+cp examples/snapshots/creative_kite_v1.yml /tmp/creative_kite_v1.copy.yml
 prompt-snap update \
-    --snapshot ./creative_kite_v1.copy.yml \
+    --snapshot /tmp/creative_kite_v1.copy.yml \
     --canonical "A paper kite hangs over the empty sand as the light turns orange." \
     --force
 # updated <abs-path>/creative_kite_v1.copy.yml: embedder=hash-embedder-128d-ngram2 text_len=65

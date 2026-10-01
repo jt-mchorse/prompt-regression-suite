@@ -2088,3 +2088,21 @@ context_for_next_session:
   - THE_POPULATION_ARM_TIES_THE_FLAG_IN_THE_MESSAGE_TO_THE_ATTRIBUTE_READ_args_canonical_to_dash_dash_canonical_so_a_third_caller_cannot_inherit_anothers_flags
 followups: []
 ---
+
+---
+session: 2026-09-30T09:40:28Z
+issue: 185
+focus: 138_moved_the_copy_off_examples_and_left_it_in_the_checkout
+phase: shipped
+duration_min: 0
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "968 passed; ruff check and ruff format --check clean"
+decisions_made: []
+measured: "git check-ignore --no-index said NOT ignored for report.html and creative_kite_v1.copy.yml; revert of the README 1 red of 3 in test_readme_shell_paths.py"
+context_for_next_session:
+  - READ_THE_SCOPE_THE_LAST_FIX_WROTE_DOWN_138_said_A_READER_MUST_NOT_REWRITE_examples_and_satisfied_it_with_dot_slash_WHICH_IS_STILL_THE_CHECKOUT_its_lock_asserts_NOT_examples_not_OUTSIDE_THE_REPO
+  - 138s_lock_uses_target_lstrip_dot_slash_which_also_strips_the_leading_slash_of_tmp_it_still_passes_because_it_is_a_substring_check_against_the_cp_line_UNCHANGED
+  - SAME_CLASS_SHIPPED_TONIGHT_IN_leh_269_and_rag_239_and_earlier_pyasync_120
+followups: []
