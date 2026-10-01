@@ -2096,3 +2096,14 @@ verdict beside it. Porting a sibling's helper would be a guard with no harm to
 name, and an arm pins the survivor list so a new inline spec fails here instead.
 
 Recorded as D-015.
+
+## 2026-09-30 — Issue #183: each subcommand's text-arg errors name its own flags
+**Duration:** ~3 min · **Branch:** session/2026-09-30-0828-issue-183
+
+- `diff --candidate x --candidate-stdin` told the operator to "pass --canonical OR --canonical-stdin", flags `diff` doesn't have, because the helper shared with `update` hard-coded `update`'s flags (and `diff`'s noun). The helper now takes the caller's flag and noun, and an arm ties each call site's flag to the option it reads.
+
+**Why this work, this session:** found by trying flag combinations across the portfolio's CLIs.
+
+**Open questions / blockers:** none.
+
+**Next session:** none queued.
