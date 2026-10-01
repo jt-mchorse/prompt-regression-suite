@@ -2118,3 +2118,15 @@ following the README and then `git add -A` would commit them. An earlier fix
 but the copy still landed inside the checkout. Both now write under `/tmp/`, and
 the README path test gained a second half: every `--out` value and every `cp`
 destination in a shell block must be under `/tmp/`.
+
+## 2026-10-01 — Issue #187: --warn-band ≥ 1 exits 2 in run, and every run row shows the effective threshold
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0840-issue-187
+
+- `run --warn-band 5` produced one error row per snapshot and exited 1, which CI reads as "regressions found". `diff` exited 2 for the same input. A warn band at or above 1 can't let any snapshot pass, so both commands now refuse it as a config error. Below 1, #85's per-row handling stays.
+- The skipped and error rows in `run --format json` published the run's threshold even when the snapshot's own tolerance was in force. They now use `resolve_effective_threshold`, the same definition `diff_response` applies. 10 new tests; three revert probes all red.
+
+**Why this work, this session:** found by this run's hunt; it's a sibling surface of D-015/#181.
+
+**Open questions / blockers:** whether to also bound `warn_band >= --threshold` needs a decision. It doesn't fail every snapshot, so it was left out.
+
+**Next session:** none queued.
