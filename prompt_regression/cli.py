@@ -51,6 +51,7 @@ from .diff import (
     diff_response,
     render_classified,
     render_comparison,
+    resolve_effective_threshold,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import (
@@ -167,6 +168,19 @@ def _validate_thresholds(threshold: float, warn_band: float) -> bool:
         return False
     if warn_band < 0:
         _eprint(f"error: warn_band must be non-negative; got {warn_band}")
+        return False
+    # Every effective threshold is at most 1, so a warn band at or above 1
+    # fails EVERY snapshot with `WarnBandThresholdError` -- in `run` that was one
+    # error row per snapshot and exit 1, read in CI as "regressions found" (#187).
+    # #85 kept the per-row error for a low per-snapshot `tolerance` the operator
+    # did not set, and calls an explicitly too-wide band "a genuine operator
+    # misconfig". Below 1 a snapshot with a higher `tolerance` can still pass, so
+    # that range keeps the per-row handling.
+    if warn_band >= 1.0:
+        _eprint(
+            f"error: warn_band must be < 1.0 (every effective threshold is at most 1); "
+            f"got {warn_band}"
+        )
         return False
     return True
 
@@ -352,7 +366,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "snapshot_id": snap.id,
                     "verdict": "error",
                     "cosine": None,
-                    "threshold": args.threshold,
+                    "threshold": resolve_effective_threshold(snap, args.threshold),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],
@@ -382,7 +396,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "snapshot_id": snap.id,
                     "verdict": "skipped",
                     "cosine": None,
-                    "threshold": args.threshold,
+                    "threshold": resolve_effective_threshold(snap, args.threshold),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],
@@ -421,7 +435,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "snapshot_id": snap.id,
                     "verdict": "error",
                     "cosine": None,
-                    "threshold": args.threshold,
+                    "threshold": resolve_effective_threshold(snap, args.threshold),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],

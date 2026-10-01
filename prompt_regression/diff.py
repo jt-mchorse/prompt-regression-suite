@@ -767,6 +767,16 @@ class NonFiniteEmbeddingError(ValueError):
     guard to the stored-embedding finiteness check."""
 
 
+def resolve_effective_threshold(snapshot: Snapshot, threshold: float) -> float:
+    """The threshold in force for ``snapshot``: its own ``tolerance``, else the run's.
+
+    One definition (#187). ``diff_response`` applied this, and ``run``'s
+    hand-built ``skipped`` / ``error`` rows published ``args.threshold``
+    instead -- the run's number beside a note naming the effective one.
+    """
+    return snapshot.tolerance if snapshot.tolerance is not None else threshold
+
+
 class WarnBandThresholdError(ValueError):
     """Raised when `warn_band > effective_threshold` (the #35 guard).
 
@@ -806,7 +816,7 @@ def diff_response(
     downstream surfaces (HTML report, PR comments) show the number that
     was actually applied to this row.
     """
-    effective_threshold = snapshot.tolerance if snapshot.tolerance is not None else threshold
+    effective_threshold = resolve_effective_threshold(snapshot, threshold)
     if not 0.0 < effective_threshold <= 1.0:
         raise ValueError(f"threshold must be in (0, 1]; got {effective_threshold}")
     # `warn_band`'s sign checks below are NaN-blind: `NaN < 0` and
