@@ -2106,3 +2106,22 @@ context_for_next_session:
   - 138s_lock_uses_target_lstrip_dot_slash_which_also_strips_the_leading_slash_of_tmp_it_still_passes_because_it_is_a_substring_check_against_the_cp_line_UNCHANGED
   - SAME_CLASS_SHIPPED_TONIGHT_IN_leh_269_and_rag_239_and_earlier_pyasync_120
 followups: []
+
+---
+session: 2026-10-01T08:32Z
+issue: 187
+focus: A_WARN_BAND_NO_SNAPSHOT_CAN_PASS_READ_AS_REGRESSIONS_AND_THREE_ROWS_PUBLISHED_THE_RUN_THRESHOLD
+phase: shipped
+duration_min: 4   # 08:28 plan -> 08:32 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 10
+  suite: "973 -> 983 green"
+decisions_made: []
+measured: "9b6346e: run --warn-band 5 -> two error rows, exit 1; diff --warn-band 0.9 -> exit 2; run --format json skipped row for a tolerance-0.75 snapshot published 0.85. Revert probes over test_cli + the new module, control 78: no >=1 bound 6 red, rows back on args.threshold 2, bound at >1 (off by one) 3."
+context_for_next_session:
+  - _validate_thresholds_DOCSTRING_SAID_IT_FULLY_COVERS_THE_REACHABLE_CASES_true_for_threshold_FALSE_for_warn_band_A_COVERAGE_CLAIM_ABOUT_TWO_ARGS_CHECKED_ONE
+  - THE_BOUND_IS_DRAWN_WHERE_NO_SNAPSHOT_CAN_PASS_warn_band_ge_1_a_tighter_warn_band_ge_threshold_bound_would_refuse_runs_where_a_higher_tolerance_snapshot_legitimately_passes_LEFT_FOR_A_DECISION
+  - THE_EXAMPLES_REFUND_SNAPSHOT_ALWAYS_ERRORS_UNDER_THE_HASH_EMBEDDER_8d_vs_128d_so_tests_needing_a_clean_second_snapshot_build_a_kite_variant
+followups: []
+---
