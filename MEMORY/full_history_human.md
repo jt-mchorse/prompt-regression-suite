@@ -2141,3 +2141,14 @@ destination in a shell block must be under `/tmp/`.
 **Open questions / blockers:** none.
 
 **Next session:** none queued.
+
+## 2026-10-02 — a one-word answer no longer passes against any other one-word answer (#195, D-016)
+
+The built-in hash embedder builds word pairs. A one-word text has no pairs, so
+every one-word text got the same fallback vector. A snapshot whose answer was
+`positive` therefore passed `negative` and `Error:` at a perfect 1.0000. Every
+single-word category label also scored identically: the committed demo showed
+0.204 three times. Short texts are now embedded as themselves, and longer texts
+are unchanged. The model name stays the same, recorded as D-016: changing it
+would have made every existing snapshot unusable. The demo page was regenerated;
+its categories now read 0.000 and its headline score is unchanged.
