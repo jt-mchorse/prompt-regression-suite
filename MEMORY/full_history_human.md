@@ -2141,3 +2141,11 @@ destination in a shell block must be under `/tmp/`.
 **Open questions / blockers:** none.
 
 **Next session:** none queued.
+
+## 2026-10-02 — score_semantic_categories refuses a bare string (#192)
+
+`ResponseShape` already refused `semantic_categories="refund"` on the snapshot
+path, but the exported `score_semantic_categories` was a second way in. Called
+directly with `"refund"`, it scored six one-letter categories with six embedder
+calls. It now refuses a bare string before any embedder call, and the snapshot
+path is unchanged. 9 new tests.
