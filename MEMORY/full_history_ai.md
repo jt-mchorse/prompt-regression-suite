@@ -2144,3 +2144,20 @@ context_for_next_session:
   - PART_OF_portfolio_ops_81_same_recipe_in_every_atomic_write_helper
 followups: ["portfolio-ops#81"]
 ---
+
+---
+session: 2026-10-02T15:20Z
+issue: 199
+focus: SAVE_SNAPSHOT_WROTE_U0085_RAW_AND_PYYAML_FOLDED_IT_ON_LOAD_THE_READER_DID_NOT_INVERT_THE_WRITER
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "994 -> 1000 green; ruff clean"
+decisions_made: []
+measured: "yaml.safe_dump({'k':'a\\x85b'}, allow_unicode=True) -> \"k: 'a\\x85  b'\" -> loads 'a b'. Revert: 4 of 6 red; controls (readable unicode, old rendering byte-identical without NEL) green."
+context_for_next_session:
+  - THE_COMMITTED_EXAMPLE_SNAPSHOTS_ARE_HAND_WRITTEN_BLOCK_SCALARS_save_snapshot_NEVER_RE_SAVED_THEM_BYTE_IDENTICALLY_EVEN_ON_main_the_right_control_compares_to_the_OLD_RENDERING_not_the_file
+  - THE_FALLBACK_COMPARES_LOAD_OF_UNICODE_VS_LOAD_OF_ESCAPED_RENDERING_not_against_to_dict_which_can_hold_tuples
+followups: []
+---
