@@ -221,7 +221,21 @@ def cosine(a: list[float], b: list[float]) -> float:
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
         return 0.0
-    return dot / (na * nb)
+    # Identical vectors are exactly 1.0, and nothing leaves [-1, 1] (#197). In
+    # floats `dot / (sqrt(dot) * sqrt(dot))` is 0.9999999999999999 or
+    # 1.0000000000000002 for about half of un-normalized vectors, so an identical
+    # response FAILED `tolerance: 1.0` -- documented as passing only an
+    # identical response -- with a note that read like real drift.
+    #
+    # Non-finite arithmetic (an overflowing embedder) is returned untouched so the
+    # callers' finiteness guards still raise: `min(1.0, nan)` is 1.0 in Python,
+    # so a clamp applied first would launder NaN into a perfect score.
+    value = dot / (na * nb)
+    if not math.isfinite(value) or not math.isfinite(na):
+        return value
+    if list(a) == list(b):
+        return 1.0
+    return max(-1.0, min(1.0, value))
 
 
 def _first_non_finite(vec: list[float]) -> tuple[int, float] | None:
