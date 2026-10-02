@@ -2141,3 +2141,15 @@ destination in a shell block must be under `/tmp/`.
 **Open questions / blockers:** none.
 
 **Next session:** none queued.
+
+## 2026-10-02 — an identical response always passes tolerance 1.0 (#197)
+
+The cosine of a vector with itself isn't always exactly 1 in floating point.
+For un-normalized vectors, which a real embedding model often returns, it came
+out slightly below 1 about a quarter of the time. So an identical response
+failed the strictest setting, documented as "passes only an identical
+response", with a note that looked like real drift. Identical vectors now score
+exactly 1.0, and every cosine is kept within [-1, 1]. One trap I avoided: a
+plain clamp would have turned NaN from an overflowing embedder into 1.0,
+because `min(1.0, nan)` is 1.0 in Python. The existing overflow tests caught my
+first version doing exactly that. 5 new tests.
