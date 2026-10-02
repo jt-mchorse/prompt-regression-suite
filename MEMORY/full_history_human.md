@@ -2130,3 +2130,14 @@ destination in a shell block must be under `/tmp/`.
 **Open questions / blockers:** whether to also bound `warn_band >= --threshold` needs a decision. It doesn't fail every snapshot, so it was left out.
 
 **Next session:** none queued.
+
+## 2026-10-01 — Issue #189: atomic_write_text honours the umask and keeps the target's mode
+**Duration:** ~3 min · **Branch:** session/2026-10-01-0852-issue-189
+
+- `atomic_write_text` created its temp file through `NamedTemporaryFile`, which is always 0600. `os.replace` carried that mode onto the target, so with umask 022 a new snapshot or `--out` report came out 0600, and `prompt-snap update` rewriting a committed 0644 snapshot left it 0600. The temp file is now created with `O_EXCL` and mode 0o666, so the kernel applies the umask. When the target already exists, its mode is copied onto the temp file before the rename. The name cap, surrogate handling, fsync and cleanup are unchanged. A new test module checks umask 022, 077 and 002, overwrites of 0644, 0600, 0640 and 0664, and `save_snapshot` as a real caller. Suite went from 973 to 984. Restoring the old helper turned 7 tests red.
+
+**Why this work, this session:** portfolio-ops#81 measured the same defect in every atomic-write helper in the portfolio.
+
+**Open questions / blockers:** none.
+
+**Next session:** none queued.
