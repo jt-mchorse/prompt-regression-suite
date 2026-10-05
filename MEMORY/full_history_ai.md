@@ -2234,7 +2234,7 @@ followups: []
 
 ---
 session: 2026-10-05T08:08Z
-duration_min: 14   # plan comment 2026-10-05T08:03:41Z -> 08:08Z
+duration_min: 5   # plan comment 2026-10-05T08:03:41Z (first repro ~07:58Z) -> 08:08Z
 issue: 203
 branch: session/2026-10-05-0803-issue-203
 focus: THE_WARN_FLOOR_WAS_A_SECOND_BOUNDARY_NOTHING_RENDERED_AGAINST_warn_0_800_and_fail_0_800_in_one_table_AND_IT_WAS_A_FLOAT_SUBTRACTION
