@@ -2156,6 +2156,46 @@ session, a test that deletes one fails it, and a test that writes only under
 `tmp_path` passes. Checked here by running a throwaway test that appended to
 `README.md`: the session failed and named the file.
 
+## 2026-10-02 — score_semantic_categories refuses a bare string (#192)
+
+`ResponseShape` already refused `semantic_categories="refund"` on the snapshot
+path, but the exported `score_semantic_categories` was a second way in. Called
+directly with `"refund"`, it scored six one-letter categories with six embedder
+calls. It now refuses a bare string before any embedder call, and the snapshot
+path is unchanged. 9 new tests.
+
+## 2026-10-02 — a one-word answer no longer passes against any other one-word answer (#195, D-016)
+
+The built-in hash embedder builds word pairs. A one-word text has no pairs, so
+every one-word text got the same fallback vector. A snapshot whose answer was
+`positive` therefore passed `negative` and `Error:` at a perfect 1.0000. Every
+single-word category label also scored identically: the committed demo showed
+0.204 three times. Short texts are now embedded as themselves, and longer texts
+are unchanged. The model name stays the same, recorded as D-016: changing it
+would have made every existing snapshot unusable. The demo page was regenerated;
+its categories now read 0.000 and its headline score is unchanged.
+
+## 2026-10-02 — an identical response always passes tolerance 1.0 (#197)
+
+The cosine of a vector with itself isn't always exactly 1 in floating point.
+For un-normalized vectors, which a real embedding model often returns, it came
+out slightly below 1 about a quarter of the time. So an identical response
+failed the strictest setting, documented as "passes only an identical
+response", with a note that looked like real drift. Identical vectors now score
+exactly 1.0, and every cosine is kept within [-1, 1]. One trap I avoided: a
+plain clamp would have turned NaN from an overflowing embedder into 1.0,
+because `min(1.0, nan)` is 1.0 in Python. The existing overflow tests caught my
+first version doing exactly that. 5 new tests.
+
+## 2026-10-02 — a saved snapshot loads back as itself, NEL included (#199)
+
+Saving a snapshot whose text contained U+0085, a character that often appears
+in model output as a mis-decoded ellipsis, wrote it in a form the YAML loader
+reads back as a space. The stored canonical text then no longer matched what was
+embedded. The writer now checks that its output loads back unchanged, and if not
+writes the escaped form. Every other snapshot is written exactly as before.
+6 new tests.
+
 ## 2026-10-05 — a round-trip test that failed when the clock ticked (#201)
 
 Main went red right after prs#191 merged. The changed code wasn't the cause.

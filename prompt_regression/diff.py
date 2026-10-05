@@ -194,6 +194,15 @@ class HashEmbedder:
         ngrams: list[str]
         if self.ngram == 1:
             ngrams = list(tokens)
+        elif 0 < len(tokens) < self.ngram:
+            # Too short for one full n-gram: the whole token sequence is its one
+            # gram (#195, D-016). It used to produce NO grams and fall through to
+            # the `e0` sentinel below, so every one-word text embedded to the same
+            # vector -- `"negative"` passed against a `"positive"` snapshot at
+            # cosine 1.0000, and every single-token category label scored the
+            # same. A text with >= `ngram` tokens is untouched, so every stored
+            # snapshot embedding of such a text is still reproduced bit for bit.
+            ngrams = [" ".join(tokens)]
         else:
             ngrams = [
                 " ".join(tokens[i : i + self.ngram]) for i in range(len(tokens) - self.ngram + 1)
@@ -221,7 +230,21 @@ def cosine(a: list[float], b: list[float]) -> float:
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
         return 0.0
-    return dot / (na * nb)
+    # Identical vectors are exactly 1.0, and nothing leaves [-1, 1] (#197). In
+    # floats `dot / (sqrt(dot) * sqrt(dot))` is 0.9999999999999999 or
+    # 1.0000000000000002 for about half of un-normalized vectors, so an identical
+    # response FAILED `tolerance: 1.0` -- documented as passing only an
+    # identical response -- with a note that read like real drift.
+    #
+    # Non-finite arithmetic (an overflowing embedder) is returned untouched so the
+    # callers' finiteness guards still raise: `min(1.0, nan)` is 1.0 in Python,
+    # so a clamp applied first would launder NaN into a perfect score.
+    value = dot / (na * nb)
+    if not math.isfinite(value) or not math.isfinite(na):
+        return value
+    if list(a) == list(b):
+        return 1.0
+    return max(-1.0, min(1.0, value))
 
 
 def _first_non_finite(vec: list[float]) -> tuple[int, float] | None:
@@ -665,6 +688,16 @@ def score_semantic_categories(
     embedder: Embedder,
 ) -> list[SemanticCategoryScore]:
     """Cosine similarity between the candidate response and each category label."""
+    # First, ahead of the emptiness check and any embedder call (#192).
+    # `ResponseShape` refuses this shape for the snapshot path; this exported
+    # function is the other road in, and `"refund"` was scored as r, e, f, u, n, d
+    # -- six categories, six embedder calls.
+    if isinstance(categories, (str, bytes, bytearray)):
+        fix = f"pass [{categories!r}]" if isinstance(categories, str) else "decode it first"
+        raise ValueError(
+            f"categories must be a list of labels, not a bare {type(categories).__name__}: "
+            f"{categories!r} would be scored one character at a time -- {fix}"
+        )
     if not categories:
         return []
     response_vec = embedder.embed(candidate_text)

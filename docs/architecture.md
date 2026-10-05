@@ -600,3 +600,14 @@ threshold and no status beside it.
 
 - **Design decisions** — `MEMORY/core_decisions_human.md` for prose,
   `MEMORY/core_decisions_ai.md` for the structured log.
+
+## A text shorter than one n-gram is its own gram (#195, D-016)
+
+`HashEmbedder` builds bigrams, and a one-word text has none. It used to fall
+through to a shared sentinel vector, so every one-word text embedded
+identically: `negative` passed against a `positive` snapshot at cosine 1.0000,
+and every single-token semantic-category label scored the same. A text with
+fewer tokens than `ngram` now uses its whole token sequence as its one gram.
+Longer texts are bit-identical, so no stored embedding of one changes, and the
+`model_name` stays as it was. A bump would make D-006 refuse every existing
+snapshot to fix only the ones that were already wrong.
