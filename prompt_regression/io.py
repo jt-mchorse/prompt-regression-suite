@@ -300,6 +300,17 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
         default_flow_style=False,
         allow_unicode=True,
     )
+    # The reader must invert the writer (#199). PyYAML writes U+0085 (NEL) raw
+    # inside a quoted scalar and folds it to a space on load, so a canonical text
+    # containing one came back different from the text its embedding was
+    # computed from. When the readable unicode rendering does not load back to
+    # what the escaped rendering does, write the escaped one -- so every other
+    # snapshot stays byte-identical.
+    escaped = yaml.safe_dump(
+        payload, sort_keys=False, default_flow_style=False, allow_unicode=False
+    )
+    if yaml.safe_load(rendered) != yaml.safe_load(escaped):
+        rendered = escaped
     atomic_write_text(p, rendered)
     return p
 

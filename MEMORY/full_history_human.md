@@ -2186,3 +2186,12 @@ exactly 1.0, and every cosine is kept within [-1, 1]. One trap I avoided: a
 plain clamp would have turned NaN from an overflowing embedder into 1.0,
 because `min(1.0, nan)` is 1.0 in Python. The existing overflow tests caught my
 first version doing exactly that. 5 new tests.
+
+## 2026-10-02 — a saved snapshot loads back as itself, NEL included (#199)
+
+Saving a snapshot whose text contained U+0085, a character that often appears
+in model output as a mis-decoded ellipsis, wrote it in a form the YAML loader
+reads back as a space. The stored canonical text then no longer matched what was
+embedded. The writer now checks that its output loads back unchanged, and if not
+writes the escaped form. Every other snapshot is written exactly as before.
+6 new tests.
