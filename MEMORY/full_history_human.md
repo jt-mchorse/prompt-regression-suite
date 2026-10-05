@@ -2155,3 +2155,15 @@ using the same guard file. A test that writes a tracked file fails that
 session, a test that deletes one fails it, and a test that writes only under
 `tmp_path` passes. Checked here by running a throwaway test that appended to
 `README.md`: the session failed and named the file.
+
+## 2026-10-05 — a round-trip test that failed when the clock ticked (#201)
+
+Main went red right after prs#191 merged. The changed code wasn't the cause.
+`test_save_snapshot_real_caller_new_and_overwrite` built its sample snapshot
+twice, once to save and once to compare against. `created_at` defaults to the
+current second, so the test failed whenever the two calls landed in different
+seconds. A rerun turned main green. The fix builds the snapshot once. A new
+test runs the same body under a fake clock that moves forward a second on every
+read; with the old two-call shape restored, it fails. A scan of every test file
+found no other test comparing two separately built snapshots, and no other repo
+in the portfolio has a wall-clock default.
