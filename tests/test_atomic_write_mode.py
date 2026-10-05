@@ -17,6 +17,7 @@ import os
 import stat
 import sys
 from collections.abc import Iterator
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ from prompt_regression import (
     save_snapshot,
 )
 from prompt_regression import io as io_mod
+from prompt_regression import schema as schema_mod
 from prompt_regression.io import atomic_write_text
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits and umask")
@@ -134,15 +136,47 @@ def _snapshot() -> Snapshot:
     )
 
 
+def _save_new_and_overwrite(tmp_path: Path) -> None:
+    # One snapshot, saved and compared. `created_at` defaults to the wall
+    # clock at one-second resolution, so building a second `_snapshot()` to
+    # compare against fails whenever the two calls straddle a second (#201).
+    snap = _snapshot()
+    out = tmp_path / "snapshots" / "mode-test.snapshot.yaml"
+    save_snapshot(snap, out)
+    assert load_snapshot(out) == snap
+    assert _mode(out) == 0o644
+
+    os.chmod(out, 0o640)
+    save_snapshot(snap, out)
+    assert _mode(out) == 0o640
+
+
 def test_save_snapshot_real_caller_new_and_overwrite(tmp_path: Path, umask) -> None:
     """A real caller: `save_snapshot`, which `prompt-snap update` uses to
     rewrite a committed snapshot in place."""
     umask(0o022)
-    out = tmp_path / "snapshots" / "mode-test.snapshot.yaml"
-    save_snapshot(_snapshot(), out)
-    assert load_snapshot(out) == _snapshot()
-    assert _mode(out) == 0o644
+    _save_new_and_overwrite(tmp_path)
 
-    os.chmod(out, 0o640)
-    save_snapshot(_snapshot(), out)
-    assert _mode(out) == 0o640
+
+class _TickingDatetime(datetime):
+    """A clock that is one second later on every read, so every pair of
+    reads straddles a second boundary."""
+
+    _ticks = 0
+
+    @classmethod
+    def now(cls, tz=None):  # type: ignore[override]
+        cls._ticks += 1
+        return datetime(2026, 1, 1, tzinfo=tz) + timedelta(seconds=cls._ticks)
+
+
+def test_save_snapshot_round_trip_holds_across_a_second_boundary(
+    tmp_path: Path, umask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#201: main went red when the real-caller test above built its expected
+    snapshot one second after the saved one. Drive the same body under a clock
+    that ticks on every read; it must still pass."""
+    monkeypatch.setattr(schema_mod, "datetime", _TickingDatetime)
+    assert _snapshot().created_at != _snapshot().created_at  # the clock does tick
+    umask(0o022)
+    _save_new_and_overwrite(tmp_path)
