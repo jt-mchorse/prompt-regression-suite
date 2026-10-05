@@ -2142,6 +2142,28 @@ destination in a shell block must be under `/tmp/`.
 
 **Next session:** none queued.
 
+## 2026-10-02 — the test session fails if any test rewrites a committed file (portfolio-ops#79)
+
+Ported from python-async-llm-pipelines#115, where a test overwrote a committed
+artifact on every CI run. The overwrite only happened on Linux, so nobody
+noticed. `tests/_committed_files_guard.py` records a hash of every git-tracked
+file when the session starts and fails the session if any changed or
+disappeared. It covers every tracked file, not only `docs/`, because committed
+outputs live in different places in each repo and no current test writes any of
+them. A self-test runs a real inner pytest session in a throwaway git repo
+using the same guard file. A test that writes a tracked file fails that
+session, a test that deletes one fails it, and a test that writes only under
+`tmp_path` passes. Checked here by running a throwaway test that appended to
+`README.md`: the session failed and named the file.
+
+## 2026-10-02 — score_semantic_categories refuses a bare string (#192)
+
+`ResponseShape` already refused `semantic_categories="refund"` on the snapshot
+path, but the exported `score_semantic_categories` was a second way in. Called
+directly with `"refund"`, it scored six one-letter categories with six embedder
+calls. It now refuses a bare string before any embedder call, and the snapshot
+path is unchanged. 9 new tests.
+
 ## 2026-10-02 — a one-word answer no longer passes against any other one-word answer (#195, D-016)
 
 The built-in hash embedder builds word pairs. A one-word text has no pairs, so
