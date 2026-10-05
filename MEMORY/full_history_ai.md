@@ -2164,8 +2164,8 @@ followups: []
 ---
 
 ---
-session: 2026-10-05T07:35Z
-duration_min: 18
+session: 2026-10-05T07:19Z
+duration_min: 7   # first repro -> close comment, from the command log and the comment timestamps
 issue: 201
 focus: A_ROUND_TRIP_TEST_COMPARED_AGAINST_A_SECOND_SNAPSHOT_WHOSE_created_at_WAS_READ_FROM_THE_WALL_CLOCK_ONE_CALL_LATER
 phase: shipped
