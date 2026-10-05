@@ -2155,3 +2155,11 @@ using the same guard file. A test that writes a tracked file fails that
 session, a test that deletes one fails it, and a test that writes only under
 `tmp_path` passes. Checked here by running a throwaway test that appended to
 `README.md`: the session failed and named the file.
+
+## 2026-10-02 — score_semantic_categories refuses a bare string (#192)
+
+`ResponseShape` already refused `semantic_categories="refund"` on the snapshot
+path, but the exported `score_semantic_categories` was a second way in. Called
+directly with `"refund"`, it scored six one-letter categories with six embedder
+calls. It now refuses a bare string before any embedder call, and the snapshot
+path is unchanged. 9 new tests.

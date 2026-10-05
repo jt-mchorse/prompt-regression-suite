@@ -2162,3 +2162,20 @@ context_for_next_session:
   - THE_CORPUS_ARM_test_this_checkout_is_what_the_guard_snapshots_FAILS_UNTIL_THE_FILE_IS_COMMITTED_that_is_by_design
 followups: []
 ---
+
+---
+session: 2026-10-02T08:50Z
+issue: 192
+focus: score_semantic_categories_SCORED_A_BARE_STRING_AS_ONE_CATEGORY_PER_LETTER_WHILE_ResponseShape_ALREADY_REFUSED_IT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "994 -> 1003 green; ruff clean"
+decisions_made: []
+measured: "main: score_semantic_categories('a refund was issued', 'refund', embedder=HashEmbedder()) -> 6 scores r,e,f,u,n,d. Revert: 5 of 9 red; controls green by design."
+context_for_next_session:
+  - A_RULE_APPLIED_TO_ONE_OF_TWO_ROADS_ResponseShape_post_init_guards_the_snapshot_path_and_the_EXPORTED_function_was_the_other_road
+  - THE_CHECK_RUNS_BEFORE_if_not_categories_so_an_EMPTY_STRING_IS_REFUSED_rather_than_silently_returning_an_empty_list
+followups: []
+---
