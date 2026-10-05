@@ -194,6 +194,15 @@ class HashEmbedder:
         ngrams: list[str]
         if self.ngram == 1:
             ngrams = list(tokens)
+        elif 0 < len(tokens) < self.ngram:
+            # Too short for one full n-gram: the whole token sequence is its one
+            # gram (#195, D-016). It used to produce NO grams and fall through to
+            # the `e0` sentinel below, so every one-word text embedded to the same
+            # vector -- `"negative"` passed against a `"positive"` snapshot at
+            # cosine 1.0000, and every single-token category label scored the
+            # same. A text with >= `ngram` tokens is untouched, so every stored
+            # snapshot embedding of such a text is still reproduced bit for bit.
+            ngrams = [" ".join(tokens)]
         else:
             ngrams = [
                 " ".join(tokens[i : i + self.ngram]) for i in range(len(tokens) - self.ngram + 1)

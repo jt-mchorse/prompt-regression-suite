@@ -2179,3 +2179,21 @@ context_for_next_session:
   - THE_CHECK_RUNS_BEFORE_if_not_categories_so_an_EMPTY_STRING_IS_REFUSED_rather_than_silently_returning_an_empty_list
 followups: []
 ---
+
+---
+session: 2026-10-02T11:10Z
+issue: 195
+focus: HashEmbedder_MAPPED_EVERY_ONE_WORD_TEXT_TO_e0_SO_A_ONE_WORD_SWAP_PASSED_AT_COSINE_1_0000_D_016
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 7
+  suite: "994 -> 1001 green; ruff clean; demo HTML regenerated via its documented command"
+decisions_made: [D-016]
+measured: "main: 'positive' snapshot vs 'negative'/'Error:' -> pass 1.0000 exit 0; committed demo categories 0.204 x3. After: exit 1 for both, categories 0.000 x3, headline cosine 0.218 unchanged. Revert 4 of 7 red."
+context_for_next_session:
+  - FOUND_BY_A_HUNT_ON_THE_LENS_A_DEFAULT_AT_AN_EXTREME_OF_A_COMPARISON_the_e0_sentinel_is_the_BEST_possible_cosine_for_a_text_with_NO_measurement
+  - ONLY_ONE_COMMITTED_SNAPSHOT_USES_HashEmbedder_creative_kite_v1_refund_window_v1_stores_an_OpenAI_embedding_THE_BIT_IDENTITY_ARM_FLOOR_IS_1
+  - D_016_KEPT_model_name_ON_PURPOSE_see_the_decision_A_BUMP_WOULD_REFUSE_EVERY_SNAPSHOT
+followups: []
+---
