@@ -533,3 +533,28 @@ the #177 regression `places` is a required argument to prevent.
 **Reversibility:** Cheap.
 
 **Related issues:** #181, #179, #177, #175
+
+## D-016 — a text shorter than one n-gram is its own gram (2026-10-02)
+
+**Context.** `HashEmbedder` builds bigrams. A one-word text has none, so it fell
+through to a sentinel vector, and every one-word text embedded the same way.
+Against a snapshot whose canonical answer is `positive`, the candidates
+`negative` and `Error:` passed at cosine 1.0000. Every single-token category
+label also scored the same number for any response.
+
+**Decision.** A text with fewer tokens than `ngram` uses its whole token sequence
+as its one n-gram. Longer texts are untouched. The embedder's `model_name` stays
+the same.
+
+**Why not bump the model name.** D-006 refuses a snapshot whose stored embedding
+model differs from the embedder's. A new name would reject every existing
+HashEmbedder snapshot to fix only the ones that were already wrong. The only
+stored embeddings this changes are those degenerate ones, and they now fail
+loudly against a real candidate instead of passing silently. A test reproduces
+the committed snapshot's stored embedding bit for bit.
+
+**Alternatives rejected.** A name bump; unigrams for every text, which changes
+every stored embedding; a zero vector for short texts, which would make
+`positive` vs `positive` fail.
+
+**Reversibility.** Cheap.
