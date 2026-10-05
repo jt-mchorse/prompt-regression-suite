@@ -2146,6 +2146,59 @@ followups: ["portfolio-ops#81"]
 ---
 
 ---
+session: 2026-10-02T07:55Z
+issue: "portfolio-ops#79"
+focus: PORT_THE_TESTS_MAY_NOT_REWRITE_A_COMMITTED_FILE_SESSION_GUARD_WIDENED_FROM_docs_TO_EVERY_GIT_TRACKED_FILE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 6
+  suite: "1000 green under the guard; ruff check and format clean"
+decisions_made: []
+measured: "full suite under the guard = 0 tracked files changed; a throwaway test appending to README.md fails the session with 'rewrote committed files: [README.md]' (README restored from a cp copy, tree clean after); unwiring the conftest import turns the wiring arm red."
+context_for_next_session:
+  - tests_committed_files_guard_py_IS_SELF_CONTAINED_AND_IDENTICAL_ACROSS_7_REPOS_its_self_test_COPIES_IT_VERBATIM_AS_AN_INNER_SESSIONS_CONFTEST_in_a_throwaway_git_repo_writer_FAILS_deleter_FAILS_tmp_path_writer_PASSES
+  - EVERY_TRACKED_FILE_NOT_A_DIRECTORY_LIST_the_2026_10_01_probe_found_ZERO_tracked_files_modified_by_any_suite_so_the_wider_rule_costs_nothing_A_NEW_TEST_THAT_REGENERATES_A_COMMITTED_ARTIFACT_MUST_WRITE_TO_tmp_path_AND_COMPARE
+  - THE_CORPUS_ARM_test_this_checkout_is_what_the_guard_snapshots_FAILS_UNTIL_THE_FILE_IS_COMMITTED_that_is_by_design
+followups: []
+---
+
+---
+session: 2026-10-02T08:50Z
+issue: 192
+focus: score_semantic_categories_SCORED_A_BARE_STRING_AS_ONE_CATEGORY_PER_LETTER_WHILE_ResponseShape_ALREADY_REFUSED_IT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "994 -> 1003 green; ruff clean"
+decisions_made: []
+measured: "main: score_semantic_categories('a refund was issued', 'refund', embedder=HashEmbedder()) -> 6 scores r,e,f,u,n,d. Revert: 5 of 9 red; controls green by design."
+context_for_next_session:
+  - A_RULE_APPLIED_TO_ONE_OF_TWO_ROADS_ResponseShape_post_init_guards_the_snapshot_path_and_the_EXPORTED_function_was_the_other_road
+  - THE_CHECK_RUNS_BEFORE_if_not_categories_so_an_EMPTY_STRING_IS_REFUSED_rather_than_silently_returning_an_empty_list
+followups: []
+---
+
+---
+session: 2026-10-02T11:10Z
+issue: 195
+focus: HashEmbedder_MAPPED_EVERY_ONE_WORD_TEXT_TO_e0_SO_A_ONE_WORD_SWAP_PASSED_AT_COSINE_1_0000_D_016
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 7
+  suite: "994 -> 1001 green; ruff clean; demo HTML regenerated via its documented command"
+decisions_made: [D-016]
+measured: "main: 'positive' snapshot vs 'negative'/'Error:' -> pass 1.0000 exit 0; committed demo categories 0.204 x3. After: exit 1 for both, categories 0.000 x3, headline cosine 0.218 unchanged. Revert 4 of 7 red."
+context_for_next_session:
+  - FOUND_BY_A_HUNT_ON_THE_LENS_A_DEFAULT_AT_AN_EXTREME_OF_A_COMPARISON_the_e0_sentinel_is_the_BEST_possible_cosine_for_a_text_with_NO_measurement
+  - ONLY_ONE_COMMITTED_SNAPSHOT_USES_HashEmbedder_creative_kite_v1_refund_window_v1_stores_an_OpenAI_embedding_THE_BIT_IDENTITY_ARM_FLOOR_IS_1
+  - D_016_KEPT_model_name_ON_PURPOSE_see_the_decision_A_BUMP_WOULD_REFUSE_EVERY_SNAPSHOT
+followups: []
+---
+
+---
 session: 2026-10-02T15:10Z
 issue: 197
 focus: COSINE_V_V_WAS_0_9999999999999999_FOR_UNNORMALIZED_VECTORS_SO_TOLERANCE_1_0_FAILED_AN_IDENTICAL_RESPONSE

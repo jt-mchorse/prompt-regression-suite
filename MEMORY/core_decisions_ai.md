@@ -181,3 +181,15 @@
   reversibility: cheap
   related_issues: ["#181", "#179", "#177", "#175"]
   superseded_by: null
+
+- id: D-016
+  date: 2026-10-02
+  decision: HashEmbedder_EMBEDS_A_TEXT_WITH_FEWER_TOKENS_THAN_ngram_AS_ONE_GRAM_THE_WHOLE_TOKEN_SEQUENCE_INSTEAD_OF_THE_SHARED_e0_SENTINEL_AND_KEEPS_ITS_model_name_UNCHANGED
+  rationale: bigrams_only_meant_EVERY_ONE_WORD_TEXT_EMBEDDED_TO_e0_so_negative_PASSED_against_a_positive_snapshot_at_cosine_1_0000_and_every_single_token_category_label_scored_IDENTICALLY_the_committed_demo_showed_0_204_three_times_A_MISSING_MEASUREMENT_PUBLISHED_AS_A_PERFECT_ONE
+  WHY_THE_NAME_IS_NOT_BUMPED: D_006_refuses_a_snapshot_whose_embedding_model_differs_from_the_embedders_so_a_bump_would_REJECT_EVERY_EXISTING_HashEmbedder_SNAPSHOT_while_the_ONLY_stored_embeddings_this_changes_are_the_degenerate_e0_ones_for_texts_shorter_than_ngram_and_those_now_fail_LOUDLY_against_a_real_candidate_instead_of_passing_silently_texts_with_ge_ngram_tokens_are_bit_identical_and_an_arm_reproduces_the_committed_snapshots_stored_embedding
+  THE_EMPTY_TEXT_KEEPS_e0: no_tokens_means_no_gram_to_hash_unchanged_and_pinned
+  alternatives_rejected: ["BUMP_model_name_REJECTED_it_refuses_every_existing_snapshot_to_fix_ones_that_were_already_wrong", "UNIGRAMS_FOR_EVERY_TEXT_REJECTED_it_changes_EVERY_stored_embedding", "MIX_UNIGRAMS_INTO_SHORT_TEXTS_ONLY_PER_TOKEN_REJECTED_for_one_token_it_is_identical_to_this_rule_and_for_ngram_gt_2_it_is_a_second_new_rule", "A_ZERO_VECTOR_FOR_SHORT_TEXTS_REJECTED_cosine_returns_0_for_a_zero_vector_so_positive_vs_positive_would_FAIL"]
+  measured: "main: snapshot 'positive' vs 'negative'/'Error:' -> pass at 1.0000, exit 0. After: both exit 1, 'positive' vs 'positive' still exit 0. Revert: 4 of 7 red; controls (same word, empty text, committed embedding) green. Regenerated docs/regression_demo.html: categories 0.204 x3 -> 0.000 x3, headline cosine 0.218 unchanged."
+  reversibility: cheap
+  related_issues: ["#195", "#192"]
+  superseded_by: null

@@ -194,6 +194,15 @@ class HashEmbedder:
         ngrams: list[str]
         if self.ngram == 1:
             ngrams = list(tokens)
+        elif 0 < len(tokens) < self.ngram:
+            # Too short for one full n-gram: the whole token sequence is its one
+            # gram (#195, D-016). It used to produce NO grams and fall through to
+            # the `e0` sentinel below, so every one-word text embedded to the same
+            # vector -- `"negative"` passed against a `"positive"` snapshot at
+            # cosine 1.0000, and every single-token category label scored the
+            # same. A text with >= `ngram` tokens is untouched, so every stored
+            # snapshot embedding of such a text is still reproduced bit for bit.
+            ngrams = [" ".join(tokens)]
         else:
             ngrams = [
                 " ".join(tokens[i : i + self.ngram]) for i in range(len(tokens) - self.ngram + 1)
@@ -679,6 +688,16 @@ def score_semantic_categories(
     embedder: Embedder,
 ) -> list[SemanticCategoryScore]:
     """Cosine similarity between the candidate response and each category label."""
+    # First, ahead of the emptiness check and any embedder call (#192).
+    # `ResponseShape` refuses this shape for the snapshot path; this exported
+    # function is the other road in, and `"refund"` was scored as r, e, f, u, n, d
+    # -- six categories, six embedder calls.
+    if isinstance(categories, (str, bytes, bytearray)):
+        fix = f"pass [{categories!r}]" if isinstance(categories, str) else "decode it first"
+        raise ValueError(
+            f"categories must be a list of labels, not a bare {type(categories).__name__}: "
+            f"{categories!r} would be scored one character at a time -- {fix}"
+        )
     if not categories:
         return []
     response_vec = embedder.embed(candidate_text)
