@@ -24,6 +24,7 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Any, Protocol
 
 from prompt_regression.schema import Snapshot
@@ -752,6 +753,9 @@ class DiffResult:
     embedder_model: str
     snapshot_embedding_model: str
     notes: list[str] = field(default_factory=list)
+    # The bottom of the warn band the verdict was decided against (#203);
+    # `None` when the run has no warn band.
+    warn_floor: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         # Eight-field contract (#51) — replaces cli.py `_serialize_diff`'s
@@ -762,6 +766,7 @@ class DiffResult:
             "verdict": self.verdict,
             "cosine_score": self.cosine_score,
             "threshold": self.threshold,
+            "warn_floor": self.warn_floor,
             "embedder_model": self.embedder_model,
             "snapshot_embedding_model": self.snapshot_embedding_model,
             "slot_deltas": [d.to_dict() for d in self.slot_deltas],
@@ -798,6 +803,22 @@ class NonFiniteEmbeddingError(ValueError):
     `nan` into the HTML/JSON/PR-comment output. Raise a catchable error so
     the `run` batch records this row as `error` and continues — the symmetric
     guard to the stored-embedding finiteness check."""
+
+
+def warn_floor(threshold: float, warn_band: float) -> float:
+    """The bottom of the warn band, ``[threshold - warn_band, threshold)``, exactly.
+
+    Both operands are decimals an operator wrote (`--threshold 0.75`,
+    `--warn-band 0.18`), and the float subtraction did not compute their
+    difference: ``0.75 - 0.18`` is ``0.5700000000000001``, so a cosine of
+    exactly 0.57 was `fail`, and the default ``0.85 - 0.05`` is
+    ``0.7999999999999999``, one ULP lenient. 48 two-decimal pairs at a
+    threshold of 0.70 or more land above the documented floor (#203). The
+    difference of the decimals each float stands for, rounded once, is the
+    floor the docs describe. Clamped at 0, as the band always was.
+    """
+    exact = Fraction(repr(threshold)) - Fraction(repr(warn_band))
+    return max(0.0, float(exact))
 
 
 def resolve_effective_threshold(snapshot: Snapshot, threshold: float) -> float:
@@ -950,7 +971,8 @@ def diff_response(
     slot_deltas = diff_slots(snapshot.response_shape.structured_slots, candidate_text)
 
     cosine_pass = cosine_score >= effective_threshold
-    cosine_warn = (not cosine_pass) and cosine_score >= max(0.0, effective_threshold - warn_band)
+    floor = warn_floor(effective_threshold, warn_band)
+    cosine_warn = (not cosine_pass) and cosine_score >= floor
     slots_ok = all(not d.is_failure for d in slot_deltas)
 
     if not slots_ok:
@@ -970,6 +992,22 @@ def diff_response(
             cosine_score, effective_threshold, places=COMPARISON_PLACES, exact_other=True
         )
         notes.append(f"cosine {score_str} below threshold {thr_str} but inside warn band")
+    elif warn_band > 0:
+        verdict = "fail"
+        # Name the boundary the verdict was decided at (#203). The note said
+        # only "below threshold", exactly what a `warn` row's note also says,
+        # and the floor that separates them appeared nowhere in the output.
+        # The score renders against the floor, the boundary it fell below; the
+        # floor is below the threshold, so the first ordering holds as printed.
+        score_str, floor_str = render_comparison(
+            cosine_score, floor, places=COMPARISON_PLACES, exact_other=True
+        )
+        _, thr_str = render_comparison(
+            cosine_score, effective_threshold, places=COMPARISON_PLACES, exact_other=True
+        )
+        notes.append(
+            f"cosine {score_str} below threshold {thr_str} and below warn floor {floor_str}"
+        )
     else:
         verdict = "fail"
         score_str, thr_str = render_comparison(
@@ -983,6 +1021,7 @@ def diff_response(
         slot_deltas=slot_deltas,
         verdict=verdict,
         threshold=effective_threshold,
+        warn_floor=floor if warn_band > 0 else None,
         embedder_model=embedder.model_name,
         snapshot_embedding_model=snapshot.canonical.embedding_model,
         notes=notes,
@@ -998,7 +1037,9 @@ def _band(value: float, boundary: float) -> int:
     return 0
 
 
-def render_classified(value: float, boundary: float, *, places: int) -> str:
+def render_classified(
+    value: float, boundary: float, *, places: int, others: Sequence[float] = ()
+) -> str:
     """Render one number so a verdict printed beside it cannot contradict it.
 
     The neighbouring population to :func:`render_comparison`, and the one its
@@ -1045,9 +1086,15 @@ def render_classified(value: float, boundary: float, *, places: int) -> str:
     ``repr`` is the terminal fallback, as in :func:`render_comparison`: it
     round-trips a double by definition, so it classifies exactly.
     """
-    target = _band(value, boundary)
+    # `others`: further boundaries the same verdict depends on. A `run` row's
+    # verdict is decided at the threshold AND, under a warn band, at the warn
+    # floor -- widening against the threshold alone printed `warn 0.800` and
+    # `fail 0.800` in one table (#203). The rule is unchanged, stated over
+    # every boundary: the rendering reads back on the same side of each.
+    boundaries = (boundary, *others)
+    targets = [_band(value, b) for b in boundaries]
     for width in range(places, max(places, COMPARISON_MAX_PLACES) + 1):
         rendered = f"{value:.{width}f}"
-        if _band(float(rendered), boundary) == target:
+        if [_band(float(rendered), b) for b in boundaries] == targets:
             return rendered
     return repr(value)

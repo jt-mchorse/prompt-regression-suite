@@ -52,6 +52,7 @@ from .diff import (
     render_classified,
     render_comparison,
     resolve_effective_threshold,
+    warn_floor,
 )
 from .html_report import Entry, ErrorEntry, ReportEntry, render_report
 from .io import (
@@ -241,6 +242,14 @@ def _load_candidates(path: Path) -> dict[str, str]:
     return out
 
 
+def _row_warn_floor(snap: Snapshot, args: argparse.Namespace) -> float | None:
+    """A row's warn floor when no `DiffResult` was produced (error rows), so every
+    row carries the same keys (#203)."""
+    if args.warn_band <= 0:
+        return None
+    return warn_floor(resolve_effective_threshold(snap, args.threshold), args.warn_band)
+
+
 def _row_for(path: Path, snap: Snapshot, result: DiffResult) -> dict:
     return {
         "snapshot_path": str(path),
@@ -264,6 +273,9 @@ def _row_for(path: Path, snap: Snapshot, result: DiffResult) -> dict:
         # HTML report routes through `render_comparison`.
         "cosine": result.cosine_score,
         "threshold": result.threshold,
+        # The bottom of the warn band this verdict was decided against (#203);
+        # null when the run has no warn band.
+        "warn_floor": result.warn_floor,
         "embedder": result.embedder_model,
         "snapshot_embedder": result.snapshot_embedding_model,
         "slot_failures": [d.name for d in result.slot_deltas if d.is_failure],
@@ -367,6 +379,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "verdict": "error",
                     "cosine": None,
                     "threshold": resolve_effective_threshold(snap, args.threshold),
+                    "warn_floor": _row_warn_floor(snap, args),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],
@@ -397,6 +410,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "verdict": "skipped",
                     "cosine": None,
                     "threshold": resolve_effective_threshold(snap, args.threshold),
+                    "warn_floor": _row_warn_floor(snap, args),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],
@@ -436,6 +450,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     "verdict": "error",
                     "cosine": None,
                     "threshold": resolve_effective_threshold(snap, args.threshold),
+                    "warn_floor": _row_warn_floor(snap, args),
                     "embedder": embedder.model_name,
                     "snapshot_embedder": snap.canonical.embedding_model,
                     "slot_failures": [],
@@ -608,7 +623,13 @@ def _format_text_table(
     cells = [
         None
         if row["cosine"] is None
-        else render_classified(row["cosine"], row["threshold"], places=_TABLE_COSINE_PLACES)
+        else render_classified(
+            row["cosine"],
+            row["threshold"],
+            places=_TABLE_COSINE_PLACES,
+            # Under a warn band the verdict is also decided at the floor (#203).
+            others=() if row.get("warn_floor") is None else (row["warn_floor"],),
+        )
         for row in rows
     ]
     # The column width is derived from the widest cell rather than hardcoded, so
