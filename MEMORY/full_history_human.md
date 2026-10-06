@@ -2220,3 +2220,14 @@ now computed exactly, shown in the fail note, the HTML report and the JSON, and
 the printed score is widened until it reads on the right side of both
 cut-offs. I quoted an unverified "48 pairs" figure in the issue and corrected it
 to my own measurement.
+
+## 2026-10-06 — the demo's third stage says what it shows (#205)
+
+The demo's third stage was labelled "--threshold 0.9 (benign drift → fail)",
+and a comment said the tight threshold turned a pass into a fail. It does not:
+the example snapshot sets its own tolerance, which overrides the threshold
+(the output's own notes line says so), and the example text is a rewrite that
+fails at any threshold. The labels now describe that. The stage also treated
+any non-zero exit as the expected failure, so a run that crashed or could not
+find its snapshot still reported success. It now requires an actual failing
+verdict.

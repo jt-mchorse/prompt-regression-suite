@@ -2270,3 +2270,23 @@ context_for_next_session:
   - GOTCHA_I_COPIED_THE_HUNT_AGENTS_48_PAIRS_INTO_THE_ISSUE_UNMEASURED_AND_WROTE_465_PAIRS_IN_THE_PR_WITHOUT_COUNTING_measured_900_pairs_95_strict_154_lenient_and_corrected_both_COUNT_BEFORE_QUOTING_A_NUMBER
 followups: []
 ---
+
+---
+session: 2026-10-06T08:15Z
+duration_min: 1   # computed: plan comment 08:14:07Z -> 08:15Z (date -u); verified from ~08:13Z after a sweep agent noted it out of class
+issue: 205
+branch: session/2026-10-06-0814-issue-205
+focus: capture_STAGE_3_CLAIMED_threshold_0_9_FLIPS_A_BENIGN_DRIFT_TO_FAIL_the_snapshot_tolerance_overrides_it_and_cosine_0_042_fails_either_way_AND_A_NO_VERDICT_EXIT_2_PASSED_AS_THE_DEMO
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "full suite green; ruff, format, mypy clean"
+decisions_made: []
+measured: "diff with and without --threshold 0.9: both fail at threshold 0.75 (tolerance), notes 'overrides run threshold'. Missing snapshot: main prints exit code 2 'that's the demo', capture rc 0; fixed rc 1. Revert probe: 3 of 4 red, the fact arm green by design."
+context_for_next_session:
+  - A_BANNER_IS_A_CLAIM_AND_THE_OUTPUT_UNDER_IT_CAN_REFUTE_IT_the_notes_line_literally_said_overrides
+  - A_STAGE_WHOSE_SUCCESS_IS_A_NONZERO_EXIT_MUST_PIN_WHICH_NONZERO_exit_2_is_usage_not_verdict
+  - GOTCHA_THE_prompt_snap_CONSOLE_SCRIPT_IN_MY_VENV_IS_STALE_AND_REJECTS_threshold_use_python_m_prompt_regression_cli
+followups: []
+---
