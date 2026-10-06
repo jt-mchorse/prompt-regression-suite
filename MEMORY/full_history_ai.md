@@ -2231,3 +2231,22 @@ context_for_next_session:
   - THE_FALLBACK_COMPARES_LOAD_OF_UNICODE_VS_LOAD_OF_ESCAPED_RENDERING_not_against_to_dict_which_can_hold_tuples
 followups: []
 ---
+
+---
+session: 2026-10-05T07:19Z
+duration_min: 7   # first repro -> close comment, from the command log and the comment timestamps
+issue: 201
+focus: A_ROUND_TRIP_TEST_COMPARED_AGAINST_A_SECOND_SNAPSHOT_WHOSE_created_at_WAS_READ_FROM_THE_WALL_CLOCK_ONE_CALL_LATER
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 1
+  suite: "1001 green; ruff check and format clean"
+decisions_made: []
+measured: "main red on run 37276855881 (prs#191 merge) with created_at 07:17:14Z != 07:17:15Z; rerun green. Revert probe (two _snapshot() calls restored inside the shared body): the ticking-clock arm RED, the original test GREEN, which IS the flake. AST sweep of 55 test files for two separately built Snapshots in one comparison (inline calls and names bound from helper calls): zero besides the new arm's own tick check."
+context_for_next_session:
+  - Snapshot_created_at_IS_THE_ONLY_WALL_CLOCK_default_factory_IN_THE_PORTFOLIO_ANY_TEST_THAT_BUILDS_TWO_SNAPSHOTS_AND_COMPARES_THEM_IS_A_FLAKE_build_once_or_pass_created_at
+  - THE_CLOCK_IS_PATCHABLE_VIA_schema_mod_datetime_BECAUSE_utcnow_iso_RESOLVES_THE_MODULE_GLOBAL_AT_CALL_TIME_patching_utcnow_iso_ITSELF_DOES_NOT_WORK_the_dataclass_default_factory_holds_the_original_function_object
+  - from_dict_STILL_FILLS_A_MISSING_created_at_WITH_LOAD_TIME_EAGERLY_production_behaviour_NOT_part_of_this_flake_left_alone
+followups: []
+---
