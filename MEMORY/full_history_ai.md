@@ -2270,3 +2270,22 @@ context_for_next_session:
   - GOTCHA_I_COPIED_THE_HUNT_AGENTS_48_PAIRS_INTO_THE_ISSUE_UNMEASURED_AND_WROTE_465_PAIRS_IN_THE_PR_WITHOUT_COUNTING_measured_900_pairs_95_strict_154_lenient_and_corrected_both_COUNT_BEFORE_QUOTING_A_NUMBER
 followups: []
 ---
+
+---
+session: 2026-10-06T09:57Z
+duration_min: 2   # computed: plan comment 09:55:49Z -> 09:57Z (date -u)
+issue: 207
+branch: session/2026-10-06-0955-issue-207
+focus: update_force_SAVED_A_CANONICAL_THAT_FAILS_THE_SNAPSHOTS_OWN_SLOTS_a_baseline_that_fails_a_diff_against_itself
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 3
+  suite: "1035 -> 1038 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "refund_window + 'Sorry, I don't know the policy.': main rc 0 then diff fail (cosine 1.0, 3 slots missing); fixed rc 2, file byte-identical. Revert probe: the refusal arm red, 2 controls green. Two older tests re-baselined with slot-less text incidentally and were given slot-satisfying text."
+context_for_next_session:
+  - A_WRITER_OF_BASELINES_MUST_CHECK_THE_INVARIANT_ITS_READERS_ASSUME_baseline_passes_against_itself
+  - A_SLOT_WITH_NO_DESCRIPTION_NEEDS_A_QUOTED_VALUE_for_the_string_extractor
+followups: []
+---

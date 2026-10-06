@@ -2220,3 +2220,13 @@ now computed exactly, shown in the fail note, the HTML report and the JSON, and
 the printed score is widened until it reads on the right side of both
 cut-offs. I quoted an unverified "48 pairs" figure in the issue and corrected it
 to my own measurement.
+
+## 2026-10-06 — update refuses a baseline that fails its own checks (#207)
+
+`prompt-snap update` saved any new canonical text, even one missing the
+structured values the snapshot itself requires. The resulting baseline failed
+a diff against its own text, so every later run of it was red. `update` now
+checks the new text against the snapshot's declared slots first and refuses,
+naming the missing ones, without writing anything. Two older tests that
+happened to re-baseline with text lacking those values now use text that has
+them.
