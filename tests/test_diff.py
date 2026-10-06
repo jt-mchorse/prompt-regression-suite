@@ -828,6 +828,7 @@ class TestDiffResultToDict:
             "snapshot_embedding_model",
             "threshold",
             "verdict",
+            "warn_floor",  # #203: the second boundary a warn-band verdict is decided at
         ]
 
     def test_nested_shapes_owned_by_nested_to_dicts(self):

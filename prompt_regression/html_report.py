@@ -24,7 +24,12 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 
-from prompt_regression.diff import COMPARISON_PLACES, DiffResult, render_comparison
+from prompt_regression.diff import (
+    COMPARISON_PLACES,
+    DiffResult,
+    render_classified,
+    render_comparison,
+)
 
 
 @dataclass(frozen=True)
@@ -130,13 +135,32 @@ def _render_entry(entry: Entry, anchor: str) -> str:
     score, threshold = render_comparison(
         entry.diff.cosine_score, entry.diff.threshold, places=COMPARISON_PLACES, exact_other=True
     )
+    floor_part = ""
+    if entry.diff.warn_floor is not None:
+        # Under a warn band the badge is also decided at the warn floor, and
+        # widening against the threshold alone printed `cosine 0.800` on both a
+        # WARN and a FAIL section (#203). Widen the score against both
+        # boundaries and state the floor, printed exactly like the threshold.
+        score = render_classified(
+            entry.diff.cosine_score,
+            entry.diff.threshold,
+            places=COMPARISON_PLACES,
+            others=(entry.diff.warn_floor,),
+        )
+        _, floor = render_comparison(
+            entry.diff.cosine_score,
+            entry.diff.warn_floor,
+            places=COMPARISON_PLACES,
+            exact_other=True,
+        )
+        floor_part = f" · warn floor <code>{floor}</code>"
     badge = f'<span class="badge {verdict}">{verdict.upper()}</span>'
 
     parts: list[str] = [
         f'<section class="{klass}" id="{anchor}">',
         f'  <h2>{badge} <a href="#{anchor}" class="anchor">{snap_id}</a></h2>',
         '  <div class="meta">',
-        f"    cosine <code>{score}</code> · threshold <code>{threshold}</code>",
+        f"    cosine <code>{score}</code> · threshold <code>{threshold}</code>{floor_part}",
         f"    · embedder <code>{html.escape(entry.diff.embedder_model)}</code>",
         f"    vs snapshot-embed <code>{html.escape(entry.diff.snapshot_embedding_model)}</code>",
         "  </div>",

@@ -454,12 +454,14 @@ def test_every_render_comparison_call_marks_its_configured_operands() -> None:
 def test_the_population_arm_is_not_vacuous_and_names_what_it_found() -> None:
     """A pass over an empty set is not a pass, and the counts are the report.
 
-    Pins the number of call sites and the number of *marked operands* — six
-    across five sites, because the tolerance note contributes two. A walk that
-    silently stopped matching `ast.Call` would make the arm above trivially true.
+    Pins the number of call sites and the number of *marked operands* — nine
+    across eight sites, because the tolerance note contributes two. #203 added
+    three, each marking the configured operand it prints: the fail note's warn
+    floor and threshold, and the HTML report's warn floor. A walk that silently
+    stopped matching `ast.Call` would make the arm above trivially true.
     """
     calls = _render_comparison_calls()
-    assert len(calls) == 5, (
+    assert len(calls) == 8, (
         f"found {len(calls)} render_comparison call sites: {[w for w, _ in calls]}"
     )
     marked = sum(
@@ -470,10 +472,10 @@ def test_the_population_arm_is_not_vacuous_and_names_what_it_found() -> None:
         and isinstance(kw.value, ast.Constant)
         and kw.value.value is True
     )
-    assert marked == 6, (
-        f"{marked} marked operands across {len(calls)} call sites; five sites each "
-        f"mark their threshold and `diff.py`'s tolerance note marks both of its "
-        f"operands, which is the whole of #181."
+    assert marked == 9, (
+        f"{marked} marked operands across {len(calls)} call sites; seven sites each "
+        f"mark their threshold or warn floor and `diff.py`'s tolerance note marks "
+        f"both of its operands (#181, #203)."
     )
 
 

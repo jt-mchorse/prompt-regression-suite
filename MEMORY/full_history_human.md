@@ -2207,3 +2207,16 @@ test runs the same body under a fake clock that moves forward a second on every
 read; with the old two-call shape restored, it fails. A scan of every test file
 found no other test comparing two separately built snapshots, and no other repo
 in the portfolio has a wall-clock default.
+
+## 2026-10-05 — warn and fail rows can't share a printed score (#203)
+
+With a warn band, `prompt-snap run` has two cut-offs: the pass threshold, and a
+lower warn floor that separates "warn" (doesn't fail the run) from "fail". The
+table only made sure a printed score was on the right side of the pass
+threshold, so a warn row and a fail row could both show `0.800`. The floor
+itself appeared nowhere in the output, and it was computed with a float
+subtraction that sometimes landed a hair off the documented value. The floor is
+now computed exactly, shown in the fail note, the HTML report and the JSON, and
+the printed score is widened until it reads on the right side of both
+cut-offs. I quoted an unverified "48 pairs" figure in the issue and corrected it
+to my own measurement.

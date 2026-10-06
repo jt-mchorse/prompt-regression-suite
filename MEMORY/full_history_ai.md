@@ -2250,3 +2250,23 @@ context_for_next_session:
   - from_dict_STILL_FILLS_A_MISSING_created_at_WITH_LOAD_TIME_EAGERLY_production_behaviour_NOT_part_of_this_flake_left_alone
 followups: []
 ---
+
+---
+session: 2026-10-05T08:08Z
+duration_min: 5   # plan comment 2026-10-05T08:03:41Z (first repro ~07:58Z) -> 08:08Z
+issue: 203
+branch: session/2026-10-05-0803-issue-203
+focus: THE_WARN_FLOOR_WAS_A_SECOND_BOUNDARY_NOTHING_RENDERED_AGAINST_warn_0_800_and_fail_0_800_in_one_table_AND_IT_WAS_A_FLOAT_SUBTRACTION
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 7
+  suite: "1027 -> 1034 green; ruff clean; docs/regression_demo.html regenerated with its documented command (one line gains the floor)"
+decisions_made: []
+measured: "issue rows 0.80044 warn / 0.79967 fail both printed 0.800 on main, now 0.8004 / 0.7997. Floor: 900 two-decimal pairs (thr 0.70-0.99, band 0.01-0.30), float subtraction strict in 95 and lenient in 154; a bit-exact cosine 0.57 at 0.75/0.18 was fail, now warn. Probes: table threshold-only 2 red, float floor 5 red, fail note without floor 1 red, html without floor 2 red, floor-only neighbour 1 red"
+context_for_next_session:
+  - render_classified_TAKES_others_NOW_D_028S_RULE_OVER_EVERY_BOUNDARY_A_VERDICT_DEPENDS_ON_same_shape_as_leh_291_render_signed_classified
+  - THE_181_POPULATION_ARM_PINS_render_comparison_SITES_8_AND_MARKED_OPERANDS_9_a_new_site_must_mark_its_configured_operand_or_the_companion_arm_fails
+  - GOTCHA_I_COPIED_THE_HUNT_AGENTS_48_PAIRS_INTO_THE_ISSUE_UNMEASURED_AND_WROTE_465_PAIRS_IN_THE_PR_WITHOUT_COUNTING_measured_900_pairs_95_strict_154_lenient_and_corrected_both_COUNT_BEFORE_QUOTING_A_NUMBER
+followups: []
+---
