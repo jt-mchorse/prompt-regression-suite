@@ -16,9 +16,13 @@ Stages:
   appear in the recording.
 - **STAGE 3 (auto, hermetic).** Subprocess `prompt-snap diff
   --snapshot examples/snapshots/creative_kite_v1.yml --candidate <text>
-  --threshold 0.9` — tight threshold makes a benign drift fail and
-  demonstrates the CLI surface from #5 with the per-snapshot tolerance
-  pattern from #6. The kite snapshot is used (not the refund-window
+  --threshold 0.9` — demonstrates the CLI surface from #5 with the
+  per-snapshot tolerance pattern from #6: the kite snapshot carries
+  `tolerance: 0.75`, which overrides the run's `--threshold 0.9`, and the
+  diff's notes line says so on screen. The candidate is a rewrite (cosine
+  ~0.04), so it fails under the tolerance and would fail under any
+  threshold; the flag is there to make the override visible, not to flip
+  the verdict (#205). The kite snapshot is used (not the refund-window
   one) because it ships embedded with `hash-embedder-128d-ngram2`,
   matching the CLI's default `--embedder hash` and keeping STAGE 3
   hermetic — no `--force-embedder` override needed.
@@ -57,9 +61,10 @@ STABLE_REGRESSION_HTML = "regression_demo.html"
 # the one embedded with `hash-embedder-128d-ngram2` (the same embedder
 # the CLI's `--embedder hash` default reaches for) — picking that one
 # keeps STAGE 3 fully hermetic, no `--force-embedder` override needed.
-# The candidate diverges enough that a 0.9 threshold flips the verdict
-# from `pass` (under the default warn/threshold) to `fail`, which is
-# the visible demo point.
+# The snapshot's `tolerance: 0.75` overrides `--threshold` (#6), so the
+# threshold flips nothing here: the candidate is a rewrite that fails at
+# any threshold. This comment used to say 0.9 flipped a `pass` to `fail`;
+# without the flag the verdict was the same `fail` (#205).
 STAGE3_SNAPSHOT_REL = "examples/snapshots/creative_kite_v1.yml"
 STAGE3_CANDIDATE_TEXT = (
     "The flying toy moves through the sky over the sand. Children watch from below."
@@ -145,12 +150,12 @@ def _run_render_demo_into(out_html: Path) -> tuple[int, str]:
 
 
 def _run_prompt_snap_diff_fail() -> tuple[int, str, str]:
-    """Run `prompt-snap diff` via subprocess with a tight threshold so a
-    benign drift fails — that's the demo point for stage 3.
+    """Run `prompt-snap diff` via subprocess against a rewritten candidate,
+    with a `--threshold` the snapshot's own tolerance overrides (#6, #205).
 
-    Returns ``(returncode, stdout, stderr)``. A non-zero return code is
-    the success path here: the CLI exits non-zero on a failing diff,
-    which is the visible demonstration the recording captures.
+    Returns ``(returncode, stdout, stderr)``. Exit 1 with a `verdict: fail`
+    line is the success path here: the CLI exits 1 on a failing diff, which
+    is the visible demonstration the recording captures.
 
     Uses `python -m prompt_regression.cli` rather than the
     ``prompt-snap`` console script so this works on a fresh clone
@@ -253,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     _pause(args.pause_seconds)
 
     # STAGE 3 — prompt-snap diff with a tight threshold making it fail.
-    _print(_banner(3, "prompt-snap diff with --threshold 0.9 (benign drift → fail)"))
+    _print(_banner(3, "prompt-snap diff: the snapshot's tolerance overrides --threshold 0.9"))
     rc, out, err = _run_prompt_snap_diff_fail()
     if out:
         # The same child, the same `subprocess` call, the same locale
@@ -265,13 +270,18 @@ def main(argv: list[str] | None = None) -> int:
         # so it can carry a lone surrogate for exactly the same reason `sys.argv`
         # can. Passing it through the shared helper keeps this relay total (#160).
         _eprint(err.rstrip("\n"))
-    # The diff returning non-zero IS the demo point. Don't propagate
-    # as a script failure unless something exploded outright (rc < 0
-    # or a Python-level traceback in stderr).
-    if rc < 0:
-        _eprint(f"[capture] prompt-snap diff exited unexpectedly ({rc}); aborting.")
+    # A failing verdict IS the demo point: exit 1 with its `verdict: fail`
+    # line. Anything else -- exit 2 (a usage or I/O error), a traceback, a
+    # pass -- is a stage that did not run. This used to accept every
+    # non-negative code, so a missing snapshot (exit 2, no verdict) printed
+    # "that's the demo" and the capture exited 0 (#205).
+    if rc != 1 or not any(line.startswith("verdict: fail") for line in out.splitlines()):
+        _eprint(
+            f"[capture] STAGE 3 did not produce a failing verdict (prompt-snap diff exit {rc}); "
+            "aborting."
+        )
         return 1
-    _print(f"[capture] prompt-snap exit code: {rc}  (non-zero = failing diff; that's the demo)")
+    _print(f"[capture] prompt-snap exit code: {rc}  (a failing diff; that's the demo)")
 
     return 0
 
