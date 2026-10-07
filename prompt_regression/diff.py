@@ -403,7 +403,7 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
         slot_type = spec.get("type")
         hint = (spec.get("description") or "").lower()
         if slot_type in ("integer", "number"):
-            value = _extract_number(text, lowered, hint, want_int=(slot_type == "integer"))
+            value = _extract_number(text, hint, want_int=(slot_type == "integer"))
             if value is not None:
                 out[name] = value
         elif slot_type == "string":
@@ -531,7 +531,23 @@ def _first_representable(matches: Sequence[re.Match[str]], *, want_int: bool) ->
     return None
 
 
-def _extract_number(text: str, lowered: str, hint: str, *, want_int: bool) -> int | float | None:
+def _find_ci(text: str, word: str) -> int:
+    """Index of ``word`` in ``text``, ignoring case, as a position IN ``text`` (#213).
+
+    Both callers used ``text.lower().find(...)`` and then indexed the ORIGINAL
+    ``text`` with the result. ``str.lower()`` can change length -- ``"İ".lower()``
+    is two characters -- so every ``İ`` before the hint word moved the position
+    one character right: with thirty ``İ``s in a response, the integer slot for
+    "delivery days" read the ``90`` of a trailing "Ref 90." instead of the
+    ``3`` beside "Delivery", and the string slot returned the wrong sentence.
+    Any Turkish response (İstanbul, İade) could do it. A case-insensitive search
+    on ``text`` itself has no second string to disagree with.
+    """
+    m = re.search(re.escape(word), text, re.IGNORECASE)
+    return m.start() if m else -1
+
+
+def _extract_number(text: str, hint: str, *, want_int: bool) -> int | float | None:
     pattern = _INTEGER_RE if want_int else _NUMBER_RE
     matches = list(pattern.finditer(text))
     if not matches:
@@ -540,7 +556,7 @@ def _extract_number(text: str, lowered: str, hint: str, *, want_int: bool) -> in
         # Prefer the number closest to the hint word.
         hint_words = [w for w in hint.split() if len(w) > 3]
         for hw in hint_words:
-            idx = lowered.find(hw)
+            idx = _find_ci(text, hw)
             if idx != -1:
                 # Nearest to `idx` first, then outward. `sorted` is stable, so
                 # the head of this list is the same match `min(...)` picked
@@ -566,7 +582,7 @@ def _extract_string(text: str, hint: str, name: str) -> str | None:
     # report the surrounding sentence as the slot value.
     keywords = [w for w in (hint + " " + name).split() if len(w) > 3]
     for kw in keywords:
-        idx = text.lower().find(kw.lower())
+        idx = _find_ci(text, kw)
         if idx != -1:
             # Trim to the surrounding sentence.
             sentence = _sentence_around(text, idx)
