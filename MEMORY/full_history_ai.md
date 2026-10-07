@@ -2309,3 +2309,21 @@ context_for_next_session:
   - A_SLOT_WITH_NO_DESCRIPTION_NEEDS_A_QUOTED_VALUE_for_the_string_extractor
 followups: []
 ---
+
+---
+session: 2026-10-07T08:17Z
+duration_min: 5
+issue: 209
+branch: session/2026-10-07-prs-created-at
+focus: AN_UNQUOTED_created_at_IS_A_YAML_DATETIME_AND_LOAD_SNAPSHOT_REFUSED_THE_WHOLE_SNAPSHOT_SIBLING_OF_75
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "1051 passed (junitxml); ruff, format, mypy clean"
+decisions_made: []
+measured: "validate on hand-edited kite: main exit 1, fix valid=1. Revert main 7/9, str(value) neighbour 5/9."
+context_for_next_session:
+  - A_FIX_THAT_NORMALISES_ONE_YAML_TYPED_FIELD_SHOULD_ENUMERATE_EVERY_FIELD_YAML_CAN_TYPE_ints_floats_bools_timestamps_null
+followups: []
+---
