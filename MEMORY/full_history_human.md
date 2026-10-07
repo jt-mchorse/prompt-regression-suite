@@ -2231,3 +2231,13 @@ fails at any threshold. The labels now describe that. The stage also treated
 any non-zero exit as the expected failure, so a run that crashed or could not
 find its snapshot still reported success. It now requires an actual failing
 verdict.
+
+## 2026-10-06 — update refuses a baseline that fails its own checks (#207)
+
+`prompt-snap update` saved any new canonical text, even one missing the
+structured values the snapshot itself requires. The resulting baseline failed
+a diff against its own text, so every later run of it was red. `update` now
+checks the new text against the snapshot's declared slots first and refuses,
+naming the missing ones, without writing anything. Two older tests that
+happened to re-baseline with text lacking those values now use text that has
+them.

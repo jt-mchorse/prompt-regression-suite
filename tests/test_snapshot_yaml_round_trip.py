@@ -72,7 +72,9 @@ def test_without_nel_the_output_is_the_old_rendering_byte_for_byte(tmp_path: Pat
 def test_cli_update_from_stdin_keeps_nel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "s.yml"
     shutil.copy(ROOT / "examples" / "snapshots" / "refund_window_v1.yml", path)
-    text = "Refunds take 14 days\x85\nContact support."
+    # Carries a NEL and still satisfies the snapshot's slots, which #207
+    # requires of any new canonical.
+    text = "The Pro plan refunds within 14 days\x85\nof purchase, minus usage fees."
     monkeypatch.setattr(
         sys, "stdin", io.TextIOWrapper(io.BytesIO(text.encode("utf-8")), encoding="utf-8")
     )

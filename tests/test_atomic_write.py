@@ -351,7 +351,9 @@ def test_cli_update_write_failure_exits_2_not_traceback(
             "--snapshot",
             str(snap_path),
             "--canonical",
-            "A brand-new canonical response for the refund window.",
+            # Satisfies the snapshot's slots, so the update reaches the write it
+            # exists to fail (#207 refuses a canonical that fails its own slots).
+            'A brand-new canonical: the "Pro" plan refunds within 14 days.',
             "--force",
         ]
     )
