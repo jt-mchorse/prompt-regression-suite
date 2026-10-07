@@ -2255,3 +2255,10 @@ A whole-number slot read "3.5 days" as 5 and passed, and "1,000" came out as 0
 for any numeric slot. Numbers are now read as complete tokens: "1,000" is a
 thousand, and "3.5" in a whole-number slot is flagged as the wrong type
 instead of quietly passing.
+## 2026-10-07 — slot extraction isn't thrown off by Turkish "İ" (#213)
+
+The slot extractor located the hint word in a lower-cased copy of the response
+and used that position in the original. Lower-casing "İ" produces two
+characters, so in Turkish text the position drifted and the wrong number or
+sentence was extracted. It now searches the original text directly, ignoring
+case.
