@@ -2249,3 +2249,9 @@ was rejected outright, because YAML turns an unquoted timestamp into a date
 object and the loader insisted on text. The loader now converts it to the
 same UTC string the tool writes itself, exactly as it already did for an
 unquoted schema version.
+## 2026-10-07 — number slots read whole numbers (#211)
+
+A whole-number slot read "3.5 days" as 5 and passed, and "1,000" came out as 0
+for any numeric slot. Numbers are now read as complete tokens: "1,000" is a
+thousand, and "3.5" in a whole-number slot is flagged as the wrong type
+instead of quietly passing.
