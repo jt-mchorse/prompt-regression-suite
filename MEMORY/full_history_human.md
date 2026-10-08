@@ -2262,3 +2262,12 @@ and used that position in the original. Lower-casing "İ" produces two
 characters, so in Turkish text the position drifted and the wrong number or
 sentence was extracted. It now searches the original text directly, ignoring
 case.
+
+## 2026-10-08 — an absurdly large number in a snapshot is a clean error (#221)
+
+A snapshot with a 400-digit whole number as its tolerance, temperature or an
+embedding value crashed `validate`, `stats`, `diff` and `run` with a Python
+traceback. Converting such a number to a decimal raises an error instead of
+producing "infinity", so the existing "must be finite / in range" checks never
+ran. The schema now reports it as an ordinary validation error naming the
+field, so `validate` lists it and the other commands exit 2 with a message.

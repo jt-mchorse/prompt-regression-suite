@@ -2355,3 +2355,22 @@ context_for_next_session:
   - AN_INDEX_FROM_A_TRANSFORMED_STRING_USED_ON_THE_ORIGINAL_IS_A_LATENT_OFFSET_BUG_whenever_the_transform_can_change_length_lower_casefold_normalize_strip
 followups: []
 ---
+
+---
+session: 2026-10-08T08:06Z
+duration_min: 10
+issue: 221
+branch: session/2026-10-08-issue-221
+focus: FLOAT_OF_A_309_PLUS_DIGIT_INT_RAISES_OverflowError_NOT_inf_SO_THE_SCHEMAS_THREE_float_SITES_LEAKED_A_RAW_TRACEBACK_PAST_EVERY_LOADER_SEAM
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "1071 -> 1082 passed; ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "10**400 in tolerance / prompt.temperature / canonical.embedding[0]: validate, stats, diff, run all OverflowError traceback rc 1 on main; fixed: schema finding / error: rc 2. Revert probe: 9 of 11 red, the two controls (10**308 range check, 1.0e+400 float spelling) green. max_tokens huge int has no float() and loads fine, left alone."
+context_for_next_session:
+  - float_OF_AN_int_RAISES_WHERE_float_OF_A_float_STRING_RETURNS_inf_a_finiteness_check_after_float_never_sees_the_int_arm_SAME_GAP_AS_147
+  - YAML_INTS_PAST_4300_DIGITS_RAISE_ValueError_INSIDE_yaml_safe_load_NOT_YAMLError_check_the_loader_seams_catch_it
+followups: []
+---
