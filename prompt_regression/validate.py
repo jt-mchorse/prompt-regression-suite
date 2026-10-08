@@ -64,7 +64,7 @@ from typing import Any
 
 import yaml
 
-from .io import SNAPSHOT_GLOBS, iter_snapshot_paths, load_snapshot
+from .io import SNAPSHOT_GLOBS, iter_snapshot_paths, load_snapshot, safe_load_yaml
 from .schema import SnapshotValidationError
 
 # Historical private alias; `io.SNAPSHOT_GLOBS` is the single definition
@@ -323,7 +323,7 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
         rel = path.relative_to(snapshots_dir).as_posix()
         try:
             with path.open("r", encoding="utf-8") as f:
-                data: Any = yaml.safe_load(f)
+                data: Any = safe_load_yaml(f)
         except READ_FAILURES as e:
             # Three ways this read fails, all routed by `READ_FAILURE_CODES`.
             #
@@ -337,7 +337,9 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
             #
             # `UnicodeDecodeError` (a `ValueError` subclass, not a `YAMLError`)
             # and `yaml.YAMLError` -> `parse`: a decode failure is a parse
-            # failure, and both would otherwise escape as a raw traceback.
+            # failure, and both would otherwise escape as a raw traceback. A
+            # constructor `ValueError` (an impossible date, a 4300+ digit int)
+            # arrives here as a `YAMLError` via `safe_load_yaml` (#223).
             findings.append(_read_failure_finding(rel, e))
             continue
         if not isinstance(data, dict):
