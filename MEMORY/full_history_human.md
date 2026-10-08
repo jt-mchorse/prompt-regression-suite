@@ -2262,3 +2262,13 @@ and used that position in the original. Lower-casing "İ" produces two
 characters, so in Turkish text the position drifted and the wrong number or
 sentence was extracted. It now searches the original text directly, ignoring
 case.
+
+## 2026-10-08 — a number glued to a unit isn't read as part of itself (#217)
+
+The slot extractor read "2.5mg" as 2, "1.5x" as 1 and "1,000kg" as 1, and
+passed the slot. The pattern required a word boundary after a number, and when
+a unit was glued on, it settled for the longest prefix that ended on one.
+A plain "30mg" already extracted nothing. The decimal and grouped forms now
+behave the same way: the slot reports missing instead of a wrong value. A
+brute-force comparison over 2.4 million short strings showed the new pattern
+only ever drops a match, never adds or changes one.
