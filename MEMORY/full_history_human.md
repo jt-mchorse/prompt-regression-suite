@@ -2241,3 +2241,11 @@ checks the new text against the snapshot's declared slots first and refuses,
 naming the missing ones, without writing anything. Two older tests that
 happened to re-baseline with text lacking those values now use text that has
 them.
+
+## 2026-10-07 — snapshots accept an unquoted created_at (#209)
+
+A hand-written snapshot with `created_at: 2026-05-18T16:10:00Z` (no quotes)
+was rejected outright, because YAML turns an unquoted timestamp into a date
+object and the loader insisted on text. The loader now converts it to the
+same UTC string the tool writes itself, exactly as it already did for an
+unquoted schema version.

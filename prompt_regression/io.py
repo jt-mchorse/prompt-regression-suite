@@ -18,6 +18,7 @@ import os
 import secrets
 import stat
 import sys
+from datetime import UTC, date, datetime
 from os import PathLike
 from pathlib import Path
 from typing import Any, TextIO
@@ -379,7 +380,32 @@ def load_snapshot(path: PathArg) -> Snapshot:
     _require_supported_schema_version(version, str(p))
     # Normalize to the canonical string before `from_dict`, whose strict
     # `_require_str(schema_version)` would otherwise re-reject the int form.
-    return Snapshot.from_dict({**data, "schema_version": SCHEMA_VERSION})
+    normalized = {**data, "schema_version": SCHEMA_VERSION}
+    # The same hand-authoring gap one field over (#209): YAML reads an unquoted
+    # `created_at: 2026-05-18T16:10:00Z` as a `datetime`, and `from_dict`'s
+    # `_require_str` then refused the whole snapshot ("Snapshot.created_at must
+    # be a string, got datetime") from `validate`, `diff` and `run` alike.
+    if "created_at" in data:
+        normalized["created_at"] = _created_at_text(data["created_at"])
+    return Snapshot.from_dict(normalized)
+
+
+def _created_at_text(value: Any) -> Any:
+    """The ISO-8601 UTC string a YAML timestamp was written as (#209).
+
+    A tz-aware datetime is converted to UTC; a naive one is UTC already (YAML
+    1.1 reads a timestamp without a zone as UTC). Both render in the shape
+    `save_snapshot` writes, `%Y-%m-%dT%H:%M:%SZ`, with microseconds only when
+    present. A bare date stays a date (`2026-05-18`). Anything else is passed
+    through for `from_dict` to judge, so a non-string still fails loudly there.
+    """
+    if isinstance(value, datetime):
+        utc = value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        fmt = "%Y-%m-%dT%H:%M:%S.%fZ" if utc.microsecond else "%Y-%m-%dT%H:%M:%SZ"
+        return utc.strftime(fmt)
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
 
 
 def _eprint(message: str) -> None:
