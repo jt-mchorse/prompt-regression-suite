@@ -2325,5 +2325,19 @@ decisions_made: []
 measured: "validate on hand-edited kite: main exit 1, fix valid=1. Revert main 7/9, str(value) neighbour 5/9."
 context_for_next_session:
   - A_FIX_THAT_NORMALISES_ONE_YAML_TYPED_FIELD_SHOULD_ENUMERATE_EVERY_FIELD_YAML_CAN_TYPE_ints_floats_bools_timestamps_null
+session: 2026-10-07T09:52Z
+duration_min: 6
+issue: 211
+branch: session/2026-10-07-prs-integer-slot
+focus: AN_INTEGER_SLOT_READ_3_5_AS_5_WITH_STATUS_OK_AND_1_000_AS_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1055 passed (junitxml); ruff, format, mypy clean"
+decisions_made: []
+measured: "main: '3.5 days' -> 5 ok; '1,000' -> 0. Revert 6/13 red."
+context_for_next_session:
+  - A_TOKEN_REGEX_THAT_MATCHES_PART_OF_A_LARGER_TOKEN_IS_A_HALF_PARSER_extract_the_whole_token_then_classify_it
 followups: []
 ---

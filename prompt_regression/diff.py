@@ -349,7 +349,6 @@ class SlotDelta:
 # `isinstance(int)` check and could mask a number-loss regression as `ok`. The
 # `(?<![\w-])` lookbehind keeps genuine negatives (`-30`, `-2.5`) and the
 # `14-day` → `14` case working while rejecting hyphenated identifiers. See #79.
-_INTEGER_RE = re.compile(r"(?<![\w-])-?\d+\b")
 # The `\.\d+` alternative catches a leading-decimal number (`.5`, `.05`, `-.5`),
 # common for rates/probabilities/discounts. The old `-?\d+\.?\d*` required at
 # least one digit *before* the point, so on `.05` the leading `.` failed to
@@ -357,7 +356,18 @@ _INTEGER_RE = re.compile(r"(?<![\w-])-?\d+\b")
 # fraction, silently masking a number-loss regression. The bare-`.`-only case
 # (no trailing digit) is excluded, and `_INTEGER_RE` is unchanged (integers have
 # no leading decimal). Preserves the #79 hyphen guards (`14-day`→14, `W-2`→none).
-_NUMBER_RE = re.compile(r"(?<![\w-])-?(?:\d+\.?\d*|\.\d+)\b")
+#
+# One token pattern for BOTH slot types since #211, with thousands groups first.
+# `_INTEGER_RE` was `-?\d+\b`, and `\d+\b` matches each HALF of an ordinary
+# decimal: `Refunds take 3.5 days.` extracted 5 (the half nearest "days") with
+# status `ok` -- the hard slot check passed on a value the response never
+# stated. And neither pattern knew `1,000`: both extracted 0 from `,000`. An
+# integer slot now sees the whole token; `_coerce_match` keeps an integral one
+# as an int and a fractional one as the float it is, which `diff_slots` reports
+# as `type_mismatch` -- a loud failure instead of a wrong `ok`. A `.` before a
+# digit run is excluded by the lookbehind so `5` is never re-read out of `3.5`.
+_NUMBER_RE = re.compile(r"(?<![\w.-])-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.?\d*|\.\d+)\b")
+_INTEGER_RE = _NUMBER_RE
 _QUOTED_RE = re.compile(r"\"([^\"]+)\"|'([^']+)'")
 
 
@@ -474,9 +484,19 @@ def _coerce_match(raw: str, *, want_int: bool) -> int | float | None:
     failing verdict, which is the right answer for a degenerate response and
     needs no new status in the ``--json`` contract.
     """
+    raw = raw.replace(",", "")  # a thousands group (#211); the regex admits only `d{1,3}(,ddd)+`
     try:
-        value: int | float = int(raw) if want_int else float(raw)
-    except ValueError:
+        value: int | float
+        if not want_int:
+            value = float(raw)
+        elif "." in raw:
+            # A decimal in an integer slot (#211): integral (`3.0`) is the int,
+            # fractional (`3.5`) stays a float so the slot reads `type_mismatch`.
+            as_float = float(raw)
+            value = int(as_float) if as_float.is_integer() else as_float
+        else:
+            value = int(raw)
+    except (ValueError, OverflowError):
         return None
     if not _is_finite_double(value):
         return None
