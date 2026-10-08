@@ -2355,3 +2355,22 @@ context_for_next_session:
   - AN_INDEX_FROM_A_TRANSFORMED_STRING_USED_ON_THE_ORIGINAL_IS_A_LATENT_OFFSET_BUG_whenever_the_transform_can_change_length_lower_casefold_normalize_strip
 followups: []
 ---
+
+---
+session: 2026-10-08T08:20Z
+duration_min: 12
+issue: 223
+branch: session/2026-10-08-issue-223
+focus: PYYAML_CONSTRUCTORS_RAISE_A_PLAIN_ValueError_NOT_YAMLError_FOR_AN_IMPOSSIBLE_DATE_OR_A_4300_PLUS_DIGIT_INT_AND_IT_ESCAPED_EVERY_READ_SEAM
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 14
+  suite: "1071 -> 1085 passed; ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "created_at: 2026-02-30T10:00:00Z: validate, stats, diff, run all ValueError traceback rc 1 on main, validate printing nothing for the valid sibling file; fixed: parse finding + n_valid 1 / error: rc 2. Revert probe (io.py + validate.py from main): 12 of 14 red, 2 controls (non-UTF-8 still UnicodeDecodeError, valid unquoted date loads) green. Partial revert of validate's first seam only: 3 red. merge-tree clean against open #220 (io.py, different function)."
+context_for_next_session:
+  - A_LIBRARY_PARSE_CAN_FAIL_WITH_AN_EXCEPTION_OUTSIDE_ITS_OWN_ERROR_HIERARCHY_yaml_safe_load_raises_ValueError_from_datetime_and_int_construction_125_ENUMERATED_ONE_MEMBER_UnicodeDecodeError
+  - THE_209_FIX_OPENED_UNQUOTED_created_at_SO_A_TYPOD_DATE_IS_THE_NEXT_HAND_AUTHORED_INPUT
+followups: []
+---
