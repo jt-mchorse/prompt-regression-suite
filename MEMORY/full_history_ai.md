@@ -2355,3 +2355,22 @@ context_for_next_session:
   - AN_INDEX_FROM_A_TRANSFORMED_STRING_USED_ON_THE_ORIGINAL_IS_A_LATENT_OFFSET_BUG_whenever_the_transform_can_change_length_lower_casefold_normalize_strip
 followups: []
 ---
+
+---
+session: 2026-10-08T07:40Z
+duration_min: 20
+issue: 215
+branch: session/2026-10-08-issue-215
+focus: THE_SLOT_DESCRIPTION_HINT_WAS_LOWERED_BEFORE_A_CASE_INSENSITIVE_SEARCH_AND_İ_LOWERS_TO_i_PLUS_U0307_WHICH_IGNORECASE_NEVER_MATCHES_HINT_SIDE_TWIN_OF_213
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1078 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: 'Ref 90 for your records, thank you. İade süresi 14 gün.' integer hint 'İade' -> 90 (first number fallback), fixed 14; string hint 'İstanbul' -> missing on main, found when fixed (the slot NAME, never lowered, already worked). Revert probe: 4 red, 3 controls green."
+context_for_next_session:
+  - A_FIX_THAT_MAKES_ONE_OPERAND_OF_A_COMPARISON_CASE_INSENSITIVE_MUST_CHECK_THE_OTHER_OPERAND_FOR_A_PRE_APPLIED_lower_213_fixed_the_text_side_only
+  - GOTCHA_MY_FIRST_REPRO_PUT_90_NEAREST_THE_HINT_SO_MAIN_AND_FIX_AGREED_the_new_test_caught_it_issue_body_corrected
+followups: []
+---
