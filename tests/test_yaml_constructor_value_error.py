@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections.abc import Callable
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -21,10 +23,28 @@ from prompt_regression.validate import validate_snapshots
 
 _EXAMPLE = Path(__file__).resolve().parent.parent / "examples/snapshots/creative_kite_v1.yml"
 
+
+def _message_of(build: Callable[[], object]) -> str:
+    # The constructor's own wording varies by interpreter (3.12: "day is out of
+    # range for month"; 3.14: "day 30 must be in range 1..28 ..."), so derive
+    # the expected text from the same call on the running interpreter.
+    try:
+        build()
+    except ValueError as e:
+        return str(e)
+    raise AssertionError("the constructor accepted the value")
+
+
 _CASES = [
-    pytest.param("created_at: 2026-02-30T10:00:00Z", "day 30 must be in range", id="feb-30"),
-    pytest.param("created_at: 2026-13-01", "month must be in 1..12", id="month-13"),
-    pytest.param("tolerance: " + "1" * 4301, "4300 digits", id="int-4301-digits"),
+    pytest.param(
+        "created_at: 2026-02-30T10:00:00Z",
+        _message_of(lambda: datetime(2026, 2, 30, 10, 0, 0)),
+        id="feb-30",
+    ),
+    pytest.param("created_at: 2026-13-01", _message_of(lambda: date(2026, 13, 1)), id="month-13"),
+    pytest.param(
+        "tolerance: " + "1" * 4301, _message_of(lambda: int("1" * 4301)), id="int-4301-digits"
+    ),
 ]
 
 
@@ -52,7 +72,7 @@ def _dir_with_bad_and_good(tmp_path: Path, line: str) -> Path:
 def test_load_snapshot_raises_a_yaml_error(tmp_path: Path, line: str, msg: str) -> None:
     p = tmp_path / "s.yml"
     p.write_text(_mutated(line), encoding="utf-8")
-    with pytest.raises(yaml.YAMLError, match=msg):
+    with pytest.raises(yaml.YAMLError, match=re.escape(msg)):
         load_snapshot(p)
 
 
