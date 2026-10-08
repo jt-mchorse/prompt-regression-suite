@@ -401,7 +401,10 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
     value: int | float | str | bool | None
     for name, spec in slot_specs.items():
         slot_type = spec.get("type")
-        hint = (spec.get("description") or "").lower()
+        # NOT lowered (#215): `_find_ci` already matches case-insensitively, and
+        # `"İ".lower()` is `i` + U+0307, which `re.IGNORECASE` never matches
+        # against `İ` -- a hint word spelled exactly as in the text was lost.
+        hint = spec.get("description") or ""
         if slot_type in ("integer", "number"):
             value = _extract_number(text, hint, want_int=(slot_type == "integer"))
             if value is not None:
