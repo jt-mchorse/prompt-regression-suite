@@ -2339,5 +2339,19 @@ decisions_made: []
 measured: "main: '3.5 days' -> 5 ok; '1,000' -> 0. Revert 6/13 red."
 context_for_next_session:
   - A_TOKEN_REGEX_THAT_MATCHES_PART_OF_A_LARGER_TOKEN_IS_A_HALF_PARSER_extract_the_whole_token_then_classify_it
+session: 2026-10-07T09:57Z
+duration_min: 4
+issue: 213
+branch: session/2026-10-07-prs-lower-offset
+focus: OFFSETS_FROM_TEXT_LOWER_INDEXED_THE_ORIGINAL_TEXT_TURKISH_I_SHIFTED_EXTRACTION
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1049 passed (junitxml); ruff, format, mypy clean"
+decisions_made: []
+measured: "main: 30 x İ -> eta 90 (x -> 3); string slot wrong sentence. Revert 2/7 red."
+context_for_next_session:
+  - AN_INDEX_FROM_A_TRANSFORMED_STRING_USED_ON_THE_ORIGINAL_IS_A_LATENT_OFFSET_BUG_whenever_the_transform_can_change_length_lower_casefold_normalize_strip
 followups: []
 ---
