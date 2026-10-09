@@ -2357,6 +2357,62 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:40Z
+duration_min: 20
+issue: 215
+branch: session/2026-10-08-issue-215
+focus: THE_SLOT_DESCRIPTION_HINT_WAS_LOWERED_BEFORE_A_CASE_INSENSITIVE_SEARCH_AND_İ_LOWERS_TO_i_PLUS_U0307_WHICH_IGNORECASE_NEVER_MATCHES_HINT_SIDE_TWIN_OF_213
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1078 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: 'Ref 90 for your records, thank you. İade süresi 14 gün.' integer hint 'İade' -> 90 (first number fallback), fixed 14; string hint 'İstanbul' -> missing on main, found when fixed (the slot NAME, never lowered, already worked). Revert probe: 4 red, 3 controls green."
+context_for_next_session:
+  - A_FIX_THAT_MAKES_ONE_OPERAND_OF_A_COMPARISON_CASE_INSENSITIVE_MUST_CHECK_THE_OTHER_OPERAND_FOR_A_PRE_APPLIED_lower_213_fixed_the_text_side_only
+  - GOTCHA_MY_FIRST_REPRO_PUT_90_NEAREST_THE_HINT_SO_MAIN_AND_FIX_AGREED_the_new_test_caught_it_issue_body_corrected
+followups: []
+---
+
+---
+session: 2026-10-08T08:05Z
+duration_min: 25
+issue: 217
+branch: session/2026-10-08-issue-217
+focus: NUMBER_RE_ENDED_IN_BACKSLASH_b_AND_A_GLUED_UNIT_MADE_IT_BACKTRACK_TO_A_PREFIX_2_5mg_READ_2_AND_1_000kg_READ_1_WITH_STATUS_ok
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 22
+  suite: "1093 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: 2.5mg/3.5GB/1.5x/1,000kg/12.99USD -> 2/3/1/1/12 ok for integer and number slots; 30mg already missing. Fixed: missing. Differential old vs new over all 2,396,744 strings of length 1-7 on '15.,0a- ': only dropped matches, never an added or changed token. Revert probe 13 red, 9 controls green. The first candidate kept \\d+\\.?\\d* and broke test_a_long_but_representable_integer_still_extracts (a trailing '.' sent 308 nines down the float route)."
+context_for_next_session:
+  - A_TRAILING_BACKSLASH_b_ON_A_TOKEN_REGEX_INVITES_BACKTRACKING_TO_A_PREFIX_guard_the_END_with_a_lookahead_that_refuses_to_stop_inside_the_token
+  - GOTCHA_A_SCRIPT_IN_tmp_IMPORTS_THE_EDITABLE_INSTALL_FROM_THE_MAIN_CLONE_NOT_THE_WORKTREE_set_PYTHONPATH_or_the_differential_measures_old_code
+  - A_DIFFERENTIAL_ON_SHORT_STRINGS_CANNOT_SEE_A_PRECISION_LOSS_ABOVE_2_53_compare_RAW_TOKENS_not_only_coerced_values
+followups: []
+---
+session: 2026-10-08T07:43Z
+duration_min: 1   # computed from GitHub: plan comment 2026-10-08T07:42:06Z -> commit 07:43Z
+issue: 219
+branch: session/2026-10-08-issue-219
+focus: ATOMIC_WRITE_TEXT_RENAMED_ONTO_A_SYMLINKED_DESTINATION_link_became_a_regular_file_and_the_linked_file_kept_old_contents
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1083 passed (junitxml); ruff, format, mypy clean"
+decisions_made: []
+measured: "main: atomic_write_text(link) -> islink False, real 'old'; prompt-snap validate --json --out link.json rc 0 with the linked report unchanged. Revert probe (main io.py, __pycache__ cleared): 6 of 12 red, 6 controls green (write_text parity x3, loop x2, plain)."
+context_for_next_session:
+  - SIBLING_OF_python_async_llm_pipelines_157_same_fix_in_lco_279_and_vsas_201_this_night
+  - A_SYMLINKED_SNAPSHOT_YAML_WAS_SILENTLY_FORKED_BY_prompt_snap_update_save_snapshot_arm_pins_it
+followups: []
+---
+
+---
 session: 2026-10-08T08:06Z
 duration_min: 10
 issue: 221

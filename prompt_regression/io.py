@@ -247,6 +247,35 @@ def _preserve_target_mode(tmp_path: Path, target: Path) -> None:
     os.chmod(tmp_path, mode)
 
 
+def _resolve_symlinked_target(target: Path) -> Path:
+    """The file a write to *target* lands in: through a symlink (#219).
+
+    ``os.replace`` renames onto the LINK, not the file it points at, so a
+    symlinked destination used to become a regular file while the linked file
+    kept its old contents -- where ``Path.write_text``, the call this helper
+    replaced, writes through the link. For a snapshot directory whose YAML is
+    a link into a shared location, ``prompt-snap update`` silently forked the
+    snapshot. ``_preserve_target_mode`` already followed the link
+    (``os.stat``), so the helper copied the linked file's mode onto a file
+    that then replaced the link instead. Sibling of
+    python-async-llm-pipelines#157.
+
+    Resolving here, before ``_open_temp``, puts the temp file beside the
+    RESOLVED file, so the rename stays on one filesystem when the link points
+    to another one, and the NAME_MAX cap above is applied to the name actually
+    being replaced. A dangling link resolves to the path it names, which the
+    write then creates, as ``Path.write_text`` would. A link loop is left as
+    is by ``realpath`` and raises ``OSError`` (ELOOP) from
+    ``_preserve_target_mode``, again as ``Path.write_text`` does -- so the
+    CLI's ``except OSError`` write seams still turn it into ``error:`` + exit
+    2. A plain path is returned unchanged, so no existing caller sees a
+    different path.
+    """
+    if not target.is_symlink():
+        return target
+    return Path(os.path.realpath(target))
+
+
 def atomic_write_text(path: PathArg, text: str) -> None:
     # `Path.write_text` is not atomic: SIGINT/SIGTERM/disk-full/OOM
     # between the implicit `open(..., "w")` truncate and `close()`
@@ -263,7 +292,11 @@ def atomic_write_text(path: PathArg, text: str) -> None:
     # File mode matches `Path.write_text` (#189): a new file gets
     # `0o666 & ~umask` and an overwrite keeps the existing file's mode. See
     # `_open_temp` and `_preserve_target_mode`.
-    target = Path(path)
+    #
+    # A symlinked destination is written THROUGH, as `Path.write_text` does:
+    # the link stays a link and the file it names gets the new contents (#219).
+    # See `_resolve_symlinked_target`.
+    target = _resolve_symlinked_target(Path(path))
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
