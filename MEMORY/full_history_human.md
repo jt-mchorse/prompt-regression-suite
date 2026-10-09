@@ -2310,3 +2310,11 @@ none of the existing "invalid YAML" handling caught them, and `validate` lost
 its report for every other file in the folder too. Snapshot files are now
 parsed through one helper that relabels those errors as YAML errors. `validate`
 lists the file as unparseable, and the other commands exit 2 with a message.
+
+## 2026-10-09 — The README's failing-diff example matches the real output (#229)
+
+The README's command tour claims to show the tool's real output, but the
+failing `diff` example left out two of the five lines and cut a third short.
+Its test only checked that some text appeared, and the shortened line still
+matched. The example now shows exactly what the tool prints, and the test
+compares the documented lines against real output, line for line.
