@@ -2263,6 +2263,43 @@ characters, so in Turkish text the position drifted and the wrong number or
 sentence was extracted. It now searches the original text directly, ignoring
 case.
 
+## 2026-10-08 — a slot hint containing "İ" is found again (#215)
+
+The fix for #213 searched the response without lower-casing it, but the slot's
+description was still lower-cased first. Lower-casing "İ" produces two
+characters that a case-insensitive search never matches back to "İ", so a
+description such as "İade" or "İstanbul" was never found, even when the
+response used that exact word. The number slot then fell back to the first
+number in the response and the string slot reported missing. The description
+is now used as written.
+
+## 2026-10-08 — a number glued to a unit isn't read as part of itself (#217)
+
+The slot extractor read "2.5mg" as 2, "1.5x" as 1 and "1,000kg" as 1, and
+passed the slot. The pattern required a word boundary after a number, and when
+a unit was glued on, it settled for the longest prefix that ended on one.
+A plain "30mg" already extracted nothing. The decimal and grouped forms now
+behave the same way: the slot reports missing instead of a wrong value. A
+brute-force comparison over 2.4 million short strings showed the new pattern
+only ever drops a match, never adds or changes one.
+## 2026-10-08 — saving to a symlink updates the file it points at (#219)
+
+The helper that saves snapshots and reports safely (write a temporary file,
+then swap it into place) swapped it onto the symlink itself when the save
+location was a symlink. The link turned into an ordinary file, and the file it
+pointed at was never updated — so `prompt-snap update` on a snapshot linked
+from a shared folder quietly forked it. A plain save writes through the link,
+and now this helper does too. Ordinary paths behave exactly as before.
+
+## 2026-10-08 — an absurdly large number in a snapshot is a clean error (#221)
+
+A snapshot with a 400-digit whole number as its tolerance, temperature or an
+embedding value crashed `validate`, `stats`, `diff` and `run` with a Python
+traceback. Converting such a number to a decimal raises an error instead of
+producing "infinity", so the existing "must be finite / in range" checks never
+ran. The schema now reports it as an ordinary validation error naming the
+field, so `validate` lists it and the other commands exit 2 with a message.
+
 ## 2026-10-08 — an impossible date in a snapshot is a parse error, not a crash (#223)
 
 A hand-written snapshot with an impossible date such as `created_at:

@@ -366,7 +366,21 @@ class SlotDelta:
 # as an int and a fractional one as the float it is, which `diff_slots` reports
 # as `type_mismatch` -- a loud failure instead of a wrong `ok`. A `.` before a
 # digit run is excluded by the lookbehind so `5` is never re-read out of `3.5`.
-_NUMBER_RE = re.compile(r"(?<![\w.-])-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.?\d*|\.\d+)\b")
+#
+# The END of the token is guarded too (#217). It was `\b`, and a number glued
+# to a unit fails `\b` at its true end, so the regex backtracked to a prefix
+# that passes it: `2.5mg` matched `2.` (the `.` before `5` is a boundary) and
+# `1,000kg` matched `1` (before the comma) -- status `ok` on a value the
+# response never stated, while `30mg` already extracted nothing. The lookahead
+# refuses to stop inside a token: not before a word char, a `.digit`, or a
+# `,ddd` group. Against `\b` it only ever DROPS a match, never adds or changes
+# one, so a glued number is `missing` (loud), the same as `30mg`. `\d+\.?\d*`
+# became `\d+(?:\.\d+)?` with it: `\b` never let a token end on a bare `.`
+# before a space, and this lookahead would, so `5.` at a sentence end would
+# reach `_coerce_match`'s float route and lose a 17+ digit integer.
+_NUMBER_RE = re.compile(
+    r"(?<![\w.-])-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\w|\.\d|,\d{3})"
+)
 _INTEGER_RE = _NUMBER_RE
 _QUOTED_RE = re.compile(r"\"([^\"]+)\"|'([^']+)'")
 
@@ -401,7 +415,10 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
     value: int | float | str | bool | None
     for name, spec in slot_specs.items():
         slot_type = spec.get("type")
-        hint = (spec.get("description") or "").lower()
+        # NOT lowered (#215): `_find_ci` already matches case-insensitively, and
+        # `"İ".lower()` is `i` + U+0307, which `re.IGNORECASE` never matches
+        # against `İ` -- a hint word spelled exactly as in the text was lost.
+        hint = spec.get("description") or ""
         if slot_type in ("integer", "number"):
             value = _extract_number(text, hint, want_int=(slot_type == "integer"))
             if value is not None:

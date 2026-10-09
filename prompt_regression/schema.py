@@ -84,6 +84,24 @@ def _require_optional_str(value: Any, field_name: str) -> str | None:
     return value
 
 
+def _to_float(value: int | float, field_name: str) -> float:
+    """``float(value)`` under the schema's one exception contract.
+
+    ``float()`` of an ``int`` past the double range (309+ digits) raises
+    ``OverflowError`` rather than returning ``inf`` the way the float spelling
+    of the same magnitude does — and every loader seam catches only
+    ``SnapshotValidationError``, so a hand-authored ``tolerance: 1000…0``
+    escaped ``validate`` / ``stats`` / ``diff`` / ``run`` as a raw traceback at
+    exit 1 (#221). Same branch gap #147 closed for slot extraction.
+    """
+    try:
+        return float(value)
+    except OverflowError as e:
+        raise SnapshotValidationError(
+            f"{field_name} must be a finite number; got an integer too large for a float"
+        ) from e
+
+
 @dataclass
 class Prompt:
     """The inputs that produced the canonical response.
@@ -109,9 +127,10 @@ class Prompt:
         if self.temperature is not None:
             if not isinstance(self.temperature, (int, float)) or isinstance(self.temperature, bool):
                 raise SnapshotValidationError("Prompt.temperature must be a number or None")
-            if not 0.0 <= float(self.temperature) <= 2.0:
+            temperature = _to_float(self.temperature, "Prompt.temperature")
+            if not 0.0 <= temperature <= 2.0:
                 raise SnapshotValidationError("Prompt.temperature must be in [0.0, 2.0]")
-            self.temperature = float(self.temperature)
+            self.temperature = temperature
         if self.max_tokens is not None:
             if not isinstance(self.max_tokens, int) or isinstance(self.max_tokens, bool):
                 raise SnapshotValidationError("Prompt.max_tokens must be an int or None")
@@ -251,7 +270,7 @@ class CanonicalResponse:
             # about the malformed vector). Same harm class as D-006: the suite
             # looks fine but the failure shape buries the source. Reject at
             # construction so the malformed YAML surfaces here.
-            fv = float(v)
+            fv = _to_float(v, f"CanonicalResponse.embedding[{i}]")
             if math.isnan(fv) or math.isinf(fv):
                 raise SnapshotValidationError(
                     f"CanonicalResponse.embedding[{i}] must be a finite number; got {v!r}"
@@ -316,7 +335,7 @@ class Snapshot:
                 raise SnapshotValidationError(
                     f"Snapshot.tolerance must be a number or None, got {type(self.tolerance).__name__}"
                 )
-            tol = float(self.tolerance)
+            tol = _to_float(self.tolerance, "Snapshot.tolerance")
             if not 0.0 < tol <= 1.0:
                 raise SnapshotValidationError(f"Snapshot.tolerance must be in (0, 1]; got {tol}")
             self.tolerance = tol
