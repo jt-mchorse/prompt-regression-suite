@@ -2290,3 +2290,12 @@ location was a symlink. The link turned into an ordinary file, and the file it
 pointed at was never updated — so `prompt-snap update` on a snapshot linked
 from a shared folder quietly forked it. A plain save writes through the link,
 and now this helper does too. Ordinary paths behave exactly as before.
+
+## 2026-10-08 — an absurdly large number in a snapshot is a clean error (#221)
+
+A snapshot with a 400-digit whole number as its tolerance, temperature or an
+embedding value crashed `validate`, `stats`, `diff` and `run` with a Python
+traceback. Converting such a number to a decimal raises an error instead of
+producing "infinity", so the existing "must be finite / in range" checks never
+ran. The schema now reports it as an ordinary validation error naming the
+field, so `validate` lists it and the other commands exit 2 with a message.
