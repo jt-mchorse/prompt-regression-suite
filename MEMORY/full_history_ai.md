@@ -2450,3 +2450,21 @@ context_for_next_session:
   - GOTCHA_CI_RED_FIRST_PUSH_datetime_ValueError_WORDING_DIFFERS_3_12_day_is_out_of_range_for_month_VS_3_14_day_30_must_be_in_range_DERIVE_EXPECTED_TEXT_FROM_THE_RUNNING_INTERPRETER_and_run_a_uv_3_11_3_12_venv_before_pushing
 followups: []
 ---
+
+---
+session: 2026-10-09T10:02Z
+duration_min: 4   # computed: issue filed 2026-10-09T10:01:11Z -> PR 2026-10-09T10:02:15Z (gh createdAt)
+issue: 229
+branch: session/2026-10-09-1030-issue-229
+focus: README_FAIL_DIFF_EXAMPLE_SHOWED_3_OF_5_LINES_ITS_SUBSTRING_LOCK_PASSED_ON_A_PREFIX_OF_THE_REAL_NOTE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1137 -> 1140 passed; ruff clean"
+decisions_made: []
+measured: "real diff fail output: 5 lines incl. embedder line, tolerance note, '… and below warn floor 0.700'; README had 3 with the note truncated. Revert: 1 red (fail) / 2 green (pass example, example count)."
+context_for_next_session:
+  - A_SUBSTRING_LOCK_PASSES_ON_A_PREFIX_lock_doc_output_line_for_line
+followups: []
+---
