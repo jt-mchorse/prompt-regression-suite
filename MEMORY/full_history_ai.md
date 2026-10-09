@@ -2453,7 +2453,7 @@ followups: []
 
 ---
 session: 2026-10-09T08:01Z
-duration_min: 4   # computed: issue filed 2026-10-09T08:00:32Z -> PR 2026-10-09T08:01:46Z (gh createdAt); found by sweeping today's rag#301 terminator class across the portfolio
+duration_min: 2   # computed: issue filed 2026-10-09T08:00:32Z -> PR 2026-10-09T08:01:46Z (gh createdAt); found by sweeping today's rag#301 terminator class across the portfolio
 issue: 225
 branch: session/2026-10-09-0805-issue-225
 focus: STRING_SLOT_SENTENCE_CUT_AT_EVERY_DOT_A_DECIMAL_HALVED_THE_VALUE_AND_QUESTION_EXCLAMATION_CJK_NEVER_ENDED_A_SENTENCE
