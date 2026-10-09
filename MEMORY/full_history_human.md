@@ -2263,6 +2263,16 @@ characters, so in Turkish text the position drifted and the wrong number or
 sentence was extracted. It now searches the original text directly, ignoring
 case.
 
+## 2026-10-08 — a slot hint containing "İ" is found again (#215)
+
+The fix for #213 searched the response without lower-casing it, but the slot's
+description was still lower-cased first. Lower-casing "İ" produces two
+characters that a case-insensitive search never matches back to "İ", so a
+description such as "İade" or "İstanbul" was never found, even when the
+response used that exact word. The number slot then fell back to the first
+number in the response and the string slot reported missing. The description
+is now used as written.
+
 ## 2026-10-08 — a number glued to a unit isn't read as part of itself (#217)
 
 The slot extractor read "2.5mg" as 2, "1.5x" as 1 and "1,000kg" as 1, and
