@@ -2310,3 +2310,11 @@ none of the existing "invalid YAML" handling caught them, and `validate` lost
 its report for every other file in the folder too. Snapshot files are now
 parsed through one helper that relabels those errors as YAML errors. `validate`
 lists the file as unparseable, and the other commands exit 2 with a message.
+
+## 2026-10-09 — A candidate the embedder cannot encode is a clean error (#227)
+
+A candidate answer containing a broken Unicode character, either from an
+escape in the candidates file or from a non-UTF-8 byte on the command line,
+crashed the embedder with exit 1. In this tool exit 1 means "regression
+found". The candidates loader and the `diff`/`update` text arguments now reject
+such text with an error that names where it is, and exit 2.

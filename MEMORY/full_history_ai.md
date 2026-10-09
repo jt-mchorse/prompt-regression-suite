@@ -2450,3 +2450,21 @@ context_for_next_session:
   - GOTCHA_CI_RED_FIRST_PUSH_datetime_ValueError_WORDING_DIFFERS_3_12_day_is_out_of_range_for_month_VS_3_14_day_30_must_be_in_range_DERIVE_EXPECTED_TEXT_FROM_THE_RUNNING_INTERPRETER_and_run_a_uv_3_11_3_12_venv_before_pushing
 followups: []
 ---
+
+---
+session: 2026-10-09T09:48Z
+duration_min: 6   # computed: issue filed 2026-10-09T09:46:46Z -> PR 2026-10-09T09:48:04Z (gh createdAt); hunt-agent lead re-measured first
+issue: 227
+branch: session/2026-10-09-1005-issue-227
+focus: A_LONE_SURROGATE_CANDIDATE_JSONL_ESCAPE_OR_NON_UTF8_ARGV_BYTE_CRASHED_THE_HASH_EMBEDDER_AT_EXIT_1
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "1137 -> 1145 passed; ruff, mypy clean"
+decisions_made: []
+measured: "main: run with a '\\ud800' candidate row rc=1 traceback; diff --candidate $'kite \\xff' rc=1; stdin rc=1. Branch: rc=2 with one error naming line/field/index. Revert 5 red / 3 controls."
+context_for_next_session:
+  - SAME_CLASS_AS_rag_308_leh_344_today_the_seam_that_accepts_text_must_check_the_sink_encoding
+followups: []
+---
