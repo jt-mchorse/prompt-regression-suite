@@ -2430,3 +2430,23 @@ context_for_next_session:
   - YAML_INTS_PAST_4300_DIGITS_RAISE_ValueError_INSIDE_yaml_safe_load_NOT_YAMLError_check_the_loader_seams_catch_it
 followups: []
 ---
+
+---
+session: 2026-10-08T08:20Z
+duration_min: 12
+issue: 223
+branch: session/2026-10-08-issue-223
+focus: PYYAML_CONSTRUCTORS_RAISE_A_PLAIN_ValueError_NOT_YAMLError_FOR_AN_IMPOSSIBLE_DATE_OR_A_4300_PLUS_DIGIT_INT_AND_IT_ESCAPED_EVERY_READ_SEAM
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 14
+  suite: "1071 -> 1085 passed; ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "created_at: 2026-02-30T10:00:00Z: validate, stats, diff, run all ValueError traceback rc 1 on main, validate printing nothing for the valid sibling file; fixed: parse finding + n_valid 1 / error: rc 2. Revert probe (io.py + validate.py from main): 12 of 14 red, 2 controls (non-UTF-8 still UnicodeDecodeError, valid unquoted date loads) green. Partial revert of validate's first seam only: 3 red. merge-tree clean against open #220 (io.py, different function)."
+context_for_next_session:
+  - A_LIBRARY_PARSE_CAN_FAIL_WITH_AN_EXCEPTION_OUTSIDE_ITS_OWN_ERROR_HIERARCHY_yaml_safe_load_raises_ValueError_from_datetime_and_int_construction_125_ENUMERATED_ONE_MEMBER_UnicodeDecodeError
+  - THE_209_FIX_OPENED_UNQUOTED_created_at_SO_A_TYPOD_DATE_IS_THE_NEXT_HAND_AUTHORED_INPUT
+  - GOTCHA_CI_RED_FIRST_PUSH_datetime_ValueError_WORDING_DIFFERS_3_12_day_is_out_of_range_for_month_VS_3_14_day_30_must_be_in_range_DERIVE_EXPECTED_TEXT_FROM_THE_RUNNING_INTERPRETER_and_run_a_uv_3_11_3_12_venv_before_pushing
+followups: []
+---

@@ -388,6 +388,32 @@ def _require_supported_schema_version(version: Any, where: str) -> None:
         )
 
 
+class YAMLValueError(yaml.YAMLError):
+    """A YAML scalar that matched a typed pattern but could not be built (#223)."""
+
+
+def safe_load_yaml(stream: TextIO) -> Any:
+    """``yaml.safe_load`` under the read seams' one parse-failure contract.
+
+    PyYAML's constructors raise a plain ``ValueError`` -- not a ``YAMLError``
+    -- for a scalar that matches a typed pattern but cannot be built: an
+    impossible date in an unquoted timestamp (``created_at:
+    2026-02-30T10:00:00Z``, the hand-authoring path #209 opened) or an integer
+    past CPython's 4300-digit conversion limit. Every snapshot read seam
+    catches ``yaml.YAMLError``, so that ``ValueError`` escaped all of them as a
+    raw traceback at exit 1, and took ``validate``'s whole report down with it
+    (#223). Re-raised here as a ``YAMLError`` so the existing ``parse`` routes
+    handle it. ``UnicodeDecodeError`` is also a ``ValueError`` but already has
+    its own route (#125), so it passes through untouched.
+    """
+    try:
+        return yaml.safe_load(stream)
+    except UnicodeDecodeError:
+        raise
+    except ValueError as e:
+        raise YAMLValueError(str(e)) from e
+
+
 def load_snapshot(path: PathArg) -> Snapshot:
     """Read a snapshot YAML file from ``path``.
 
@@ -397,7 +423,7 @@ def load_snapshot(path: PathArg) -> Snapshot:
     """
     p = Path(path)
     with p.open("r", encoding="utf-8") as f:
-        data: Any = yaml.safe_load(f)
+        data: Any = safe_load_yaml(f)
     if not isinstance(data, dict):
         raise SnapshotValidationError(f"{p}: snapshot YAML must be a mapping at the top level")
     version = data.get("schema_version", SCHEMA_VERSION)

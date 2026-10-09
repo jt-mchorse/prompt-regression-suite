@@ -2299,3 +2299,14 @@ traceback. Converting such a number to a decimal raises an error instead of
 producing "infinity", so the existing "must be finite / in range" checks never
 ran. The schema now reports it as an ordinary validation error naming the
 field, so `validate` lists it and the other commands exit 2 with a message.
+
+## 2026-10-08 — an impossible date in a snapshot is a parse error, not a crash (#223)
+
+A hand-written snapshot with an impossible date such as `created_at:
+2026-02-30T10:00:00Z`, or a whole number thousands of digits long, crashed
+`validate`, `stats`, `diff` and `run` with a Python traceback. The YAML library
+reports these with a general-purpose error rather than its own error type, so
+none of the existing "invalid YAML" handling caught them, and `validate` lost
+its report for every other file in the folder too. Snapshot files are now
+parsed through one helper that relabels those errors as YAML errors. `validate`
+lists the file as unparseable, and the other commands exit 2 with a message.
