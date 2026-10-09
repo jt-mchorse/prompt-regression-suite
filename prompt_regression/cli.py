@@ -196,6 +196,21 @@ def _validate_thresholds(threshold: float, warn_band: float) -> bool:
 _iter_snapshot_paths = iter_snapshot_paths
 
 
+def _unencodable(text: str) -> str | None:
+    """Where `text` has no UTF-8 encoding, as a phrase, or None (#227).
+
+    A lone surrogate arrives from a JSONL `\\ud800` escape (legal JSON) or a
+    non-UTF-8 argv/stdin byte (`surrogateescape`), and the embedder's
+    `encode("utf-8")` refused it as a traceback at exit 1 -- the code `run`
+    and `diff` reserve for a regression.
+    """
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError as e:
+        return f"{text[e.start]!r} at index {e.start}, which has no UTF-8 encoding"
+    return None
+
+
 def _load_candidates(path: Path) -> dict[str, str]:
     """Read a JSONL of ``{"snapshot": "<path-or-id>", "candidate": "<text>"}`` rows.
 
@@ -235,6 +250,10 @@ def _load_candidates(path: Path) -> dict[str, str]:
                 f"{path}:{lineno}: `snapshot` (or `id`) must be a non-empty string; "
                 "an empty key cannot match any snapshot"
             )
+        for field, value in (("snapshot", key), ("candidate", candidate)):
+            where = _unencodable(value)
+            if where is not None:
+                raise ValueError(f"{path}:{lineno}: `{field}` contains {where}")
         if key in out:
             raise ValueError(f"{path}:{lineno}: duplicate candidate key {key!r}")
         out[key] = candidate
@@ -771,6 +790,9 @@ def _read_text_arg(literal: str | None, from_stdin: bool, *, flag: str, noun: st
     text = text.strip()
     if not text:
         raise _UsageError(f"error: {noun} text was empty after stripping whitespace")
+    where = _unencodable(text)
+    if where is not None:
+        raise _UsageError(f"error: {noun} text contains {where}")
     return text
 
 
