@@ -2394,3 +2394,20 @@ context_for_next_session:
   - A_DIFFERENTIAL_ON_SHORT_STRINGS_CANNOT_SEE_A_PRECISION_LOSS_ABOVE_2_53_compare_RAW_TOKENS_not_only_coerced_values
 followups: []
 ---
+session: 2026-10-08T07:43Z
+duration_min: 1   # computed from GitHub: plan comment 2026-10-08T07:42:06Z -> commit 07:43Z
+issue: 219
+branch: session/2026-10-08-issue-219
+focus: ATOMIC_WRITE_TEXT_RENAMED_ONTO_A_SYMLINKED_DESTINATION_link_became_a_regular_file_and_the_linked_file_kept_old_contents
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1083 passed (junitxml); ruff, format, mypy clean"
+decisions_made: []
+measured: "main: atomic_write_text(link) -> islink False, real 'old'; prompt-snap validate --json --out link.json rc 0 with the linked report unchanged. Revert probe (main io.py, __pycache__ cleared): 6 of 12 red, 6 controls green (write_text parity x3, loop x2, plain)."
+context_for_next_session:
+  - SIBLING_OF_python_async_llm_pipelines_157_same_fix_in_lco_279_and_vsas_201_this_night
+  - A_SYMLINKED_SNAPSHOT_YAML_WAS_SILENTLY_FORKED_BY_prompt_snap_update_save_snapshot_arm_pins_it
+followups: []
+---

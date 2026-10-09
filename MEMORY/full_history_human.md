@@ -2282,3 +2282,11 @@ A plain "30mg" already extracted nothing. The decimal and grouped forms now
 behave the same way: the slot reports missing instead of a wrong value. A
 brute-force comparison over 2.4 million short strings showed the new pattern
 only ever drops a match, never adds or changes one.
+## 2026-10-08 — saving to a symlink updates the file it points at (#219)
+
+The helper that saves snapshots and reports safely (write a temporary file,
+then swap it into place) swapped it onto the symlink itself when the save
+location was a symlink. The link turned into an ordinary file, and the file it
+pointed at was never updated — so `prompt-snap update` on a snapshot linked
+from a shared folder quietly forked it. A plain save writes through the link,
+and now this helper does too. Ordinary paths behave exactly as before.
