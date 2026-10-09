@@ -306,8 +306,10 @@ prompt-snap diff \
     --candidate "The quarterly revenue forecast was revised upward by nine percent."
 # verdict: fail
 # cosine:  0.0508 (threshold 0.7500)
+# embedder: hash-embedder-128d-ngram2  (snapshot: hash-embedder-128d-ngram2)
 # notes:
-#   - cosine 0.051 below threshold 0.750
+#   - per-snapshot tolerance 0.750 overrides run threshold 0.850
+#   - cosine 0.051 below threshold 0.750 and below warn floor 0.700
 
 # Exits 2 when the snapshot's embedder doesn't match the diff embedder (D-006).
 # refund_window_v1.yml carries the illustrative 8-d embedding of D-003, so this
