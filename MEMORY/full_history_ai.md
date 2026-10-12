@@ -2450,3 +2450,22 @@ context_for_next_session:
   - GOTCHA_CI_RED_FIRST_PUSH_datetime_ValueError_WORDING_DIFFERS_3_12_day_is_out_of_range_for_month_VS_3_14_day_30_must_be_in_range_DERIVE_EXPECTED_TEXT_FROM_THE_RUNNING_INTERPRETER_and_run_a_uv_3_11_3_12_venv_before_pushing
 followups: []
 ---
+
+---
+session: 2026-10-09T08:01Z
+duration_min: 2   # computed: issue filed 2026-10-09T08:00:32Z -> PR 2026-10-09T08:01:46Z (gh createdAt); found by sweeping today's rag#301 terminator class across the portfolio
+issue: 225
+branch: session/2026-10-09-0805-issue-225
+focus: STRING_SLOT_SENTENCE_CUT_AT_EVERY_DOT_A_DECIMAL_HALVED_THE_VALUE_AND_QUESTION_EXCLAMATION_CJK_NEVER_ENDED_A_SENTENCE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1137 -> 1149 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "extract_slots main: 'allows 3.5 days.' -> 'Our refund policy allows 3.'; 'Version 2.0 of ...' -> '0 of the refund policy applies.'; '?','!','。' carried the previous sentence. Revert 9 red / 3 controls."
+context_for_next_session:
+  - SAME_TERMINATOR_SET_NOW_IN_csl_rag_prs_a_fourth_copy_should_become_a_shared_question_for_JT_not_a_fifth_copy
+  - ABBREVIATIONS_STILL_SPLIT_deliberately_not_pinned_in_a_test
+followups: []
+---

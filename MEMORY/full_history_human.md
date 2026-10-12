@@ -2310,3 +2310,13 @@ none of the existing "invalid YAML" handling caught them, and `validate` lost
 its report for every other file in the folder too. Snapshot files are now
 parsed through one helper that relabels those errors as YAML errors. `validate`
 lists the file as unparseable, and the other commands exit 2 with a message.
+
+## 2026-10-09 — String slots report the whole sentence (#225)
+
+When a response has no quoted value for a text slot, the tool reports the
+sentence around the slot's keyword. It treated every full stop as the end of a
+sentence, decimal points included, so "allows 3.5 days" came back as "allows
+3.". Question marks, exclamation marks and non-English full stops were never
+treated as an ending, so the previous sentence was included as well. A sentence
+now ends at a terminator followed by a space (or at a Chinese/Japanese full
+stop), using the same per-script list as the other repos.

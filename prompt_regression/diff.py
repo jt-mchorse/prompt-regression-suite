@@ -607,14 +607,33 @@ def _extract_string(text: str, hint: str, name: str) -> str | None:
     return None
 
 
+# Sentence terminators, one row per script -- the set chunking-strategies-lab
+# (csl#240) and rag-production-kit (rag#301) settled on:
+#   ASCII  . ! ?          Devanagari  । ॥        Arabic/Urdu  ؟ ۔
+#   Ethiopic  ። ፧        Armenian  ։ ՜ ՞      Myanmar  ။    Khmer  ។ ៕
+#   CJK  。！？ ｡ (halfwidth)                    general  … ‼ ⁇ ⁈ ⁉
+_TERMINATORS = ".!?…。！？｡؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
+_CJK_TERMINATORS = "。！？｡"
+# A boundary is a newline, a terminator run followed by whitespace or the end
+# of the text, or a CJK full stop, which takes no space after it (#225). The
+# old rule was any `.` and nothing else: a decimal point cut `3.5 days` to
+# `...allows 3.`, and `?`, `!` and `。` never ended a sentence, so the previous
+# one came along with the slot.
+_SENTENCE_BOUNDARY = re.compile(
+    rf"\n|[{re.escape(_TERMINATORS)}]+(?=\s|$)|[{re.escape(_CJK_TERMINATORS)}]+"
+)
+
+
 def _sentence_around(text: str, idx: int) -> str:
-    # Find sentence boundaries around `idx`. Cheap enough.
-    start = max(text.rfind(".", 0, idx), text.rfind("\n", 0, idx)) + 1
-    end_period = text.find(".", idx)
-    end_newline = text.find("\n", idx)
-    candidates = [e for e in (end_period, end_newline) if e != -1]
-    end = min(candidates) if candidates else len(text)
-    return text[start : end + 1].strip()
+    """The sentence of ``text`` that contains position ``idx``, terminator included."""
+    start = 0
+    for boundary in _SENTENCE_BOUNDARY.finditer(text):
+        if boundary.end() <= idx:
+            start = boundary.end()
+            continue
+        if boundary.start() >= idx:
+            return text[start : boundary.end()].strip()
+    return text[start:].strip()
 
 
 _BOOL_TRUE_RE = re.compile(r"\b(yes|true|allowed|permitted|enabled)\b", re.IGNORECASE)
