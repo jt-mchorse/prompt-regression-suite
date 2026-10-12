@@ -903,6 +903,12 @@ _TABLE_COSINE_PLACES = 3
 _TABLE_COSINE_WIDTH = 6
 
 
+def _decimal_places(rendered: str) -> int:
+    """Digits after the point in a fixed-point rendering, 0 when there is none."""
+    _, _, frac = rendered.partition(".")
+    return len(frac)
+
+
 def _format_diff_text(result: DiffResult) -> str:
     """Render the human-readable text shape of a single `diff_response` result.
 
@@ -928,9 +934,39 @@ def _format_diff_text(result: DiffResult) -> str:
     score_str, thr_str = render_comparison(
         result.cosine_score, result.threshold, places=_CLI_COSINE_PLACES, exact_other=True
     )
+    floor_part = ""
+    if result.warn_floor is not None:
+        # Under a warn band the verdict is also decided at the floor (#231).
+        # Widened against the threshold alone, a `warn` and a `fail` result
+        # either side of the floor both printed `cosine: 0.6593`. This is the
+        # rule #203 gave `run`'s table, the HTML report and the JSON, which
+        # missed this line: widen against both boundaries and state the floor.
+        # Score and threshold stay at one precision on this line (#177/#181):
+        # widen whichever is narrower until both agree.
+        places = _CLI_COSINE_PLACES
+        while True:
+            score_str = render_classified(
+                result.cosine_score,
+                result.threshold,
+                places=places,
+                others=(result.warn_floor,),
+            )
+            _, thr_str = render_comparison(
+                result.cosine_score,
+                result.threshold,
+                places=_decimal_places(score_str),
+                exact_other=True,
+            )
+            if _decimal_places(thr_str) <= _decimal_places(score_str):
+                break
+            places = _decimal_places(thr_str)
+        _, floor_str = render_comparison(
+            result.cosine_score, result.warn_floor, places=places, exact_other=True
+        )
+        floor_part = f" · warn floor {floor_str}"
     lines: list[str] = [
         f"verdict: {result.verdict}",
-        f"cosine:  {score_str} (threshold {thr_str})",
+        f"cosine:  {score_str} (threshold {thr_str}){floor_part}",
         f"embedder: {result.embedder_model}  (snapshot: {result.snapshot_embedding_model})",
     ]
     if result.slot_deltas:

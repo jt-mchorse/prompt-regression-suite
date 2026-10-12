@@ -457,11 +457,14 @@ def test_the_population_arm_is_not_vacuous_and_names_what_it_found() -> None:
     Pins the number of call sites and the number of *marked operands* — nine
     across eight sites, because the tolerance note contributes two. #203 added
     three, each marking the configured operand it prints: the fail note's warn
-    floor and threshold, and the HTML report's warn floor. A walk that silently
-    stopped matching `ast.Call` would make the arm above trivially true.
+    floor and threshold, and the HTML report's warn floor. #231 added three
+    more, each marked: `diff`'s cosine line re-renders its threshold at the
+    width the floor forced and states the floor, and the warn note states the
+    floor. Twelve across eleven. A walk that silently stopped matching
+    `ast.Call` would make the arm above trivially true.
     """
     calls = _render_comparison_calls()
-    assert len(calls) == 8, (
+    assert len(calls) == 11, (
         f"found {len(calls)} render_comparison call sites: {[w for w, _ in calls]}"
     )
     marked = sum(
@@ -472,10 +475,10 @@ def test_the_population_arm_is_not_vacuous_and_names_what_it_found() -> None:
         and isinstance(kw.value, ast.Constant)
         and kw.value.value is True
     )
-    assert marked == 9, (
-        f"{marked} marked operands across {len(calls)} call sites; seven sites each "
+    assert marked == 12, (
+        f"{marked} marked operands across {len(calls)} call sites; ten sites each "
         f"mark their threshold or warn floor and `diff.py`'s tolerance note marks "
-        f"both of its operands (#181, #203)."
+        f"both of its operands (#181, #203, #231)."
     )
 
 

@@ -1060,10 +1060,23 @@ def diff_response(
         # render through `render_comparison` (#175). Reached only when
         # `cosine_score < effective_threshold` strictly, so the two values are
         # never equal here.
-        score_str, thr_str = render_comparison(
+        _, thr_str = render_comparison(
             cosine_score, effective_threshold, places=COMPARISON_PLACES, exact_other=True
         )
-        notes.append(f"cosine {score_str} below threshold {thr_str} but inside warn band")
+        # "Inside the warn band" is a claim about the floor too (#231): rendered
+        # against the threshold alone, a cosine just above the floor printed
+        # as `0.659` beside a floor of `0.65930`. Widen against both, and name
+        # the floor the way the `fail` note below does.
+        score_str = render_classified(
+            cosine_score, effective_threshold, places=COMPARISON_PLACES, others=(floor,)
+        )
+        _, floor_str = render_comparison(
+            cosine_score, floor, places=COMPARISON_PLACES, exact_other=True
+        )
+        notes.append(
+            f"cosine {score_str} below threshold {thr_str} but inside warn band "
+            f"(at or above warn floor {floor_str})"
+        )
     elif warn_band > 0:
         verdict = "fail"
         # Name the boundary the verdict was decided at (#203). The note said
