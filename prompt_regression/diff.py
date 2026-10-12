@@ -624,8 +624,14 @@ _CJK_TERMINATORS = "。！？｡"
 # old rule was any `.` and nothing else: a decimal point cut `3.5 days` to
 # `...allows 3.`, and `?`, `!` and `。` never ended a sentence, so the previous
 # one came along with the slot.
+# Closing punctuation that stays with the sentence it ends (#239): `.)`, `.”`,
+# `。」`. Without it the previous sentence came along with the slot value. The
+# set rag-production-kit settled on (#262, rag#320's `text.SENTENCE_CLOSERS`),
+# as the terminator set above came from rag#301.
+_CLOSERS = "\"'”’»›)]}*_`~」』）】〕〗〙〛〉》＂＇］｝"
 _SENTENCE_BOUNDARY = re.compile(
-    rf"\n|[{re.escape(_TERMINATORS)}]+(?=\s|$)|[{re.escape(_CJK_TERMINATORS)}]+"
+    rf"\n|[{re.escape(_TERMINATORS)}]+[{re.escape(_CLOSERS)}]*(?=\s|$)"
+    rf"|[{re.escape(_CJK_TERMINATORS)}]+[{re.escape(_CLOSERS)}]*"
 )
 
 
