@@ -2320,3 +2320,11 @@ sentence, decimal points included, so "allows 3.5 days" came back as "allows
 treated as an ending, so the previous sentence was included as well. A sentence
 now ends at a terminator followed by a space (or at a Chinese/Japanese full
 stop), using the same per-script list as the other repos.
+
+## 2026-10-09 — A candidate the embedder cannot encode is a clean error (#227)
+
+A candidate answer containing a broken Unicode character, either from an
+escape in the candidates file or from a non-UTF-8 byte on the command line,
+crashed the embedder with exit 1. In this tool exit 1 means "regression
+found". The candidates loader and the `diff`/`update` text arguments now reject
+such text with an error that names where it is, and exit 2.
