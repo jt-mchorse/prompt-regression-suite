@@ -405,6 +405,10 @@ def safe_load_yaml(stream: TextIO) -> Any:
     (#223). Re-raised here as a ``YAMLError`` so the existing ``parse`` routes
     handle it. ``UnicodeDecodeError`` is also a ``ValueError`` but already has
     its own route (#125), so it passes through untouched.
+
+    ``RecursionError`` is not a ``ValueError`` either (#232). PyYAML's composer
+    recurses once per nesting level, so a 2 KB file of a thousand ``[`` escaped
+    the same way and took ``validate``'s report with it. It is converted too.
     """
     try:
         return yaml.safe_load(stream)
@@ -412,6 +416,8 @@ def safe_load_yaml(stream: TextIO) -> Any:
         raise
     except ValueError as e:
         raise YAMLValueError(str(e)) from e
+    except RecursionError as e:
+        raise YAMLValueError("nested too deeply to parse") from e
 
 
 def load_snapshot(path: PathArg) -> Snapshot:
