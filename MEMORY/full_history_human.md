@@ -2328,3 +2328,11 @@ escape in the candidates file or from a non-UTF-8 byte on the command line,
 crashed the embedder with exit 1. In this tool exit 1 means "regression
 found". The candidates loader and the `diff`/`update` text arguments now reject
 such text with an error that names where it is, and exit 2.
+
+## 2026-10-09 — The README's failing-diff example matches the real output (#229)
+
+The README's command tour claims to show the tool's real output, but the
+failing `diff` example left out two of the five lines and cut a third short.
+Its test only checked that some text appeared, and the shortened line still
+matched. The example now shows exactly what the tool prints, and the test
+compares the documented lines against real output, line for line.
