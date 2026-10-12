@@ -2336,3 +2336,11 @@ failing `diff` example left out two of the five lines and cut a third short.
 Its test only checked that some text appeared, and the shortened line still
 matched. The example now shows exactly what the tool prints, and the test
 compares the documented lines against real output, line for line.
+
+## 2026-10-12 — Over-nested snapshot or candidate files are reported, not a crash (#232)
+
+A snapshot file nested a thousand levels deep crashed `prompt-snap validate`
+with a Python recursion error, and lost the whole report. A deeply nested
+candidates file did the same to `run`, in one case while just trying to print
+the bad row. Both are now reported as parse errors: `validate` lists the bad
+file and still checks the others, and `run` exits 2 naming the line.
