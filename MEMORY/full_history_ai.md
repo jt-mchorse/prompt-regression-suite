@@ -2525,3 +2525,23 @@ context_for_next_session:
   - PR_FOR_231_IS_HELD_LOCALLY_UNTIL_230_MERGES_its_README_cosine_lines_change
 followups: []
 ---
+
+---
+session: 2026-10-12T07:51:03Z
+duration_min: 9   # computed: plan comment 2026-10-12T07:51:03Z -> PR 2026-10-12T08:00:56Z (gh createdAt); held locally until #230 merged
+issue: 231
+branch: session/2026-10-12-0751-issue-231
+focus: DIFF_TEXT_COSINE_LINE_AND_WARN_NOTE_WIDENED_ONLY_AGAINST_THE_THRESHOLD_SO_A_WARN_AND_A_FAIL_EITHER_SIDE_OF_THE_FLOOR_PRINTED_ONE_COSINE
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 9
+  suite: "1160 -> 1169 passed; ruff clean"
+decisions_made: []
+measured: "main, creative_kite_v1 + --warn-band 0.0907: fail and warn both 'cosine: 0.6593'; warn note 0.659 vs floor 0.65930. Branch: 0.65926 vs 0.65932, floor stated. Revert both 8 red; cli-only 7; diff-only 4."
+context_for_next_session:
+  - 203_LISTED_ITS_SURFACES_run_HTML_JSON_and_the_one_it_did_not_list_was_the_bug_READ_THE_SCOPE_THE_LAST_FIX_WROTE_DOWN
+  - DEFAULT_WARN_BAND_IS_0_05_SO_EVERY_DIFF_NOW_PRINTS_A_FLOOR_PART_the_230_line_for_line_README_lock_forced_the_README_update
+  - THE_CLI_LINE_KEEPS_SCORE_AND_THRESHOLD_AT_ONE_PRECISION_181_render_classified_alone_broke_that_a_widen_loop_restores_it
+followups: []
+---
