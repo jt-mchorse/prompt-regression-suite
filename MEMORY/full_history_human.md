@@ -2364,3 +2364,11 @@ counted the slot as answered, and the regression check passed. A single
 quote now only counts when it sits at a word boundary on both sides, so
 contractions and possessives are ignored while real quotes like 'Pro' still
 work.
+
+## 2026-10-12 — One snapshot named twice in the candidates file is an error (#237)
+
+A row in the candidates file can name its snapshot by file path or by id. If
+one snapshot was named both ways, only the path row was used. The other was
+reported as matching no snapshot (untrue), and with the flag that tolerates
+unmatched rows, its answer was silently ignored, even when it would have
+failed. That is now a clear error naming both rows, the same as a repeated key.

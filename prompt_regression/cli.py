@@ -417,6 +417,18 @@ def _run_command(args: argparse.Namespace) -> int:
             entries.append(ErrorEntry(snapshot_id=snap.id, message=shadow))
             continue
 
+        # Two rows naming this one snapshot, by path and by id (#237): the
+        # cross-spelling form of the duplicate-key rule `_load_candidates`
+        # enforces. Only the path row was used and marked consumed, so the id
+        # row was reported "matched no snapshot" -- false -- and under
+        # --allow-unmatched-candidates its candidate was never compared, at
+        # exit 0. Refused whatever that flag says: it is not an orphan.
+        if rel != snap.id and rel in candidates and snap.id in candidates:
+            _eprint(
+                f"error: snapshot {rel} is keyed twice in {args.candidates}: by its path "
+                f"{rel!r} and by its id {snap.id!r}; keep one row"
+            )
+            return 2
         # `rel` takes precedence over `snap.id`, but check key membership
         # explicitly: an `or` chain treats a present empty-string candidate
         # (the model returned nothing — itself a regression) as missing and

@@ -2564,3 +2564,21 @@ context_for_next_session:
   - MY_FIRST_TEST_ASSERTED_plan_IN_THE_FALLBACK_but_the_keyword_fallback_matches_any_hint_word_answer_assert_whole_sentence_or_nothing
 followups: []
 ---
+
+---
+session: 2026-10-12T08:55:57Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:55:57Z -> PR 2026-10-12T08:56:59Z (gh createdAt)
+issue: 237
+branch: session/2026-10-12-0855-issue-237
+focus: TWO_CANDIDATE_ROWS_NAMING_ONE_SNAPSHOT_BY_PATH_AND_BY_ID_THE_ID_ROW_WAS_CALLED_UNMATCHED_AND_DROPPED_AT_EXIT_0_UNDER_THE_FLAG
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1160 -> 1165 passed; ruff clean"
+decisions_made: []
+measured: "main: strict exit 2 'matched no snapshot' (false); --allow-unmatched-candidates exit 0 with the failing candidate never compared. Branch: exit 2 naming both keys either way. Revert 2 red / 3 green."
+context_for_next_session:
+  - A_DUPLICATE_KEY_RULE_ON_ONE_SPELLING_MISSES_THE_SAME_ENTITY_UNDER_ITS_OTHER_SPELLING_path_vs_id
+followups: []
+---
