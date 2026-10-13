@@ -66,7 +66,7 @@ from .io import (
     load_snapshot,
     save_snapshot,
 )
-from .schema import CanonicalResponse, Snapshot, SnapshotValidationError
+from .schema import CanonicalResponse, Snapshot, SnapshotValidationError, where_unencodable
 from .stats import StatsError, collect_stats, render_summary
 from .validate import FirstSeenIds, validate_snapshots
 
@@ -96,6 +96,15 @@ def _write_output(path: str, rendered: str) -> int | None:
     escaped as a raw ``OSError`` traceback at exit 1 — breaking the documented
     ``0 / 1 / 2`` exit contract that every read seam already honors.
     """
+    # The file sibling of `io._print` (#163, #245): a snapshot id, text or path
+    # can hold a lone surrogate -- a YAML `"\\udcff"` escape, or a non-UTF-8
+    # filename read under `surrogateescape` -- and the report interpolates it.
+    # The stdout path escapes it; the `--out` path wrote strict UTF-8 and died
+    # in the write as a `UnicodeEncodeError` traceback at exit 1. Escape the
+    # same way, so the two agree, and only when the text cannot be encoded, so
+    # every other artifact is byte-identical.
+    if where_unencodable(rendered) is not None:
+        rendered = rendered.encode("utf-8", "backslashreplace").decode("utf-8")
     try:
         atomic_write_text(path, rendered)
     except OSError as e:
@@ -203,13 +212,10 @@ def _unencodable(text: str) -> str | None:
     A lone surrogate arrives from a JSONL `\\ud800` escape (legal JSON) or a
     non-UTF-8 argv/stdin byte (`surrogateescape`), and the embedder's
     `encode("utf-8")` refused it as a traceback at exit 1 -- the code `run`
-    and `diff` reserve for a regression.
+    and `diff` reserve for a regression. The definition lives in `schema`
+    since #245, which applies it to `semantic_categories` labels too.
     """
-    try:
-        text.encode("utf-8")
-    except UnicodeEncodeError as e:
-        return f"{text[e.start]!r} at index {e.start}, which has no UTF-8 encoding"
-    return None
+    return where_unencodable(text)
 
 
 def _unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

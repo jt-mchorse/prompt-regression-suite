@@ -68,6 +68,21 @@ class SnapshotValidationError(ValueError):
         self.code = code
 
 
+def where_unencodable(text: str) -> str | None:
+    """Where `text` has no UTF-8 encoding, as a phrase, or None (#227, #245).
+
+    A lone surrogate is a `str` Python will hold and UTF-8 will not encode, and
+    the hash embedder hashes each n-gram's UTF-8 bytes. The one definition,
+    shared by the CLI's candidate / `--canonical` read seams and the
+    `semantic_categories` check below -- the two populations the embedder reads.
+    """
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError as e:
+        return f"{text[e.start]!r} at index {e.start}, which has no UTF-8 encoding"
+    return None
+
+
 def _require_str(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
         raise SnapshotValidationError(f"{field_name} must be a string, got {type(value).__name__}")
@@ -183,6 +198,20 @@ class ResponseShape:
         seen: set[str] = set()
         for i, cat in enumerate(self.semantic_categories):
             c = _require_str(cat, f"ResponseShape.semantic_categories[{i}]")
+            # Every label is embedded on every `diff` / `run` (#245). #227 refused
+            # an unencodable candidate for that reason and left this population,
+            # the other text the embedder reads, unchecked: a YAML `"\\ud800"`
+            # escape loads as a lone surrogate, `validate` reported the file
+            # clean, and every diff died in `encode("utf-8")` as a traceback at
+            # exit 1 -- the "regressions found" code -- taking `run`'s other rows
+            # with it. Only the labels: the id, texts and notes are not embedded
+            # at diff time, and their surrogates are pinned as round-tripping
+            # (tests/test_snapshot_version_write_path.py).
+            where = where_unencodable(c)
+            if where is not None:
+                raise SnapshotValidationError(
+                    f"ResponseShape.semantic_categories[{i}] contains {where}"
+                )
             if c in seen:
                 raise SnapshotValidationError(
                     f"ResponseShape.semantic_categories has duplicate entry: {c!r}"
