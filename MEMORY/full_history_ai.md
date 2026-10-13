@@ -2582,3 +2582,21 @@ context_for_next_session:
   - A_DUPLICATE_KEY_RULE_ON_ONE_SPELLING_MISSES_THE_SAME_ENTITY_UNDER_ITS_OTHER_SPELLING_path_vs_id
 followups: []
 ---
+
+---
+session: 2026-10-12T08:59:35Z
+duration_min: 0   # computed: plan comment 2026-10-12T08:59:35Z -> PR 2026-10-12T09:00:24Z (gh createdAt)
+issue: 239
+branch: session/2026-10-12-0859-issue-239
+focus: SLOT_SENTENCE_BOUNDARY_225_MISSED_A_TERMINATOR_FOLLOWED_BY_A_CLOSER_SO_THE_PREVIOUS_SENTENCE_CAME_ALONG
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 35
+  suite: "1160 -> 1195 passed; ruff clean"
+decisions_made: []
+measured: "main: '(Refunds are final.) Contact ...' -> both sentences; '。」' -> stray closer. Revert 31 red / 4 controls green."
+context_for_next_session:
+  - THIRD_PORT_OF_THE_SAME_SET_terminators_csl_240_rag_301_prs_225_closers_rag_262_320_prs_239
+followups: []
+---

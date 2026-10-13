@@ -2372,3 +2372,11 @@ one snapshot was named both ways, only the path row was used. The other was
 reported as matching no snapshot (untrue), and with the flag that tolerates
 unmatched rows, its answer was silently ignored, even when it would have
 failed. That is now a clear error naming both rows, the same as a repeated key.
+
+## 2026-10-12 — Slot sentences end at a closing quote or bracket too (#239)
+
+When a text slot falls back to "the sentence containing the keyword", the
+checker found sentence ends only where a full stop was followed by a space. A
+sentence ending in `.)` or `."` didn't count as ending, so the slot value
+pulled in the previous sentence too. Closing quotes and brackets after a full
+stop now end the sentence, using the same list the RAG kit settled on.
