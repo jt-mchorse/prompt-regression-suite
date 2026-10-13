@@ -2409,3 +2409,13 @@ written. Category labels like this are now a `validate` finding and an exit-2
 error, the same rule that already applied to candidate answers. Report files
 written with `--out` now escape such characters the same way the terminal
 output already did, so the report still gets written.
+
+## 2026-10-13 — No warn floor on a row whose warn band was refused (#247)
+
+If a snapshot's own tolerance is at or below the warn band, the checker
+refuses to compare it and marks the row as an error ("warn_band must be <
+effective_threshold"). The JSON output still gave that row a warn floor of
+0.0, which describes the collapsed band the error is refusing, and no verdict
+was ever decided against it. A skipped row for such a snapshot showed the same
+0.0. Those rows now show no floor (null), the same as a run without a warn
+band. Every other row keeps its floor.
