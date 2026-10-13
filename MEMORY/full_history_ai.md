@@ -2598,5 +2598,21 @@ decisions_made: []
 measured: "main: '(Refunds are final.) Contact ...' -> both sentences; '。」' -> stray closer. Revert 31 red / 4 controls green."
 context_for_next_session:
   - THIRD_PORT_OF_THE_SAME_SET_terminators_csl_240_rag_301_prs_225_closers_rag_262_320_prs_239
+
+session: 2026-10-13T07:17:04Z
+duration_min: 3   # computed: issue filed 2026-10-13T07:17:04Z -> code commit ~07:20Z
+issue: 241
+branch: session/2026-10-13-0717-issue-241
+focus: CANDIDATES_JSONL_SPLIT_WITH_SPLITLINES_CUT_A_ROW_AT_A_RAW_U2028_U2029_U0085_INSIDE_THE_CANDIDATE_STRING
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "1164 -> 1172 passed; ruff, ruff format, mypy clean"
+decisions_made: []
+measured: "main 3.12: run with a json.dumps(ensure_ascii=False) row carrying U+2028 / U+2029 / U+0085 -> exit 2 'invalid JSON: Unterminated string'. Branch: loads verbatim, exit 0. Revert 7 of 8 red (CRLF control green)."
+context_for_next_session:
+  - 232_WIDENED_WHAT_EACH_LINE_CATCHES_NOT_HOW_THE_LINES_ARE_MADE_the_record_separator_is_the_seam_before_the_parser
+  - SAME_CLASS_AS_199_NEL_AT_THE_YAML_SEAM_any_other_jsonl_reader_should_split_on_newline_only
 followups: []
 ---

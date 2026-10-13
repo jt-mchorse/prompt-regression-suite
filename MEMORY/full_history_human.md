@@ -2380,3 +2380,11 @@ checker found sentence ends only where a full stop was followed by a space. A
 sentence ending in `.)` or `."` didn't count as ending, so the slot value
 pulled in the previous sentence too. Closing quotes and brackets after a full
 stop now end the sentence, using the same list the RAG kit settled on.
+
+## 2026-10-13 — A candidate containing a Unicode line separator is read, not refused (#241)
+
+`prompt-snap run` cut the candidates file into rows at every character Python
+treats as a line break, including three (U+0085, U+2028, U+2029) that JSON
+allows inside a string and Python's own JSON writer leaves in place. A valid
+row whose candidate text contained one was cut in half and refused as invalid
+JSON. Rows are now split on newlines only, so the text is diffed as written.
