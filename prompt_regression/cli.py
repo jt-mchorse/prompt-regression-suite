@@ -301,7 +301,14 @@ def _row_warn_floor(snap: Snapshot, args: argparse.Namespace) -> float | None:
     row carries the same keys (#203)."""
     if args.warn_band <= 0:
         return None
-    return warn_floor(resolve_effective_threshold(snap, args.threshold), args.warn_band)
+    effective = resolve_effective_threshold(snap, args.threshold)
+    # `diff_response` refuses a band at or above the effective threshold (#35),
+    # and that refusal is what this row reports when it is an `error`. Without
+    # this check, `warn_floor`'s clamp published `0.0` beside it: the collapsed
+    # band the refusal exists to reject, and no verdict was decided at it (#247).
+    if args.warn_band >= effective:
+        return None
+    return warn_floor(effective, args.warn_band)
 
 
 def _row_for(path: Path, snap: Snapshot, result: DiffResult) -> dict:
