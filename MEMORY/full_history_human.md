@@ -2354,3 +2354,13 @@ score. The fail output even contradicted its own note. A fix earlier this
 month (#203) handled the run table, HTML and JSON, but not this text. `diff`
 now prints the score precisely enough to land on the right side of the floor
 and states the floor. The README examples were updated to match.
+
+## 2026-10-12 — Apostrophes no longer fake a quoted answer (#235)
+
+For a text slot such as the plan name, the checker looks for a quoted value
+in the answer. It treated any two apostrophes as quotes, so in "I don't know
+the policy and I can't say" it found "t know the policy and I can" and
+counted the slot as answered, and the regression check passed. A single
+quote now only counts when it sits at a word boundary on both sides, so
+contractions and possessives are ignored while real quotes like 'Pro' still
+work.

@@ -2545,3 +2545,22 @@ context_for_next_session:
   - THE_CLI_LINE_KEEPS_SCORE_AND_THRESHOLD_AT_ONE_PRECISION_181_render_classified_alone_broke_that_a_widen_loop_restores_it
 followups: []
 ---
+
+---
+session: 2026-10-12T08:40:26Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:40:26Z -> PR 2026-10-12T08:41:29Z (gh createdAt)
+issue: 235
+branch: session/2026-10-12-0840-issue-235
+focus: STRING_SLOT_QUOTED_RE_PAIRED_ANY_TWO_APOSTROPHES_SO_DONT_CANT_EXTRACTED_A_FRAGMENT_AND_A_MISSING_SLOT_PASSED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "1160 -> 1169 passed; ruff clean"
+decisions_made: []
+measured: "main: \"I don't know ... I can't say.\" -> plan_name 't know the policy and I can'; \"It's the 'Pro' plan.\" -> 's the '. Branch: no value / 'Pro'. Revert 5 red / 4 green."
+context_for_next_session:
+  - A_DELIMITER_THAT_IS_ALSO_A_LETTER_apostrophe_needs_word_boundary_context_on_both_sides
+  - MY_FIRST_TEST_ASSERTED_plan_IN_THE_FALLBACK_but_the_keyword_fallback_matches_any_hint_word_answer_assert_whole_sentence_or_nothing
+followups: []
+---

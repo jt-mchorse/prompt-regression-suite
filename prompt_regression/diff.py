@@ -382,7 +382,12 @@ _NUMBER_RE = re.compile(
     r"(?<![\w.-])-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\w|\.\d|,\d{3})"
 )
 _INTEGER_RE = _NUMBER_RE
-_QUOTED_RE = re.compile(r"\"([^\"]+)\"|'([^']+)'")
+# A single-quoted span opens after a non-word character and closes before one
+# (#235). Any two apostrophes made a pair, and contractions and possessives are
+# apostrophes: `I don't know ... I can't say` extracted `t know ... I can` as
+# the slot's value, so a slot the answer never stated passed, and
+# `It's the 'Pro' plan.` read `s the ` instead of `Pro`.
+_QUOTED_RE = re.compile(r"\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
 
 
 def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
