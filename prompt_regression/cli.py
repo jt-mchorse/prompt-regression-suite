@@ -221,7 +221,11 @@ def _load_candidates(path: Path) -> dict[str, str]:
     """
     out: dict[str, str] = {}
     raw = path.read_text(encoding="utf-8")
-    for lineno, line in enumerate(raw.splitlines(), start=1):
+    # `\n` only, not `splitlines()` (#241). That also breaks on U+0085, U+2028
+    # and U+2029, which JSON allows raw inside a string and
+    # `json.dumps(ensure_ascii=False)` writes raw, so a valid row was cut
+    # mid-string and refused as invalid JSON. A CRLF's `\r` goes with `strip()`.
+    for lineno, line in enumerate(raw.split("\n"), start=1):
         line = line.strip()
         if not line:
             continue
