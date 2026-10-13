@@ -2505,3 +2505,23 @@ context_for_next_session:
   - A_SUBSTRING_LOCK_PASSES_ON_A_PREFIX_lock_doc_output_line_for_line
 followups: []
 ---
+
+---
+session: 2026-10-12T07:58:42Z
+duration_min: 1   # computed: plan comment 2026-10-12T07:58:42Z -> PR 2026-10-12T08:00:02Z (gh createdAt)
+issue: 232
+branch: session/2026-10-12-0758-issue-232
+focus: DEEP_NESTING_ESCAPED_SAFE_LOAD_YAML_AND_THE_CANDIDATES_READER_AS_RECURSIONERROR_AT_EXIT_1_AND_A_REPR_OF_THE_ROW_OVERFLOWED_ON_3_14
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "1160 -> 1164 passed; ruff clean"
+decisions_made: []
+measured: "3.14 main: validate <dir with nested.yml> exit 1 RecursionError, empty stdout; run --candidates deep.jsonl exit 1 'Stack overflow while getting the repr'. Branch: parse finding valid=2 findings=1; exit 2. Revert 4 of 4 red; new file green on 3.11 too."
+context_for_next_session:
+  - YAML_RECURSES_PER_LEVEL_IN_PYTHON_SO_1000_LEVELS_BREAK_IT_ON_EVERY_INTERPRETER_unlike_json_where_3_14_survives
+  - AN_ERROR_MESSAGE_THAT_ECHOES_THE_VALUE_repr_IS_ITSELF_A_RECURSION_SEAM_name_the_type
+  - PR_FOR_231_IS_HELD_LOCALLY_UNTIL_230_MERGES_its_README_cosine_lines_change
+followups: []
+---

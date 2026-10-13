@@ -225,12 +225,20 @@ def _load_candidates(path: Path) -> dict[str, str]:
         line = line.strip()
         if not line:
             continue
+        # `ValueError` covers `JSONDecodeError` and the int-limit error, and
+        # `RecursionError` deep nesting on 3.11/3.12 (#232). Only the first
+        # was caught, so the others escaped as a traceback at exit 1.
         try:
             row = json.loads(line)
         except json.JSONDecodeError as e:
             raise ValueError(f"{path}:{lineno}: invalid JSON: {e}") from e
+        except (ValueError, RecursionError) as e:
+            reason = "nested too deeply to parse" if isinstance(e, RecursionError) else str(e)
+            raise ValueError(f"{path}:{lineno}: invalid JSON: {reason}") from e
+        # The type, not `{row!r}`: a deeply nested list that 3.14 decodes
+        # overflowed the stack while being echoed into this message (#232).
         if not isinstance(row, dict):
-            raise ValueError(f"{path}:{lineno}: row is not an object: {row!r}")
+            raise ValueError(f"{path}:{lineno}: row is not an object (got {type(row).__name__})")
         # Explicit membership, not `row.get("snapshot") or row.get("id")`. That is
         # the shape the snapshot->candidate lookup below argues against in its own
         # comment: an `or` chain cannot tell "absent" from "present and falsy", so
