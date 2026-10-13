@@ -22,6 +22,7 @@ failed and why.
 from __future__ import annotations
 
 import html
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from prompt_regression.diff import (
@@ -68,12 +69,53 @@ class ErrorEntry:
 Entry = ReportEntry | ErrorEntry
 
 
-def render_report(entries: list[Entry], *, title: str = "Prompt regression report") -> str:
-    """Render the full HTML page. Single self-contained string."""
+def render_report(
+    entries: list[Entry],
+    *,
+    title: str = "Prompt regression report",
+    skipped: Sequence[str] = (),
+    unmatched: Sequence[str] = (),
+) -> str:
+    """Render the full HTML page. Single self-contained string.
+
+    ``skipped`` names snapshots that had no candidate and ``unmatched`` the
+    candidate keys that matched no snapshot. Neither has a diff to render, but a
+    report that omits them reads as a complete run when it was not (#249). Each
+    adds a header stat and a list only when non-empty, so a run with neither
+    renders exactly as before.
+    """
     summary = _summarize(entries)
+    summary["skipped"] = len(skipped)
+    summary["unmatched"] = len(unmatched)
     anchors = _assign_unique_anchors(entries)
     sections = [_render_entry(e, anchor) for e, anchor in zip(entries, anchors, strict=True)]
+    if skipped:
+        sections.append(
+            _render_not_compared(
+                "skipped", "Skipped: no candidate supplied", [html.escape(s) for s in skipped]
+            )
+        )
+    if unmatched:
+        sections.append(
+            _render_not_compared(
+                "unmatched",
+                "Unmatched candidate keys: matched no snapshot",
+                [html.escape(repr(k)) for k in unmatched],
+            )
+        )
     return _wrap_page(title, summary, sections)
+
+
+def _render_not_compared(klass: str, heading: str, items: list[str]) -> str:
+    lis = "".join(f"<li><code>{item}</code></li>" for item in items)
+    return "\n".join(
+        [
+            f'<section class="section {klass}">',
+            f"  <h2>{heading}</h2>",
+            f'  <ul class="notes">{lis}</ul>',
+            "</section>",
+        ]
+    )
 
 
 def _assign_unique_anchors(entries: list[Entry]) -> list[str]:
@@ -350,11 +392,17 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 def _wrap_page(title: str, summary: dict[str, int], sections: list[str]) -> str:
     # The error stat only appears when there's at least one error row, so a
     # clean run keeps the original four-stat header (#71).
-    error_stat = (
+    extra_stats = (
         f'\n      <div class="stat error"><strong>{summary["error"]}</strong>error</div>'
         if summary.get("error", 0)
         else ""
     )
+    # Same rule for the two counts of what was not compared (#249).
+    for key in ("skipped", "unmatched"):
+        if summary.get(key, 0):
+            extra_stats += (
+                f'\n      <div class="stat {key}"><strong>{summary[key]}</strong>{key}</div>'
+            )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -369,7 +417,7 @@ def _wrap_page(title: str, summary: dict[str, int], sections: list[str]) -> str:
       <div class="stat total"><strong>{summary.get("total", 0)}</strong>snapshots</div>
       <div class="stat pass"><strong>{summary.get("pass", 0)}</strong>pass</div>
       <div class="stat warn"><strong>{summary.get("warn", 0)}</strong>warn</div>
-      <div class="stat fail"><strong>{summary.get("fail", 0)}</strong>fail</div>{error_stat}
+      <div class="stat fail"><strong>{summary.get("fail", 0)}</strong>fail</div>{extra_stats}
     </div>
 {chr(10).join(sections)}
   </main>
