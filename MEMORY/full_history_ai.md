@@ -2633,3 +2633,22 @@ context_for_next_session:
   - MERGE_KEY_OVERRIDE_IS_LEGAL_YAML_a_naive_count_of_flattened_keys_would_refuse_it
 followups: []
 ---
+
+---
+session: 2026-10-13T07:56:00Z
+duration_min: 20   # computed: plan comment 2026-10-13T07:56Z -> PR (gh createdAt)
+issue: 245
+branch: session/2026-10-13-0756-issue-245
+focus: 227_REFUSED_A_SURROGATE_IN_THE_CANDIDATE_AND_LEFT_THE_SNAPSHOTS_OWN_CATEGORY_LABELS_THE_OTHER_EMBEDDER_INPUT_and_the_OUT_SEAM_WROTE_STRICT_UTF8_WHERE_STDOUT_ESCAPES
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 16
+  suite: "1222 -> 1238 passed; ruff + ruff format + mypy clean"
+decisions_made: []
+measured: "main: YAML category '\\ud800' -> validate exit 0, run/diff UnicodeEncodeError exit 1; id '\\ud800' -> run --format html --out UnicodeEncodeError exit 1. Branch: validate finding / exit 2; --out escapes like io._print. Revert 7 red / 9 controls green."
+context_for_next_session:
+  - FIRST_DRAFT_REFUSED_EVERY_SNAPSHOT_STRING_and_test_snapshot_version_write_path_PINS_surrogate_id_text_notes_AS_ROUND_TRIPPING_so_the_remedy_split_by_population_embedder_input_refused_rendered_text_escaped
+  - the_out_escape_also_covers_validate_out_with_a_non_UTF8_ext4_filename_unreachable_on_APFS_so_untested_here
+followups: []
+---

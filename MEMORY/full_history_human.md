@@ -2397,3 +2397,15 @@ kept the last one. `validate` called the file clean and `run` could pass a
 response against a tolerance the other line contradicted. The same happened to
 a candidates row with two `candidate` fields. Both are now reported as parse
 errors that name the repeated key; YAML merge overrides still work.
+
+## 2026-10-13 — An odd character inside a snapshot no longer crashes `run` (#245)
+
+A snapshot file can spell a character with an escape such as `"\ud800"`. That
+particular one is half of a character pair and has no valid encoding. `validate`
+accepted it. If it was in a semantic category label, every `run` and `diff`
+crashed while scoring the label and exited 1, which reads as "regressions
+found". If it was in the snapshot id, the HTML report crashed while being
+written. Category labels like this are now a `validate` finding and an exit-2
+error, the same rule that already applied to candidate answers. Report files
+written with `--out` now escape such characters the same way the terminal
+output already did, so the report still gets written.
