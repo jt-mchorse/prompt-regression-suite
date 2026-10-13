@@ -2419,3 +2419,13 @@ effective_threshold"). The JSON output still gave that row a warn floor of
 was ever decided against it. A skipped row for such a snapshot showed the same
 0.0. Those rows now show no floor (null), the same as a run without a warn
 band. Every other row keeps its floor.
+
+## 2026-10-13 — The HTML report shows what the run did not compare (#249)
+
+With the flag that tolerates unmatched candidate rows, a run can check only
+some of its snapshots and throw away a candidate whose key matches nothing.
+The text and JSON outputs say so (`skipped=1 unmatched=1`). The HTML report,
+which is the file CI uploads, left both out and read as a complete, clean
+run. It now shows a skipped count and an unmatched count in the header, plus
+lists of the skipped snapshots and the unmatched keys, but only when there
+are any. A run with nothing left out produces the same HTML as before.

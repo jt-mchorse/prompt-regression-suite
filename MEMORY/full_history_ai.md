@@ -2671,3 +2671,23 @@ context_for_next_session:
   - warn_floor_LIBRARY_CLAMP_max_0_LEFT_AS_IS_no_cli_caller_reaches_it_now
 followups: []
 ---
+
+---
+session: 2026-10-13T08:08:22Z
+duration_min: 8   # computed: plan comment 2026-10-13T08:08:22Z -> PR (gh createdAt)
+issue: 249
+branch: session/2026-10-13-0808-issue-249
+focus: RUN_FORMAT_HTML_DROPPED_SKIPPED_SNAPSHOTS_AND_UNMATCHED_KEYS_SO_UNDER_ALLOW_UNMATCHED_CANDIDATES_THE_CI_ARTIFACT_READ_AS_A_COMPLETE_CLEAN_RUN
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "1222 -> 1226 passed; ruff + mypy clean"
+decisions_made: []
+measured: "main: text 'total=2 failed=0 skipped=1 unmatched=1' exit 0; html '1 snapshots / 1 pass', no refund id, no renamed_v2 key. Branch: skipped + unmatched stats and lists, only when non-empty. Revert 4 red; call-site-only revert 3 red / 1 green (the library byte-identity arm)."
+context_for_next_session:
+  - D_010_SAYS_THE_FLAG_TURNS_OFF_THE_FAILURE_NOT_THE_REPORT_150_LISTED_TEXT_AND_JSON_AND_NEVER_THE_HTML_SURFACE
+  - FIRST_DRAFT_ADDED_CSS_AND_test_regression_demo_snapshot_WENT_RED_a_clean_run_must_stay_byte_identical_so_no_new_css
+  - total_KEEPS_71s_EVALUATED_MEANING_deliberately_not_changed
+followups: []
+---
