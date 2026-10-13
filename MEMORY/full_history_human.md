@@ -2344,3 +2344,13 @@ with a Python recursion error, and lost the whole report. A deeply nested
 candidates file did the same to `run`, in one case while just trying to print
 the bad row. Both are now reported as parse errors: `validate` lists the bad
 file and still checks the others, and `run` exits 2 naming the line.
+
+## 2026-10-12 — `diff` output can't show one score for a warn and a fail (#231)
+
+With a warn band, `prompt-snap diff` decides between "warn" and "fail" at a
+second boundary, the warn floor. Its output rounded the score without
+considering that floor, so a warn result and a fail result could print the same
+score. The fail output even contradicted its own note. A fix earlier this
+month (#203) handled the run table, HTML and JSON, but not this text. `diff`
+now prints the score precisely enough to land on the right side of the floor
+and states the floor. The README examples were updated to match.
