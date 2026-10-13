@@ -392,6 +392,41 @@ class YAMLValueError(yaml.YAMLError):
     """A YAML scalar that matched a typed pattern but could not be built (#223)."""
 
 
+_MERGE_TAG = "tag:yaml.org,2002:merge"
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """``SafeLoader`` that refuses a key repeated in one mapping (#243).
+
+    PyYAML resolves a repeated key last-wins without a word, so a snapshot
+    with a second ``tolerance:`` line passed ``validate`` clean and ``run``
+    diffed against whichever came last. YAML requires unique keys. A ``<<``
+    merge key is skipped: overriding a merged value is legal and is not a
+    repeat of an explicit key.
+    """
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
+        if isinstance(node, yaml.MappingNode):
+            seen: set = set()
+            for key_node, _ in node.value:
+                if key_node.tag == _MERGE_TAG:
+                    continue
+                key = self.construct_object(key_node, deep=True)
+                try:
+                    repeated = key in seen
+                except TypeError:
+                    continue  # unhashable: the base class reports it
+                if repeated:
+                    raise yaml.constructor.ConstructorError(
+                        "while constructing a mapping",
+                        node.start_mark,
+                        f"found duplicate key {key!r}",
+                        key_node.start_mark,
+                    )
+                seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
 def safe_load_yaml(stream: TextIO) -> Any:
     """``yaml.safe_load`` under the read seams' one parse-failure contract.
 
@@ -409,9 +444,12 @@ def safe_load_yaml(stream: TextIO) -> Any:
     ``RecursionError`` is not a ``ValueError`` either (#232). PyYAML's composer
     recurses once per nesting level, so a 2 KB file of a thousand ``[`` escaped
     the same way and took ``validate``'s report with it. It is converted too.
+
+    A key repeated in one mapping is a ``ConstructorError`` (#243), not
+    last-wins; see ``_UniqueKeySafeLoader``.
     """
     try:
-        return yaml.safe_load(stream)
+        return yaml.load(stream, Loader=_UniqueKeySafeLoader)
     except UnicodeDecodeError:
         raise
     except ValueError as e:
