@@ -652,7 +652,15 @@ def _run_command(args: argparse.Namespace) -> int:
             + "\n"
         )
     elif args.format == "html":
-        rendered = render_report(entries)
+        # Skipped snapshots and unmatched keys have no entry to render, and the
+        # HTML used to drop them: under `--allow-unmatched-candidates` the CI
+        # artifact read as a complete, clean run that text and JSON report as
+        # partial (#249). D-010's flag turns off the failure, not the report.
+        rendered = render_report(
+            entries,
+            skipped=[r["snapshot_id"] for r in rows if r["verdict"] == "skipped"],
+            unmatched=unmatched,
+        )
     else:
         rendered = _format_text_table(
             rows,
