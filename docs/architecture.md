@@ -204,9 +204,10 @@ locked by the matching test in `tests/test_cli.py`.
 - **Validator (#49).** `prompt_regression.validate.validate_snapshots(directory)`
   walks the same globs in *collecting* mode and surfaces every
   malformed file as a `ValidationFinding` (codes `parse |
-  schema_version | schema | duplicate_id | empty`). Unlike `stats`,
-  which silently skips load failures, the validator anchors the
-  per-file errors `prompt-snap run` would abort on, so an operator
+  schema_version | schema | duplicate_id | unreadable | empty`).
+  Unlike `stats`, which refuses the whole directory at exit 2 on the
+  first file that fails to load (#115), the validator collects every
+  per-file error `prompt-snap run` would abort on, so an operator
   can fix all of them before the next run. Exposed as `prompt-snap
   validate`; exit codes 0/1/2 (clean / findings / missing-dir); JSON
   contract via `ValidationReport.to_dict`. Pairs with `stats` (audit
