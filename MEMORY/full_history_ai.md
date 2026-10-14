@@ -2711,3 +2711,22 @@ context_for_next_session:
   - CANDIDATE_SIDE_ZERO_VECTOR_FROM_A_BYO_EMBEDDER_DEFERRED_IT_FAILS_CLOSED_AS_fail
 followups: []
 ---
+---
+
+session: 2026-10-14T07:33:00Z
+duration_min: 10   # computed: plan comment ~07:33Z -> code commit ~07:43Z
+issue: 253
+branch: session/2026-10-14-0733-issue-253
+focus: 133_LOCKED_THE_FINDING_CODE_LIST_IN_THE_THREE_PLACES_IT_NAMED_validate_HELP_AND_ARCHITECTURE_MD_KEPT_THE_PRE_133_FIVE_and_the_doc_said_stats_silently_skips_a_bad_file_it_exits_2_since_115
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1263 -> 1266 passed (on main after #250); ruff + ruff format + mypy clean"
+decisions_made: []
+measured: "main 3.12: FINDING_CODES has 6; validate --help names parse/schema_version/schema/duplicate_id + empty-dir case (no unreadable); architecture.md codes span 5 (no unreadable) + 'stats silently skips load failures' while stats on a dir with one bad file exits 2. Branch: --help built from FINDING_CODES, doc corrected, both locked. Revert 3 of 3 red."
+context_for_next_session:
+  - A_LOCK_THAT_NAMES_ITS_PLACES_three_places_docstring_README_emit_sites_was_the_population_the_fix_wrote_down_argparse_description_and_docs_were_the_unlisted_copies
+  - stats_HELP_omits_its_schema_version_histogram_an_omission_not_a_false_claim_not_filed
+followups: []
+---

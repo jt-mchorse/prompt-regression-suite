@@ -2438,3 +2438,14 @@ scored 0 and failed, even the snapshot's own answer compared with itself. A
 broken baseline looked like a regression with no hint of the cause. It is now
 a schema error, just like a NaN in the embedding: `validate` lists it and
 `run`/`diff` stop with exit 2 and name the field.
+
+## 2026-10-14 — `validate --help` names every finding code (#253)
+
+When `unreadable` became a `validate` finding code (#133), the list of codes
+was updated and locked in the module's docstring and in the README. Two other
+places also list the codes, and they kept the old five: the `prompt-snap
+validate --help` text and `docs/architecture.md`. An operator reading `--help`
+to decide what to route on in the JSON output never learned that `unreadable`
+exists. The architecture doc also said `stats` quietly skips a snapshot file it
+cannot load. It doesn't: `stats` stops and exits 2. The help text is now built
+from the code list itself, the doc is corrected, and tests tie both to the list.
