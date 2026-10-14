@@ -2652,3 +2652,22 @@ context_for_next_session:
   - the_out_escape_also_covers_validate_out_with_a_non_UTF8_ext4_filename_unreachable_on_APFS_so_untested_here
 followups: []
 ---
+
+---
+session: 2026-10-13T08:04:24Z
+duration_min: 3   # computed: plan comment 2026-10-13T08:04:24Z -> PR (gh createdAt)
+issue: 247
+branch: session/2026-10-13-0804-issue-247
+focus: AN_ERROR_ROW_REFUSED_FOR_WARN_BAND_GE_TOLERANCE_PUBLISHED_WARN_FLOOR_0_0_THE_CLAMPED_BAND_THE_REFUSAL_IS_ABOUT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1222 -> 1227 passed; ruff + mypy clean"
+decisions_made: []
+measured: "main: tolerance 0.04, default band 0.05 -> error row warn_floor 0.0 beside 'warn_band must be < effective_threshold (0.04)'; skipped row same 0.0. Branch: null. Revert 4 red / 1 control green; neighbour '>' instead of '>=' 1 red (the equal-to-band arm)."
+context_for_next_session:
+  - 203s_ROW_WARN_FLOOR_FOR_ERROR_AND_SKIPPED_ROWS_COPIED_THE_FLOOR_BUT_NOT_THE_GUARD_diff_response_APPLIES_BEFORE_ANY_FLOOR_IS_IN_FORCE
+  - warn_floor_LIBRARY_CLAMP_max_0_LEFT_AS_IS_no_cli_caller_reaches_it_now
+followups: []
+---
