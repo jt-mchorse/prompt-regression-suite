@@ -305,6 +305,17 @@ class CanonicalResponse:
                     f"CanonicalResponse.embedding[{i}] must be a finite number; got {v!r}"
                 )
             clean.append(fv)
+        # A zero-norm vector is the same harm by the other road (#251): `cosine()`
+        # returns 0.0 when either norm is zero, before its identical-vector check,
+        # so every candidate -- the canonical text itself included -- failed at
+        # cosine 0.0000 and exit 1 while `validate` called the file clean. Tested
+        # on the norm `cosine()` computes, not on `any(clean)`: `1e-200` squares to
+        # 0.0, so a nonzero vector whose squares underflow takes that branch too.
+        if sum(v * v for v in clean) == 0.0:
+            raise SnapshotValidationError(
+                "CanonicalResponse.embedding has zero norm (every component is 0, or "
+                "too small to square); cosine similarity against it is undefined"
+            )
         self.embedding = clean
 
     def to_dict(self) -> dict[str, Any]:
