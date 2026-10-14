@@ -35,6 +35,7 @@ import sys
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -211,6 +212,21 @@ def _unencodable(text: str) -> str | None:
     return None
 
 
+def _unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """A JSON object's dict, refusing a repeated key (#243).
+
+    `json.loads` keeps the last of two `"candidate"` keys without a word, so
+    which text was diffed depended on the order inside the row. Raised as a
+    `ValueError`, which `_load_candidates` already reports as invalid JSON.
+    """
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"duplicate key {key!r} in one object")
+        out[key] = value
+    return out
+
+
 def _load_candidates(path: Path) -> dict[str, str]:
     """Read a JSONL of ``{"snapshot": "<path-or-id>", "candidate": "<text>"}`` rows.
 
@@ -233,7 +249,7 @@ def _load_candidates(path: Path) -> dict[str, str]:
         # `RecursionError` deep nesting on 3.11/3.12 (#232). Only the first
         # was caught, so the others escaped as a traceback at exit 1.
         try:
-            row = json.loads(line)
+            row = json.loads(line, object_pairs_hook=_unique_keys)
         except json.JSONDecodeError as e:
             raise ValueError(f"{path}:{lineno}: invalid JSON: {e}") from e
         except (ValueError, RecursionError) as e:

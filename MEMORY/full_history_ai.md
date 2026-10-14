@@ -2614,5 +2614,22 @@ measured: "main 3.12: run with a json.dumps(ensure_ascii=False) row carrying U+2
 context_for_next_session:
   - 232_WIDENED_WHAT_EACH_LINE_CATCHES_NOT_HOW_THE_LINES_ARE_MADE_the_record_separator_is_the_seam_before_the_parser
   - SAME_CLASS_AS_199_NEL_AT_THE_YAML_SEAM_any_other_jsonl_reader_should_split_on_newline_only
+
+session: 2026-10-13T07:21:00Z
+duration_min: 8   # computed: plan comment ~07:21Z -> code commit ~07:29Z
+issue: 243
+branch: session/2026-10-13-0721-issue-243
+focus: A_KEY_REPEATED_IN_ONE_SNAPSHOT_MAPPING_OR_ONE_CANDIDATES_ROW_WAS_LAST_WINS_SILENTLY_VALIDATE_CLEAN_RUN_PASS_EXIT_0
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: "1164 -> 1172 passed; ruff, ruff format, mypy clean"
+decisions_made: []
+measured: "main 3.12: kite snapshot with a second 'tolerance: 0.95' above the shipped 0.75 -> validate 'findings=0' rc=0; run pass cosine 0.806 rc=0. JSONL row with two 'candidate' keys diffed the last. Branch: validate [parse] duplicate key 'tolerance' rc=1; run rc=2; JSONL rc=2 path:line. Revert 4 of 8 red (merge-key override + shipped examples are controls)."
+context_for_next_session:
+  - 167_171_MADE_KEYS_UNIQUE_ACROSS_FILES_AND_ROWS_NOTHING_CHECKED_WITHIN_ONE_MAPPING_the_uniqueness_rule_had_a_level_it_did_not_list
+  - test_deep_nesting_inputs_NOW_MONKEYPATCHES_yaml_load_not_safe_load_because_safe_load_yaml_passes_its_own_Loader
+  - MERGE_KEY_OVERRIDE_IS_LEGAL_YAML_a_naive_count_of_flattened_keys_would_refuse_it
 followups: []
 ---

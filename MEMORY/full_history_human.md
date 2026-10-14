@@ -2388,3 +2388,12 @@ treats as a line break, including three (U+0085, U+2028, U+2029) that JSON
 allows inside a string and Python's own JSON writer leaves in place. A valid
 row whose candidate text contained one was cut in half and refused as invalid
 JSON. Rows are now split on newlines only, so the text is diffed as written.
+
+## 2026-10-13 — A setting written twice in one snapshot is an error, not a silent pick (#243)
+
+If a snapshot file set the same thing twice — say a `tolerance` line added at
+the top while the old one was still at the bottom — the YAML reader quietly
+kept the last one. `validate` called the file clean and `run` could pass a
+response against a tolerance the other line contradicted. The same happened to
+a candidates row with two `candidate` fields. Both are now reported as parse
+errors that name the repeated key; YAML merge overrides still work.

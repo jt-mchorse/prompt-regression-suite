@@ -44,10 +44,10 @@ def test_validate_reports_the_deep_file_and_checks_the_rest(
 
 def test_safe_load_yaml_converts_a_recursion_error(monkeypatch: pytest.MonkeyPatch) -> None:
     # Forced, so the conversion is pinned whatever depth the host's stack allows.
-    def deep(_stream: object) -> object:
+    def deep(_stream: object, Loader: object = None) -> object:
         raise RecursionError("maximum recursion depth exceeded")
 
-    monkeypatch.setattr(prs_io.yaml, "safe_load", deep)
+    monkeypatch.setattr(prs_io.yaml, "load", deep)
     with pytest.raises(yaml.YAMLError, match="nested too deeply"):
         prs_io.safe_load_yaml(io.StringIO("a: 1"))
 
