@@ -989,10 +989,13 @@ def diff_response(
         )
 
     if not force and embedder.model_name != snapshot.canonical.embedding_model:
+        # `run` and `diff` relay this text verbatim (row note / `error:` line),
+        # where the override is `--force-embedder`, not the keyword -- so the
+        # one message names both spellings (#255).
         raise EmbedderModelMismatchError(
             f"snapshot was embedded with {snapshot.canonical.embedding_model!r} but "
             f"the diff embedder reports {embedder.model_name!r}. Re-embed the snapshot "
-            "or pass force=True to override."
+            "or pass force=True (CLI: --force-embedder) to override."
         )
 
     notes: list[str] = []
