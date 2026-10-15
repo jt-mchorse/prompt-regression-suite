@@ -2474,3 +2474,14 @@ all. The hint now gives the full command, `prompt-snap update --snapshot
 canonical text. When neither `update --canonical`/`--canonical-stdin` nor
 `diff --candidate`/`--candidate-stdin` is passed, the error now names the
 missing flag.
+
+## 2026-10-15 — The architecture doc's CLI synopsis matches the CLI (#259)
+
+The command summary in `docs/architecture.md` showed `run`, `update` and
+`diff` taking positional arguments. None of them do: each takes flags
+(`--snapshots`/`--candidates`, `--snapshot`/`--canonical`,
+`--snapshot`/`--candidate`). Typing any of those three lines as shown got a
+usage error. The doc also quoted an `update` refusal message the CLI never
+prints. The summary now shows the real flags and the real message. A test
+checks each line against the CLI's parser and checks the quote against what
+`update` actually prints.

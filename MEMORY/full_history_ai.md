@@ -2769,3 +2769,22 @@ context_for_next_session:
   - update_HAS_NO_RE_EMBED_STORED_TEXT_MODE_DEFERRED_NEW_CLI_BEHAVIOUR_NOT_A_MESSAGE_FIX
 followups: []
 ---
+
+---
+session: 2026-10-15T07:37:00Z
+duration_min: 10   # approx: plan comment -> code commit
+issue: 259
+branch: session/2026-10-15-0737-issue-259
+focus: ARCHITECTURE_MD_LAYER_4_SYNOPSIS_GAVE_run_update_diff_POSITIONAL_ARGS_THEY_DO_NOT_TAKE_AND_QUOTED_A_did_you_mean_to_overwrite_REFUSAL_THE_CLI_NEVER_PRINTS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1274 -> 1276 passed (3.12); ruff + ruff format + mypy clean"
+decisions_made: []
+measured: "main: 'prompt-snap run <file>' -> required: --snapshots, --candidates; 'diff <file> text' and 'update <file>' -> required: --snapshot; update without --force prints 'refusing to update without --force (...)'. Branch: synopsis lines parse with build_parser(), quoted refusal is a substring of the live stderr. Revert 2 of 2 red."
+context_for_next_session:
+  - 253_FIXED_TWO_CLAIMS_IN_ARCHITECTURE_MD_THE_SYNOPSIS_BLOCK_TWENTY_LINES_UP_WAS_THE_UNLISTED_SURFACE
+  - THE_SYNOPSIS_IS_NOW_PARSED_BY_THE_REAL_PARSER_A_FLAG_RENAME_TURNS_IT_RED
+followups: []
+---
