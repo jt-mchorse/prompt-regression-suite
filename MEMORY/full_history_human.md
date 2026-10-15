@@ -2485,3 +2485,14 @@ usage error. The doc also quoted an `update` refusal message the CLI never
 prints. The summary now shows the real flags and the real message. A test
 checks each line against the CLI's parser and checks the quote against what
 `update` actually prints.
+
+## 2026-10-15 — A misspelled top-level snapshot key is now an error (#261)
+
+An unknown key inside a snapshot's `prompt`, `response_shape` or `canonical`
+section was already rejected, but an unknown key at the top level was quietly
+thrown away. `tolerance` lives at the top level. So a snapshot that said
+`tolerence: 0.95` passed `validate`, and `run` gated it at the ordinary run
+threshold. A bar the author meant to raise was silently ignored, and a
+candidate that should have failed passed. Unknown top-level keys are now a
+schema error that names the key. `docs/schema.md` also lists `tolerance` in its
+table now; it was missing before.
