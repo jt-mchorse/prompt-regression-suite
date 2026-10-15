@@ -136,15 +136,16 @@ script would produce.
 and renderer:
 
 ```
-prompt-snap run    [SNAPSHOT]...    # run snapshots, exit non-zero on regression
-prompt-snap update [SNAPSHOT]...    # re-baseline (requires --force)
-prompt-snap diff   SNAPSHOT INPUT   # one-off diff against a candidate text
-prompt-snap stats  DIRECTORY        # population-level summary (#47)
-prompt-snap validate DIRECTORY      # collecting-mode lint (#49)
+prompt-snap run    --snapshots DIRECTORY --candidates FILE   # exit non-zero on regression
+prompt-snap update --snapshot FILE --canonical TEXT --force  # re-baseline (or --canonical-stdin)
+prompt-snap diff   --snapshot FILE --candidate TEXT          # one-off diff (or --candidate-stdin)
+prompt-snap stats  DIRECTORY                                 # population-level summary (#47)
+prompt-snap validate DIRECTORY                               # collecting-mode lint (#49)
 ```
 
 `update --force` is the accidental-rebaseline guard: `update` without
-`--force` exits with a clear "did you mean to overwrite?" message.
+`--force` exits 2 with "refusing to update without --force (prevents
+accidental re-baselining of a failing snapshot)" and writes nothing.
 `prompt-snap run`'s glob expansion was tightened by #22 so the
 committed example snapshots are findable from any working directory;
 locked by the matching test in `tests/test_cli.py`.
