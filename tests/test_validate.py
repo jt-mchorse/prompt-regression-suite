@@ -652,3 +652,57 @@ def test_readme_validate_bullet_lists_every_finding_code() -> None:
     assert match is not None, "README no longer documents the validate finding codes"
     listed = [c.strip() for c in match.group(1).split("|")]
     assert listed == list(FINDING_CODES), (listed, FINDING_CODES)
+
+
+# --- #253: the two copies of the code list #133 did not lock ---------------
+
+
+def _validate_help_text(capsys: pytest.CaptureFixture[str]) -> str:
+    from prompt_regression.cli import main
+
+    with pytest.raises(SystemExit) as exc:
+        main(["validate", "--help"])
+    assert exc.value.code == 0
+    # argparse re-wraps the description to the terminal width; collapse the
+    # wrapping so the assertion is about the words, not where the lines break.
+    return " ".join(capsys.readouterr().out.split())
+
+
+def test_validate_help_lists_every_finding_code(capsys: pytest.CaptureFixture[str]) -> None:
+    """`prompt-snap validate --help` is the copy of the list an operator sees
+    first. Before #253 it named the pre-#133 five ("parse / schema_version /
+    schema / duplicate_id plus the empty-dir case") and never mentioned
+    `unreadable`, the code #133 added so that a filesystem problem is not
+    routed as a parse problem."""
+    text = _validate_help_text(capsys)
+    match = re.search(r"finding codes: ([a-z_ /]+)\)", text)
+    assert match is not None, f"validate --help no longer lists the finding codes: {text!r}"
+    listed = [c.strip() for c in match.group(1).split("/")]
+    assert listed == list(FINDING_CODES), (listed, FINDING_CODES)
+
+
+def test_architecture_doc_validator_bullet_lists_every_finding_code() -> None:
+    """docs/architecture.md carries the fourth copy of the list, in the same
+    ``codes `a | b` `` shape as the README span locked above (#253)."""
+    doc = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    match = re.search(r"codes `([^`]+)`", doc, flags=re.DOTALL)
+    assert match is not None, "architecture.md no longer documents the validate finding codes"
+    listed = [c.strip() for c in match.group(1).split("|")]
+    assert listed == list(FINDING_CODES), (listed, FINDING_CODES)
+
+
+def test_architecture_doc_describes_what_stats_does_with_a_bad_file(tmp_path: Path) -> None:
+    """The Validator bullet contrasts itself with `stats`. It used to say
+    `stats` "silently skips load failures", which has not been true since
+    #115: `stats` refuses the whole directory at exit 2. Check the behaviour
+    and check that the doc says the same thing (#253)."""
+    from prompt_regression.cli import main
+
+    for src in EXAMPLES_DIR.glob("*.yml"):
+        (tmp_path / src.name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / "bad.yml").write_text("x: [\n", encoding="utf-8")
+    assert main(["stats", str(tmp_path)]) == 2
+
+    doc = " ".join((REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8").split())
+    assert "silently skips load failures" not in doc
+    assert "Unlike `stats`, which refuses the whole directory at exit 2" in doc

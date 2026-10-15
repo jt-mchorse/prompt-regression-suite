@@ -68,7 +68,7 @@ from .io import (
 )
 from .schema import CanonicalResponse, Snapshot, SnapshotValidationError, where_unencodable
 from .stats import StatsError, collect_stats, render_summary
-from .validate import FirstSeenIds, validate_snapshots
+from .validate import FINDING_CODES, FirstSeenIds, validate_snapshots
 
 # `run` walks any of these globs under the snapshots dir, deduped + sorted.
 # Re-exported under the historical private name so existing callers and
@@ -1247,11 +1247,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_p = sub.add_parser(
         "validate",
         help="Lint a snapshots dir in collecting mode; report every malformed file in one pass.",
+        # The code list is built from FINDING_CODES, not hand-written: #133 added
+        # `unreadable` and locked the docstring and README copies of the list, and
+        # this one kept the pre-#133 five (#253).
         description=(
-            "Walk a snapshots directory and surface every malformed file (parse / "
-            "schema_version / schema / duplicate_id) plus the empty-dir case in a "
-            "single pass. Pre-flight before `run`. Exit codes: 0 clean / 1 findings "
-            "/ 2 missing directory."
+            "Walk a snapshots directory and surface every malformed file in a "
+            f"single pass (finding codes: {' / '.join(FINDING_CODES)}). Pre-flight "
+            "before `run`. Exit codes: 0 clean / 1 findings / 2 missing directory."
         ),
     )
     validate_p.add_argument("snapshots", help=_SNAPSHOT_DIR_HELP)
