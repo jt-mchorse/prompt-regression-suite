@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import UTC, datetime
 from typing import Any
 
@@ -434,6 +434,18 @@ class Snapshot:
             ) from e
         except TypeError as e:
             raise SnapshotValidationError(f"Snapshot section has unexpected fields: {e}") from e
+
+        # The sections above refuse an unknown key because `Section(**...)`
+        # does; the top level is read key-by-key below, so it has to refuse
+        # one explicitly (#261). Without this a typo'd `tolerence: 0.95` was
+        # dropped and the snapshot silently gated at the run threshold. The
+        # known set is the dataclass's own fields — exactly what `to_dict`
+        # writes — so the writer and the reader can't drift apart.
+        unknown = [k for k in data if k not in {f.name for f in fields(cls)}]
+        if unknown:
+            raise SnapshotValidationError(
+                "Snapshot has unexpected top-level fields: " + ", ".join(repr(k) for k in unknown)
+            )
 
         return cls(
             id=snapshot_id,

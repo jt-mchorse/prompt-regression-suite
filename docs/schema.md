@@ -19,6 +19,12 @@ refuses to load any other version — there is no implicit migration.
 | `schema_version` | no       | string              | Defaults to the package's current version (`"1"`).                   |
 | `created_at`     | no       | ISO-8601 UTC string | Defaults to now-on-construction.                                     |
 | `notes`          | no       | string              | Free-form author notes. Round-trips through YAML.                    |
+| `tolerance`      | no       | number in (0, 1]    | Per-snapshot cosine bar; overrides the run threshold (#10).          |
+
+Any other top-level key is a schema error rather than being ignored (#261),
+the same as an unknown key inside a section — so a typo'd `tolerence:`
+cannot silently fall back to the run threshold. Forward-compat data belongs
+in `prompt.extra`.
 
 ## `prompt`
 
