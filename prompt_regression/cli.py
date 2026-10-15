@@ -847,6 +847,11 @@ def _read_text_arg(literal: str | None, from_stdin: bool, *, flag: str, noun: st
     """
     if literal is not None and from_stdin:
         raise _UsageError(f"error: pass {flag} OR {flag}-stdin, not both")
+    # Neither flag is a missing argument, not blank text (#257): `literal or ""`
+    # used to fold it into the "was empty" message below, so `update --force
+    # --snapshot x` blamed text the operator never passed.
+    if literal is None and not from_stdin:
+        raise _UsageError(f"error: pass {flag} or {flag}-stdin")
     text = sys.stdin.read() if from_stdin else (literal or "")
     text = text.strip()
     if not text:

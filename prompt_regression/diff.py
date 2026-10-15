@@ -1027,12 +1027,16 @@ def diff_response(
     # otherwise hit cosine()'s raw "length mismatch" ValueError, which escapes
     # the `run` batch loop and aborts every remaining snapshot. Raise a
     # catchable error so the loop records this one row as `error` and continues.
+    # The remedy names every argument `update` requires (#257): the bare
+    # `update --force` it used to give stopped at argparse, and re-embedding
+    # means passing the snapshot's existing text back in.
     if len(candidate_vec) != len(snapshot.canonical.embedding):
         raise EmbeddingDimensionMismatchError(
             f"candidate embedding has {len(candidate_vec)} dims but snapshot "
             f"{snapshot.canonical.embedding_model!r} stored "
             f"{len(snapshot.canonical.embedding)}. Re-embed the snapshot with the "
-            "current embedder (prompt-snap update --force)."
+            "current embedder: prompt-snap update --snapshot <file> --canonical-stdin "
+            "--force, with the snapshot's own canonical.text on stdin."
         )
     # The stored embedding's finiteness is enforced at schema load; the
     # candidate comes from a BYO embedder (Protocol) and isn't, so a NaN/±Inf
