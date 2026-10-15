@@ -2429,3 +2429,12 @@ which is the file CI uploads, left both out and read as a complete, clean
 run. It now shows a skipped count and an unmatched count in the header, plus
 lists of the skipped snapshots and the unmatched keys, but only when there
 are any. A run with nothing left out produces the same HTML as before.
+
+## 2026-10-14 — A snapshot stored with an all-zero embedding is now rejected (#251)
+
+A snapshot whose stored embedding was all zeros (or numbers so tiny their
+squares round to zero) passed `validate`, but every comparison against it
+scored 0 and failed, even the snapshot's own answer compared with itself. A
+broken baseline looked like a regression with no hint of the cause. It is now
+a schema error, just like a NaN in the embedding: `validate` lists it and
+`run`/`diff` stop with exit 2 and name the field.

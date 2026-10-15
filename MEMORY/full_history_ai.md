@@ -2691,3 +2691,23 @@ context_for_next_session:
   - total_KEEPS_71s_EVALUATED_MEANING_deliberately_not_changed
 followups: []
 ---
+
+---
+session: 2026-10-14T07:19:22Z
+duration_min: 10   # approx: plan comment -> PR
+issue: 251
+branch: session/2026-10-14-0719-issue-251
+focus: A_ZERO_NORM_STORED_EMBEDDING_LOADED_CLEAN_THEN_FAILED_EVERY_DIFF_INCLUDING_ITS_OWN_CANONICAL_AT_COSINE_0_EXIT_1
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "1222 -> 1230 passed; ruff + format + mypy clean"
+decisions_made: []
+measured: "main: validate ok (findings=0); diff of the canonical text against itself -> fail 0.0000 rc=1; run -> failed=1 rc=1. Branch: schema finding / exit 2. Revert 6 red / 2 controls green. Neighbour fix any(clean) leaves the 2 underflow arms (1e-200) red."
+context_for_next_session:
+  - THE_NAN_RULES_STATED_REASON_fail_WITH_NO_DIAGNOSTIC_COVERED_A_SECOND_MEMBER_cosine_ZERO_NORM_BRANCH_COUNT_THE_SET
+  - GUARD_ON_THE_NORM_COSINE_COMPUTES_NOT_any_A_1e_200_VECTOR_IS_NONZERO_BUT_SQUARES_TO_0
+  - CANDIDATE_SIDE_ZERO_VECTOR_FROM_A_BYO_EMBEDDER_DEFERRED_IT_FAILS_CLOSED_AS_fail
+followups: []
+---
