@@ -2749,3 +2749,23 @@ context_for_next_session:
   - DIMENSION_MISMATCH_HINT_prompt_snap_update_force_OMITS_REQUIRED_canonical_deferred_it_is_a_pointer_not_a_runnable_line
 followups: []
 ---
+
+---
+session: 2026-10-15T07:32:00Z
+duration_min: 15   # approx: plan comment -> code commit
+issue: 257
+branch: session/2026-10-15-0732-issue-257
+focus: DIMENSION_MISMATCH_HINT_prompt_snap_update_force_STOPPED_AT_ARGPARSE_MISSING_snapshot_THEN_update_SAID_THE_TEXT_WAS_EMPTY_WHEN_NO_TEXT_FLAG_WAS_PASSED
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 6
+  suite: "1274 -> 1280 passed (3.12); ruff + ruff format + mypy clean"
+decisions_made: []
+measured: "main: diff on an 8-dim hash-model snapshot -> hint '(prompt-snap update --force)'; typed literally -> argparse 'required: --snapshot' rc=2; with --snapshot -> 'canonical text was empty after stripping whitespace' rc=2. Branch: hint names --snapshot <file> --canonical-stdin --force + 'the snapshot's own canonical.text on stdin'; running it re-embeds to 128 dims and the next diff exits 0. Revert 5 of 6 red (writes-nothing control green)."
+context_for_next_session:
+  - 255_PLAN_DEFERRED_THIS_AS_A_POINTER_NOT_A_RUNNABLE_LINE_THE_PREMISE_a_reader_still_gets_a_clear_usage_error_WAS_FALSE_THE_SECOND_ERROR_BLAMED_EMPTY_TEXT
+  - _read_text_arg_literal_or_EMPTY_FOLDED_NO_FLAG_INTO_BLANK_TEXT_FIXED_FOR_BOTH_update_AND_diff
+  - update_HAS_NO_RE_EMBED_STORED_TEXT_MODE_DEFERRED_NEW_CLI_BEHAVIOUR_NOT_A_MESSAGE_FIX
+followups: []
+---
