@@ -434,3 +434,56 @@ def test_directory_tree_parser_and_diff_catch_drift() -> None:
     # A stale entry lingering in the tree after a file is deleted is flagged.
     stale = f"{_PKG}/\n├── a.py\n├── b.py\n└── gone.py\n```"
     assert sorted(_tree_py_modules(stale) - {"a.py", "b.py"}) == ["gone.py"]
+
+
+# The Layer 4 synopsis gave `run` / `update` / `diff` positional arguments
+# none of them take, and quoted an `update` refusal the CLI never printed
+# (#259). Both are claims about the parser, so they are checked against it.
+_SYNOPSIS_FILL = {"DIRECTORY": "examples/snapshots", "FILE": "x.yml", "TEXT": "x"}
+
+
+def _cli_synopsis(doc_text: str) -> list[list[str]]:
+    """Argv for each `prompt-snap ...` line in the Layer 4 fenced block, with
+    the trailing `# ...` comment dropped and placeholders filled in."""
+    section = doc_text.split("## Layer 4", 1)[1]
+    block = section.split("```", 2)[1]
+    lines = [ln.split("#", 1)[0].split() for ln in block.splitlines()]
+    return [
+        [_SYNOPSIS_FILL.get(tok, tok) for tok in ln[1:]]
+        for ln in lines
+        if ln and ln[0] == "prompt-snap"
+    ]
+
+
+def test_cli_synopsis_lines_parse(doc_text: str) -> None:
+    from prompt_regression.cli import build_parser
+
+    synopsis = _cli_synopsis(doc_text)
+    assert {argv[0] for argv in synopsis} == {"run", "update", "diff", "stats", "validate"}
+    bad = []
+    for argv in synopsis:
+        try:
+            ns = build_parser().parse_args(argv)
+        except SystemExit:
+            bad.append(" ".join(argv))
+            continue
+        assert ns.command == argv[0]
+    assert not bad, f"docs/architecture.md synopsis lines the CLI rejects: {bad}"
+
+
+def test_cli_synopsis_quotes_the_real_update_refusal(
+    doc_text: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import shutil
+
+    from prompt_regression.cli import main
+
+    match = re.search(r'without\s+`--force` exits 2 with\s+"([^"]+)"', doc_text)
+    assert match is not None, "expected the quoted `update` refusal in docs/architecture.md"
+    quoted = " ".join(match.group(1).split())
+    snap = tmp_path / "s.yml"
+    shutil.copy(REPO_ROOT / "examples" / "snapshots" / "refund_window_v1.yml", snap)
+    before = snap.read_bytes()
+    assert main(["update", "--snapshot", str(snap), "--canonical", "x"]) == 2
+    assert quoted in capsys.readouterr().err
+    assert snap.read_bytes() == before
