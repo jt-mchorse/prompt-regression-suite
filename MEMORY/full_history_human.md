@@ -2449,3 +2449,15 @@ to decide what to route on in the JSON output never learned that `unreadable`
 exists. The architecture doc also said `stats` quietly skips a snapshot file it
 cannot load. It doesn't: `stats` stops and exits 2. The help text is now built
 from the code list itself, the doc is corrected, and tests tie both to the list.
+
+## 2026-10-15 — The embedder-mismatch error names the CLI flag (#255)
+
+When a snapshot was embedded with a different model than the one doing the
+comparison, the error said "pass force=True to override". That is how you
+spell it when calling the Python function. `prompt-snap run` and
+`prompt-snap diff` printed the same sentence, and on the command line there
+is no `force=True`. The switch is `--force-embedder`, and typing what the
+error said gave a usage error. The message now names both:
+"pass force=True (CLI: --force-embedder) to override". The two README copies
+of the message were updated to match, and a test checks they stay identical
+to the live text.

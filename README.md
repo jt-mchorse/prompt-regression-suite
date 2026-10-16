@@ -220,7 +220,7 @@ verdict   cosine  snapshot
 pass      0.806   examples/snapshots/creative_kite_v1.yml
     - per-snapshot tolerance 0.750 overrides run threshold 0.850
 error      -.--   examples/snapshots/refund_window_v1.yml
-    - snapshot was embedded with 'text-embedding-3-small-truncated-8d' but the diff embedder reports 'hash-embedder-128d-ngram2'. Re-embed the snapshot or pass force=True to override.
+    - snapshot was embedded with 'text-embedding-3-small-truncated-8d' but the diff embedder reports 'hash-embedder-128d-ngram2'. Re-embed the snapshot or pass force=True (CLI: --force-embedder) to override.
 ```
 
 `creative_kite_v1.yml` passes at 0.806 against a genuinely reworded
@@ -319,7 +319,7 @@ prompt-snap diff \
     --candidate "Refunds are now available for 30 days after purchase."
 # error: snapshot was embedded with 'text-embedding-3-small-truncated-8d' but the
 # diff embedder reports 'hash-embedder-128d-ngram2'. Re-embed the snapshot or
-# pass force=True to override.
+# pass force=True (CLI: --force-embedder) to override.
 
 # Re-baseline a snapshot after an intentional change. REQUIRES --force.
 # `update` rewrites the file in place, so copy first — the snapshots under

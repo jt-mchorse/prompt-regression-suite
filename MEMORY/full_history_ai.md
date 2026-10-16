@@ -2730,3 +2730,22 @@ context_for_next_session:
   - stats_HELP_omits_its_schema_version_histogram_an_omission_not_a_false_claim_not_filed
 followups: []
 ---
+
+---
+session: 2026-10-15T07:17:00Z
+duration_min: 10   # computed: branch cut 2026-10-15T07:17Z -> PR (plan comment pre-posted 2026-10-14T07:47Z)
+issue: 255
+branch: session/2026-10-15-0717-issue-255
+focus: THE_D006_MISMATCH_REMEDY_NAMED_THE_LIBRARY_KEYWORD_force_True_ON_THE_CLI_SURFACES_THAT_RELAY_str_e_WHERE_THE_SWITCH_IS_force_embedder
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "1274 -> 1283 passed; ruff + ruff format + mypy clean"
+decisions_made: []
+measured: "main: diff exit 2 'pass force=True to override'; acting on it -> 'unrecognized arguments: force=True' / '--force=True' -> 'ignored explicit argument'. Branch: 'pass force=True (CLI: --force-embedder) to override' on diff error line, run text/json/html row note, both README copies. Revert 6 red / 3 controls green (flag exists on run+diff, --force-embedder turns the guard off)."
+context_for_next_session:
+  - ONE_MESSAGE_NAMES_BOTH_SPELLINGS_rather_than_cli_rewriting_str_e_so_every_surface_and_the_README_carry_identical_text
+  - DIMENSION_MISMATCH_HINT_prompt_snap_update_force_OMITS_REQUIRED_canonical_deferred_it_is_a_pointer_not_a_runnable_line
+followups: []
+---
