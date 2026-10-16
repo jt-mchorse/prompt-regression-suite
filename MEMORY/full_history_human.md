@@ -2461,3 +2461,16 @@ error said gave a usage error. The message now names both:
 "pass force=True (CLI: --force-embedder) to override". The two README copies
 of the message were updated to match, and a test checks they stay identical
 to the live text.
+
+## 2026-10-15 — The dimension-mismatch hint is now a command that works (#257)
+
+When a snapshot's stored embedding has a different length than the current
+embedder's output, the error told the operator to re-embed with
+`prompt-snap update --force`. Typed as shown, that stopped with a usage error,
+because `--snapshot` is required. Adding `--snapshot` led to a second error
+saying the canonical text "was empty", even though no text had been passed at
+all. The hint now gives the full command, `prompt-snap update --snapshot
+<file> --canonical-stdin --force`, and says to pipe in the snapshot's own
+canonical text. When neither `update --canonical`/`--canonical-stdin` nor
+`diff --candidate`/`--candidate-stdin` is passed, the error now names the
+missing flag.
