@@ -662,7 +662,13 @@ _BOOL_FALSE_RE = re.compile(r"\b(no|false|not\s+allowed|refused|disabled|denied)
 # from being whack-a-mole: adding a sixth positive term to `_BOOL_TRUE_RE` now
 # gets its negated form for free, which is exactly the maintenance trap that
 # produced this bug.
-_NEGATION_CUES = r"(?:not|never|cannot|can't|won't|isn't|aren't|wasn't|weren't|doesn't|don't|no)"
+#
+# The contractions are derived too (#263): any `n't` is a cue, under any of the
+# three apostrophes text arrives with -- `'`, the typographic `’` (U+2019)
+# that LLMs and word processors emit, and `ʼ` (U+02BC). The hand list spelled
+# eleven contractions with a straight apostrophe, so `aren’t allowed` and
+# `shouldn't be allowed` extracted True.
+_NEGATION_CUES = r"(?:not|never|cannot|no|\w+n['\u2019\u02bc]t)"
 
 # The window between cue and term: up to two short filler words, so
 # `cannot be enabled` and `is not currently permitted` are caught while an
