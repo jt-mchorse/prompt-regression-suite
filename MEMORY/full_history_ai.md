@@ -2807,3 +2807,20 @@ context_for_next_session:
   - created_at_ACCEPTS_FREE_TEXT_yesterday_THOUGH_schema_md_SAYS_ISO_8601_UTC_not_filed_no_reader_parses_it
 followups: []
 ---
+
+---
+session: 2026-10-16T13:50Z
+issue: 265
+branch: session/2026-10-16-0917-issue-265
+focus: RENDER_REPORT_SKIPPED_UNMATCHED_SEQUENCE_STR_ACCEPTED_A_BARE_STRING_9_SKIPPED_7_UNMATCHED_ONE_ROW_PER_CHARACTER
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "1316 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: skipped='refund-v1' unmatched='old.yml' -> '9 skipped 7 unmatched', one char per row. After: ValueError. Revert 7 of 10 red."
+context_for_next_session:
+  - EVERY_NEW_SEQUENCE_STR_PARAMETER_ON_A_PUBLIC_FUNCTION_NEEDS_THE_192_GUARD
+followups: []
+---
