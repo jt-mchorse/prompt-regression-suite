@@ -2496,3 +2496,10 @@ threshold. A bar the author meant to raise was silently ignored, and a
 candidate that should have failed passed. Unknown top-level keys are now a
 schema error that names the key. `docs/schema.md` also lists `tolerance` in its
 table now; it was missing before.
+
+## 2026-10-16 — The HTML report refuses a single name where it needs a list (#265)
+
+The HTML report takes lists of skipped snapshots and unmatched keys. Passing a
+single name as a plain string was treated as a list of letters, so the report
+said "9 skipped" and listed each letter. That is now refused with a clear
+error, the same way the semantic-category scorer already refuses it.
