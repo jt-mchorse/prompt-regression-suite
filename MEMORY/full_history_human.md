@@ -2496,3 +2496,11 @@ threshold. A bar the author meant to raise was silently ignored, and a
 candidate that should have failed passed. Unknown top-level keys are now a
 schema error that names the key. `docs/schema.md` also lists `tolerance` in its
 table now; it was missing before.
+
+## 2026-10-16 — "aren’t allowed" reads as a no, however the apostrophe is typed (#263)
+
+The yes/no slot extractor recognises negations like "isn't allowed", but only
+from a short list of contractions typed with a plain apostrophe. Text that
+used the curly apostrophe most AI models produce, or contractions like
+"shouldn't", was read as a yes. Any "n't" contraction is now a negation, with
+any of the common apostrophe characters.
