@@ -2788,3 +2788,22 @@ context_for_next_session:
   - THE_SYNOPSIS_IS_NOW_PARSED_BY_THE_REAL_PARSER_A_FLAG_RENAME_TURNS_IT_RED
 followups: []
 ---
+
+---
+session: 2026-10-15T07:53:00Z
+duration_min: 15   # approx: issue filed ~07:52Z -> code commit ~08:07Z
+issue: 261
+branch: session/2026-10-15-0753-issue-261
+focus: from_dict_REFUSED_AN_UNKNOWN_KEY_INSIDE_EACH_SECTION_VIA_Section_kwargs_BUT_READ_THE_TOP_LEVEL_KEY_BY_KEY_SO_A_TYPOD_tolerence_WAS_DROPPED_AND_GATED_AT_THE_RUN_THRESHOLD
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 15
+  suite: "1274 -> 1289 passed (+15 new, local 3.12); ruff check + ruff format --check + mypy clean"
+decisions_made: []
+measured: "main: kite example with tolerance->tolerence 0.95, run --threshold 0.8 -> pass 0.806 rc 0, validate ok findings=0; spelled correctly -> fail rc 1. Branch: run rc 2 naming 'tolerence', validate schema finding. Known set = dataclass fields(Snapshot), the same 8 to_dict writes. Revert probe (schema.py only, pycache cleared): 10 of 15 red; docs/schema.md revert reds the 11th, the doc-table lock (table omitted tolerance)."
+context_for_next_session:
+  - TWIN_ARMS_OF_ONE_LOADER_SECTIONS_STRICT_VIA_KWARGS_TOP_LEVEL_LENIENT_VIA_get_the_lenient_arm_held_the_one_gate_bearing_optional_field
+  - created_at_ACCEPTS_FREE_TEXT_yesterday_THOUGH_schema_md_SAYS_ISO_8601_UTC_not_filed_no_reader_parses_it
+followups: []
+---
