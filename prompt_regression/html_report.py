@@ -84,6 +84,16 @@ def render_report(
     adds a header stat and a list only when non-empty, so a run with neither
     renders exactly as before.
     """
+    # A bare string is one name, not a list of them (#265): `skipped="refund-v1"`
+    # was counted as 9 skipped snapshots and listed one character per row --
+    # the shape #192 refused for `score_semantic_categories`.
+    for name, value in (("skipped", skipped), ("unmatched", unmatched)):
+        if isinstance(value, (str, bytes, bytearray)):
+            fix = f"pass [{value!r}]" if isinstance(value, str) else "decode it first"
+            raise ValueError(
+                f"{name} must be a list of names, not a bare {type(value).__name__}: "
+                f"{value!r} would be listed one character at a time -- {fix}"
+            )
     summary = _summarize(entries)
     summary["skipped"] = len(skipped)
     summary["unmatched"] = len(unmatched)
