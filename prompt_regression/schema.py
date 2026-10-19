@@ -311,10 +311,22 @@ class CanonicalResponse:
         # cosine 0.0000 and exit 1 while `validate` called the file clean. Tested
         # on the norm `cosine()` computes, not on `any(clean)`: `1e-200` squares to
         # 0.0, so a nonzero vector whose squares underflow takes that branch too.
-        if sum(v * v for v in clean) == 0.0:
+        sum_sq = sum(v * v for v in clean)
+        if sum_sq == 0.0:
             raise SnapshotValidationError(
                 "CanonicalResponse.embedding has zero norm (every component is 0, or "
                 "too small to square); cosine similarity against it is undefined"
+            )
+        # The other end of the same norm (#267): a vector of finite components
+        # whose squares sum past the float range makes `cosine()` return NaN, so
+        # every diff against it raised NonFiniteEmbeddingError (or, before #267,
+        # scored a finite 0.0 and failed its own canonical text) while `validate`
+        # called the file clean.
+        if not math.isfinite(sum_sq):
+            raise SnapshotValidationError(
+                "CanonicalResponse.embedding norm overflows (the sum of squared "
+                "components is not a finite float); cosine similarity against it "
+                "is undefined"
             )
         self.embedding = clean
 
