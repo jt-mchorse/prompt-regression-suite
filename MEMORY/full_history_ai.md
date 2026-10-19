@@ -2841,3 +2841,21 @@ context_for_next_session:
   - EVERY_NEW_SEQUENCE_STR_PARAMETER_ON_A_PUBLIC_FUNCTION_NEEDS_THE_192_GUARD
 followups: []
 ---
+
+---
+session: 2026-10-19T07:38Z
+issue: 267
+branch: session/2026-10-19-0738-issue-267
+focus: COSINE_ONE_SIDED_NORM_OVERFLOW_RETURNED_FINITE_0_0_SO_97_OUTPUT_GUARD_NEVER_FIRED_AND_VALIDATE_PASSED_A_SNAPSHOT_THAT_FAILED_ITS_OWN_TEXT
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 9
+  suite: "1380 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: cosine(v, 1e160*v) = 0.0 (true 1.0); 1e160-scaled stored vector -> validate ok findings=0, diff of the canonical text -> fail cosine 0.0000 rc 1; BYO 1e160 embedder -> fail 0.0. After: cosine nan -> NonFiniteEmbeddingError; schema refuses 'norm overflows', diff rc 2. Revert probe (diff.py+schema.py, pycache cleared): 7 of 10 new/rewritten arms red; green = both-overflow (#97 already nan) and two 1e150 controls."
+context_for_next_session:
+  - "A_GUARD_ON_A_QUOTIENT_MISSES_ONE_SIDED_OVERFLOW_finite_over_inf_is_0_not_nan_guard_the_denominator"
+  - "test_diff_response_overflow_cosine_raises_now_stores_a_normal_vector_since_the_schema_refuses_an_overflowing_one"
+followups: []
+---

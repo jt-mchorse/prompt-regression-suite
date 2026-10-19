@@ -2511,3 +2511,15 @@ The HTML report takes lists of skipped snapshots and unmatched keys. Passing a
 single name as a plain string was treated as a list of letters, so the report
 said "9 skipped" and listed each letter. That is now refused with a clear
 error, the same way the semantic-category scorer already refuses it.
+
+## 2026-10-19 — A huge embedding on one side is an error, not a 0.0 score (#267)
+
+When an embedding's numbers are so large that squaring them runs past the
+float range, the similarity score is meaningless. #97 already turned that into
+a clear error when both vectors were huge, but when only one was, the maths
+came out as a plain 0.0 instead. So a snapshot stored with such a vector
+passed `validate`, then failed against its own text with "cosine 0.000", and a
+custom embedder returning big vectors failed every row with a note that looked
+like real drift. Now the score is treated as broken whenever either side
+overflows, which raises the existing error. `validate` also refuses a stored
+vector like that, naming the problem.
