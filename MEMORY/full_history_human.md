@@ -2523,3 +2523,14 @@ custom embedder returning big vectors failed every row with a note that looked
 like real drift. Now the score is treated as broken whenever either side
 overflows, which raises the existing error. `validate` also refuses a stored
 vector like that, naming the problem.
+
+## 2026-10-19 — A bad byte piped into stdin is a clear error, not a crash (#269)
+
+#227 made a text with no UTF-8 form a clean usage error (exit 2) for both the
+command-line and the piped-in forms. But Python reads piped input strictly,
+unlike command-line arguments. So a byte that isn't valid UTF-8, sent into
+`diff --candidate-stdin` or `update --canonical-stdin`, crashed while the
+input was being read, with a traceback and exit 1, the code that means "a
+regression was found". It now exits 2 with a message naming the flag, the
+byte, and its position. The old test had given the code text that was already
+decoded, so it never tried the real read; the new tests send real bytes.

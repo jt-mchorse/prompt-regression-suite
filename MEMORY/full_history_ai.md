@@ -2859,3 +2859,20 @@ context_for_next_session:
   - "test_diff_response_overflow_cosine_raises_now_stores_a_normal_vector_since_the_schema_refuses_an_overflowing_one"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:41Z
+issue: 269
+branch: session/2026-10-19-0741-issue-269
+focus: STDIN_IS_STRICT_NOT_SURROGATEESCAPE_SO_A_NON_UTF8_BYTE_ON_CANDIDATE_STDIN_CANONICAL_STDIN_DIED_IN_THE_READ_AT_EXIT_1_BEFORE_227_GUARD
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1378 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main (LANG=LC_ALL=en_US.UTF-8): diff --candidate $'kite \\xff' -> rc 2; printf 'kite \\xff drifts' | diff --candidate-stdin -> UnicodeDecodeError traceback rc 1; update --canonical-stdin --force same rc 1. After: 'error: --candidate-stdin input is not valid utf-8: byte b'\\xff' at offset 5 (invalid start byte)' rc 2. Revert probe (cli.py, pycache cleared): 6 of 7 red; green = valid-UTF-8 control."
+context_for_next_session:
+  - "A_STRINGIO_HOLDING_THE_DECODED_FORM_SKIPS_THE_DECODE_feed_stdin_tests_real_bytes_through_TextIOWrapper"
+followups: []
+---
