@@ -852,7 +852,20 @@ def _read_text_arg(literal: str | None, from_stdin: bool, *, flag: str, noun: st
     # --snapshot x` blamed text the operator never passed.
     if literal is None and not from_stdin:
         raise _UsageError(f"error: pass {flag} or {flag}-stdin")
-    text = sys.stdin.read() if from_stdin else (literal or "")
+    if from_stdin:
+        # argv decodes under `surrogateescape`, so a non-UTF-8 byte there reaches
+        # #227's `_unencodable` check below as a lone surrogate. `sys.stdin` is
+        # strict, so the same byte raised UnicodeDecodeError here instead -- a
+        # traceback at exit 1, the regression code (#269).
+        try:
+            text = sys.stdin.read()
+        except UnicodeDecodeError as e:
+            raise _UsageError(
+                f"error: {flag}-stdin input is not valid {e.encoding}: byte "
+                f"{e.object[e.start : e.start + 1]!r} at offset {e.start} ({e.reason})"
+            ) from e
+    else:
+        text = literal or ""
     text = text.strip()
     if not text:
         raise _UsageError(f"error: {noun} text was empty after stripping whitespace")
