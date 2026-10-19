@@ -237,11 +237,20 @@ def cosine(a: list[float], b: list[float]) -> float:
     # response FAILED `tolerance: 1.0` -- documented as passing only an
     # identical response -- with a note that read like real drift.
     #
-    # Non-finite arithmetic (an overflowing embedder) is returned untouched so the
+    # Non-finite arithmetic (an overflowing embedder) is returned as NaN so the
     # callers' finiteness guards still raise: `min(1.0, nan)` is 1.0 in Python,
     # so a clamp applied first would launder NaN into a perfect score.
-    value = dot / (na * nb)
-    if not math.isfinite(value) or not math.isfinite(na):
+    #
+    # The test is on the norm PRODUCT, not on the quotient (#267). When only one
+    # sum of squares overflows, `dot / (finite * inf)` is a finite 0.0, not NaN:
+    # a stored vector scaled by 1e160 scored 0.0000 against its own text and
+    # failed at exit 1 with a note that read like real drift. Two finite norms
+    # whose product overflows take the same road, so both cases land here.
+    denom = na * nb
+    if not math.isfinite(denom):
+        return math.nan
+    value = dot / denom
+    if not math.isfinite(value):
         return value
     if list(a) == list(b):
         return 1.0

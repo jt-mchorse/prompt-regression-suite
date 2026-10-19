@@ -145,12 +145,13 @@ def test_cosine_overflow_output_is_nan_from_finite_inputs():
 
 
 def test_diff_response_overflow_cosine_raises():
-    # #97: an all-finite but out-of-range candidate overflows cosine()'s norm to
-    # nan, which the input guard (`_first_non_finite`) accepts. It must still
-    # raise a catchable NonFiniteEmbeddingError rather than leak nan into
+    # #97: an all-finite but out-of-range candidate overflows cosine()'s norm,
+    # which the input guard (`_first_non_finite`) accepts. It must still raise a
+    # catchable NonFiniteEmbeddingError rather than leak a score into
     # cosine_score / the output as a misleading `fail`. The stored embedding is
-    # also huge (the realistic repro: the snapshot was embedded by the same
-    # out-of-range embedder), so both norms overflow and dot/(na*nb) = inf/inf.
+    # an ordinary one: since #267 a snapshot whose own norm overflows is refused
+    # at construction, so the overflow here is one-sided -- the case that used
+    # to score a finite 0.0 (`dot / (1 * inf)`) and slip the output guard.
     e = HashEmbedder()
     text = "The Pro plan has a 14-day refund window."
     huge = _HugeMagnitudeEmbedder(e.model_name, len(e.embed(text)))
@@ -159,11 +160,65 @@ def test_diff_response_overflow_cosine_raises():
         prompt=Prompt(model="claude-haiku-4-5", user="?"),
         response_shape=ResponseShape(semantic_categories=[], structured_slots={}),
         canonical=CanonicalResponse(
-            text=text, embedding=huge.embed(text), embedding_model=huge.model_name
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
         ),
     )
     with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
         diff_response(snap, text, embedder=huge)
+
+
+# One-sided overflow (#267): only ONE sum of squares passes the float range, so
+# `dot / (finite * inf)` was a finite 0.0 and #97's output guard never fired.
+_UNIT = [0.6, 0.8, 0.0, 0.0]
+_SCALED = [x * 1e160 for x in _UNIT]  # same direction; every component finite
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [(_UNIT, _SCALED), (_SCALED, _UNIT), (_SCALED, _SCALED)],
+    ids=["second-overflows", "first-overflows", "both-overflow"],
+)
+def test_cosine_any_norm_overflow_is_nan(a: list[float], b: list[float]) -> None:
+    assert math.isnan(cosine(a, b))
+
+
+def test_cosine_large_but_representable_norm_is_still_scored() -> None:
+    # Control: 1e150 squares to 1e300, so both norms are finite and the
+    # same-direction pair scores ~1.0 before and after #267.
+    big = [x * 1e150 for x in _UNIT]
+    assert cosine(_UNIT, big) == pytest.approx(1.0)
+
+
+class _ScaledHashEmbedder:
+    """BYO embedder: the HashEmbedder's own direction, scaled past the float
+    range when squared. Every component is finite (#267)."""
+
+    def __init__(self) -> None:
+        self._inner = HashEmbedder()
+
+    @property
+    def model_name(self) -> str:
+        return self._inner.model_name
+
+    def embed(self, text: str) -> list[float]:
+        return [x * 1e160 for x in self._inner.embed(text)]
+
+
+def test_diff_response_one_sided_overflow_on_the_canonical_text_raises() -> None:
+    # #267 repro: the candidate IS the canonical text, so the true cosine is
+    # 1.0; it used to report `fail` at cosine 0.0000.
+    e = HashEmbedder()
+    text = "Refunds are processed within five business days of approval."
+    snap = Snapshot(
+        id="one-sided",
+        prompt=Prompt(model="m", user="u"),
+        response_shape=ResponseShape(),
+        canonical=CanonicalResponse(
+            text=text, embedding=e.embed(text), embedding_model=e.model_name
+        ),
+    )
+    with pytest.raises(NonFiniteEmbeddingError, match="non-finite"):
+        diff_response(snap, text, embedder=_ScaledHashEmbedder())
 
 
 def test_semantic_category_overflow_cosine_raises():
