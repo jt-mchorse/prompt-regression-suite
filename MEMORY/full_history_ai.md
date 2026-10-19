@@ -2807,3 +2807,20 @@ context_for_next_session:
   - created_at_ACCEPTS_FREE_TEXT_yesterday_THOUGH_schema_md_SAYS_ISO_8601_UTC_not_filed_no_reader_parses_it
 followups: []
 ---
+
+---
+session: 2026-10-16T12:50Z
+issue: 263
+branch: session/2026-10-16-0857-issue-263
+focus: NEGATION_CUES_WAS_A_HAND_LIST_OF_STRAIGHT_APOSTROPHE_CONTRACTIONS_ARENT_WITH_U2019_AND_SHOULDNT_EXTRACTED_TRUE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 55
+  suite: "1361 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: aren’t allowed / can’t be enabled / shouldn't be allowed / haven't been enabled -> True; after False. Revert 40 of 55 red."
+context_for_next_session:
+  - A_COMMENT_THAT_SAYS_DERIVED_NOT_ENUMERATED_BESIDE_AN_ENUMERATION_enumerate_from_the_class_n_t_and_every_apostrophe
+followups: []
+---
