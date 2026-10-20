@@ -448,6 +448,16 @@ def _run_command(args: argparse.Namespace) -> int:
                 }
             )
             entries.append(ErrorEntry(snapshot_id=snap.id, message=shadow))
+            # A candidate keyed by this file's own path is not an orphan (#271):
+            # it named a snapshot that exists, and the error row above already
+            # reports why that snapshot was not compared. Unmarked, the orphan
+            # rule fired first -- exit 2 with "matched no snapshot" and the
+            # duplicate id never printed -- and under
+            # --allow-unmatched-candidates one table listed this key as both
+            # `error` and `unmatched`. Only `rel`: `snap.id` belongs to the
+            # first-seen file, and the paths seeding `ids` (#171) mean no other
+            # file can claim this one's path.
+            consumed.add(rel)
             continue
 
         # Two rows naming this one snapshot, by path and by id (#237): the

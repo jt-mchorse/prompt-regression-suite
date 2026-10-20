@@ -2894,3 +2894,21 @@ context_for_next_session:
   - "candidate_side_subnormal_norm_still_deferred_as_in_251"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:52Z
+issue: 271
+branch: session/2026-10-20-0800-issue-271
+focus: SHADOW_ROW_CONTINUED_BEFORE_CONSUMED_ADD_SO_A_CANDIDATE_KEYED_BY_THE_SHADOWS_OWN_REL_PATH_WAS_AN_ORPHAN_AND_EXIT_2_HID_THE_DUPLICATE_ID
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1393 passed; ruff, format, mypy clean (3.14 repo venv + fresh 3.11 venv)"
+decisions_made: []
+measured: "main 1dba252: a.yml + copy b.yml, candidates keyed 'a.yml','b.yml' -> 'error: 1 candidate row(s) matched no snapshot: 'b.yml'' rc 2, duplicate id never printed; --allow-unmatched-candidates -> b.yml both error and unmatched, rc 1. After: a.yml pass, b.yml error (duplicate id), unmatched=0, rc 1 both ways. Revert probe (cli.py, pycache cleared): 4 of 6 red; green = real-orphan-beside-shadow and id-keyed-shadow controls. Blanket consumed.update(candidates) -> real-orphan control red."
+context_for_next_session:
+  - "EVERY_CONTINUE_IN_THE_RUN_LOOP_MUST_SAY_WHAT_IT_DOES_TO_CONSUMED_shadow_branch_marks_rel_only_snap_id_belongs_to_first_seen"
+  - "171_SHADOW_NOTE_IS_NOT_duplicate_snapshot_id_compare_to_validate_finding_reason_not_a_substring"
+followups: []
+---
