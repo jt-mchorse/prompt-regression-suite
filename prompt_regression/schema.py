@@ -18,6 +18,7 @@ portfolio repo. Validation is manual and lives in __post_init__.
 from __future__ import annotations
 
 import math
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from datetime import UTC, datetime
@@ -327,6 +328,19 @@ class CanonicalResponse:
                 "CanonicalResponse.embedding norm overflows (the sum of squared "
                 "components is not a finite float); cosine similarity against it "
                 "is undefined"
+            )
+        # Between the two (#272): a sum of squares in the subnormal range keeps
+        # only a few significant bits, so `sqrt(sum_sq)` is off by up to ~30%
+        # and the kite example scaled by 1.035e-161 (sum 1.63e-322) scored
+        # 0.8107 against its own canonical text -- `fail` at exit 1 -- while
+        # `validate` called the file clean. A sum at or above the smallest
+        # normal float is exact to rounding (a scale sweep never moved it past
+        # 4.4e-16), so that is the line.
+        if sum_sq < sys.float_info.min:
+            raise SnapshotValidationError(
+                "CanonicalResponse.embedding norm underflows (the sum of squared "
+                "components is subnormal, below sys.float_info.min); cosine "
+                "similarity against it is not accurate"
             )
         self.embedding = clean
 
