@@ -194,6 +194,120 @@ def test_the_false_pass_row_specifically_changed_exit_code(tmp_path: Path) -> No
     assert code != 0
 
 
+# --- a candidate keyed by the shadow's own path (#271) ---------------------
+#
+# #237's sibling. The shadow branch hit `continue` before the lookup that marks
+# a key consumed, so a candidate keyed by the shadowed file's RELATIVE PATH --
+# the exact spelling the orphan hint asks for -- was reported "matched no
+# snapshot". Measured on main 1dba252:
+#
+#   no flag                         error: ... matched no snapshot: 'b.yml'  exit 2
+#                                   (the duplicate id is never printed)
+#   --allow-unmatched-candidates    b.yml listed as `error` AND `unmatched`  exit 1
+
+
+def _run_keys(
+    tmp_path: Path, second: Snapshot, rows: list[tuple[str, str]], *flags: str
+) -> subprocess.CompletedProcess[str]:
+    """`a.yml` is BASE, `b.yml` is *second*, candidates are *rows* verbatim."""
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    save_snapshot(BASE, snaps / "a.yml")
+    save_snapshot(second, snaps / "b.yml")
+    candidates = tmp_path / "candidates.jsonl"
+    candidates.write_text(
+        "".join(json.dumps({"snapshot": k, "candidate": v}) + "\n" for k, v in rows),
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "prompt_regression.cli",
+            "run",
+            "--snapshots",
+            str(snaps),
+            "--candidates",
+            str(candidates),
+            "--format",
+            "json",
+            *flags,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+# Both shadow reasons `FirstSeenIds` produces: a repeated id (#167), and an id
+# spelled like another file's path (#171).
+SHADOWS = pytest.mark.parametrize(
+    "second",
+    [replace(BASE, notes="a second file"), replace(OTHER, id="a.yml")],
+    ids=["same-id", "id-is-a-path"],
+)
+BY_PATH = [("a.yml", BASE.canonical.text), ("b.yml", "something about taxes")]
+
+
+@SHADOWS
+def test_a_shadow_keyed_by_its_own_path_reports_the_duplicate_not_an_orphan(
+    tmp_path: Path, second: Snapshot
+) -> None:
+    proc = _run_keys(tmp_path, second, BY_PATH)
+    assert "matched no snapshot" not in proc.stderr, proc.stderr
+    assert proc.stdout, f"the run aborted before reporting; stderr={proc.stderr!r}"
+    payload = json.loads(proc.stdout)
+    assert _row(payload, "a.yml")["verdict"] == "pass"
+    shadow = _row(payload, "b.yml")
+    assert shadow["verdict"] == "error"
+    assert shadow["cosine"] is None, "a shadow's own candidate must still not be compared"
+    # The shadow reason itself, whichever of the two it is: the cause the
+    # orphan error used to hide.
+    (finding,) = validate_snapshots(tmp_path / "snaps").findings
+    assert shadow["notes"] == [finding.reason]
+    assert payload["unmatched_candidates"] == []
+    assert proc.returncode == 1, "the duplicate id is a failed row, not a usage error"
+
+
+@SHADOWS
+def test_a_shadow_keyed_by_its_own_path_is_not_also_listed_unmatched(
+    tmp_path: Path, second: Snapshot
+) -> None:
+    proc = _run_keys(tmp_path, second, BY_PATH, "--allow-unmatched-candidates")
+    payload = json.loads(proc.stdout)
+    assert payload["unmatched_candidates"] == [], (
+        "b.yml was reported as both an error row and a key that matched nothing"
+    )
+    assert _row(payload, "b.yml")["verdict"] == "error"
+    assert proc.returncode == 1
+
+
+def test_control_a_real_orphan_beside_a_shadow_is_still_refused(tmp_path: Path) -> None:
+    """Green before and after: the fix marks ONE key, not every key in the file.
+
+    A blanket "a shadow exists, so stop checking orphans" would turn this exit 2
+    into a quiet run.
+    """
+    rows = [*BY_PATH, ("nope.yml", "x")]
+    proc = _run_keys(tmp_path, replace(BASE, notes="a second file"), rows)
+    assert proc.returncode == 2
+    assert "matched no snapshot" in proc.stderr
+    assert "'nope.yml'" in proc.stderr
+
+
+def test_control_a_shadow_without_a_path_row_is_unchanged(tmp_path: Path) -> None:
+    """Green before and after: with the candidate keyed by the shared id only,
+    the first file owns it and there is no orphan to suppress."""
+    proc = _run_keys(
+        tmp_path, replace(BASE, notes="a second file"), [(BASE.id, BASE.canonical.text)]
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["unmatched_candidates"] == []
+    assert _row(payload, "a.yml")["verdict"] == "pass"
+    assert _row(payload, "b.yml")["verdict"] == "error"
+    assert proc.returncode == 1
+
+
 # --- run and validate must agree -------------------------------------------
 
 
