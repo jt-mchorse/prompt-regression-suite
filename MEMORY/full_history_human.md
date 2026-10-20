@@ -2545,3 +2545,16 @@ down into that range, passed `validate` and then failed against its own text
 at cosine 0.81. `validate` now refuses such a vector with a message naming the
 problem. The cutoff is the smallest full-precision float, and a sweep showed
 scores are exact to rounding on its safe side.
+
+## 2026-10-20 — A candidate keyed by a duplicate snapshot's own path is not "unmatched" (#271)
+
+When two snapshot files share an id, `run` reports the second one as an error
+and moves on. It moved on before recording that the second file's candidate
+row had been matched. So a candidate keyed by that file's own relative path,
+which is exactly the spelling the hint asks for, was reported as "matched no
+snapshot". Without `--allow-unmatched-candidates` that error stopped the run
+with exit 2 before the real cause, the duplicate id, was ever printed. With
+the flag, the same file showed up as both an error and an unmatched key. The
+row is now recorded as matched, so the run reports the duplicate id once and
+exits 1. The duplicate file's candidate is still not compared, and a key that
+really matches nothing is still refused.
