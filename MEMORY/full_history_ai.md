@@ -2876,3 +2876,21 @@ context_for_next_session:
   - "A_STRINGIO_HOLDING_THE_DECODED_FORM_SKIPS_THE_DECODE_feed_stdin_tests_real_bytes_through_TextIOWrapper"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:52Z
+issue: 272
+branch: session/2026-10-20-0801-issue-272
+focus: SUBNORMAL_SUM_SQ_BETWEEN_251_ZERO_AND_267_OVERFLOW_PASSED_VALIDATE_THEN_FAILED_ITS_OWN_CANONICAL_TEXT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1394 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: kite vector * 1.0351e-161 (sum_sq 1.63e-322) -> validate ok findings=0, diff of own text --warn-band 0 -> fail cosine 0.8107 rc 1. Sweep over 4 texts: worst |1-cos| 4.4e-16 when sum_sq >= float_info.min, 0.29 when subnormal. After: schema refuses 'norm underflows', diff rc 2. Revert probe (schema.py, pycache cleared): 4 of 7 red; green = anti-vacuity, exactly-min boundary (2**-511), 1e-150 control."
+context_for_next_session:
+  - "A_NORM_GUARD_HAS_THREE_REGIONS_zero_subnormal_overflow_sweep_the_scale_to_find_the_exact_line"
+  - "candidate_side_subnormal_norm_still_deferred_as_in_251"
+followups: []
+---

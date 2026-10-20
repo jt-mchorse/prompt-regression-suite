@@ -2534,3 +2534,14 @@ input was being read, with a traceback and exit 1, the code that means "a
 regression was found". It now exits 2 with a message naming the flag, the
 byte, and its position. The old test had given the code text that was already
 decoded, so it never tried the real read; the new tests send real bytes.
+
+## 2026-10-20 — A vanishingly small embedding is refused, not scored wrong (#272)
+
+#251 refused a stored embedding whose size works out to zero, and #267
+refused one so large that squaring it overflows. Between those two there is a
+range of tiny but nonzero sizes where the computer keeps only a few digits, so
+the similarity score can be off by up to about 30%. The kite example, scaled
+down into that range, passed `validate` and then failed against its own text
+at cosine 0.81. `validate` now refuses such a vector with a message naming the
+problem. The cutoff is the smallest full-precision float, and a sweep showed
+scores are exact to rounding on its safe side.
