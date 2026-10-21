@@ -2912,3 +2912,21 @@ context_for_next_session:
   - "171_SHADOW_NOTE_IS_NOT_duplicate_snapshot_id_compare_to_validate_finding_reason_not_a_substring"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:25Z
+issue: 277
+branch: session/2026-10-21-0725-issue-277
+focus: SUBNORMAL_NORM_CANDIDATE_FAILED_OPEN_CLAMP_CAPPED_AN_INFLATED_SCORE_AT_1_0_272_FIXED_STORED_SIDE_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "1411 passed; ruff, format, mypy clean (3.12 + fresh 3.11 venv)"
+decisions_made: []
+measured: "main 376609b: 14-day canonical vs 30-day candidate (true cos 0.8182), HashEmbedder*k: k=9.015711376059829e-162 -> pass cosine 1.0 at warn_band 0 and default (should be fail/warn); k=1e-170 -> 0.0; semantic channel both-scaled k=5.206e-162 -> 0.0. After: cosine() rescales a vector by max-abs when sum_sq < float_info.min (nonzero only) -> 0.8182 at every scale; zero vector still 0.0; #267 overflow still nan. Revert probe (diff.py, pycache cleared): 5 of 11 red; green = real-drift, unit, 1e-150, zero-candidate, identical-text-subnormal, overflow-nan controls."
+context_for_next_session:
+  - "A_DEFERRAL_THAT_SAYS_FAILS_CLOSED_IS_A_CLAIM_ABOUT_ONE_POPULATION_zero_fails_closed_subnormal_fails_open_via_the_clamp"
+  - "rescale_lives_in_cosine_so_the_semantic_category_channel_is_covered_too"
+followups: []
+---
