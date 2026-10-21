@@ -71,6 +71,12 @@ STAGE3_CANDIDATE_TEXT = (
 )
 STAGE3_THRESHOLD = "0.9"
 
+# Upper bound for `--pause-seconds` (#279). `time.sleep` overflows a finite
+# value near 9.2e9 s ("timestamp out of range for platform time_t"), and the
+# exact limit is platform-dependent, so bound well inside it: a pause longer
+# than a day is never a meaningful cue point for a screen recording.
+MAX_PAUSE_SECONDS = 86400.0
+
 
 def _fail(message: str) -> int:
     """Print a clean `error:` line to stderr and return exit code 2.
@@ -93,6 +99,10 @@ def _validate_pause_seconds(seconds: float) -> str | None:
     `nan > 0` is `False`. That exits 0 having paused nowhere, and the
     inter-stage pauses are the script's whole reason to exist. `bool` is
     excluded because `True` is an `int` worth `1.0`.
+
+    Rejecting only `inf` left the finite half of the same crash: `1e10` passed
+    the guard and raised the identical `OverflowError` from `_pause`, again
+    after STAGE 1 (#279). Hence the `MAX_PAUSE_SECONDS` ceiling.
     """
     if not isinstance(seconds, (int, float)) or isinstance(seconds, bool):
         return f"--pause-seconds must be a number; got {seconds!r}"
@@ -100,6 +110,8 @@ def _validate_pause_seconds(seconds: float) -> str | None:
         return f"--pause-seconds must be finite; got {seconds!r}"
     if seconds < 0:
         return f"--pause-seconds must be >= 0; got {seconds!r}"
+    if seconds > MAX_PAUSE_SECONDS:
+        return f"--pause-seconds must be <= {MAX_PAUSE_SECONDS:g} (one day); got {seconds!r}"
     return None
 
 
@@ -196,7 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         default=2.0,
         help=(
             "Pause between stages so the screen recorder has cue points. "
-            "Default 2.0; set to 0 for CI and tests."
+            "Default 2.0; set to 0 for CI and tests. "
+            f"At most {MAX_PAUSE_SECONDS:g} (one day)."
         ),
     )
     parser.add_argument(

@@ -2598,3 +2598,14 @@ a traceback (exit 1) while saving. A tiny self-referencing alias
 both reading and writing. A deeper file, an alias chain that expands past
 the limit, or a structure that contains itself is a `parse` finding in
 `validate` and exit 2 elsewhere, and `save_snapshot` refuses to write one.
+
+## 2026-10-21 — A huge but finite `--pause-seconds` no longer crashes the demo capture (#279)
+
+#140 made `scripts/capture_demo.py` refuse a pause of infinity, "not a
+number" or a negative value. But Python's `time.sleep` also fails on finite
+values that are big enough (about 9.2 billion seconds), so `--pause-seconds
+1e10` still got through. The script regenerated the demo report and then
+crashed with the same raw error #140 was meant to remove. Pauses are now
+capped at one day (86400 seconds, which is still allowed). Anything longer
+gets a clean `error:` line and exit code 2 before any stage runs or any
+file is written. Normal pauses work exactly as before.
