@@ -227,6 +227,72 @@ def test_capture_demo_validate_pause_seconds_rejects_bool() -> None:
     assert mod._validate_pause_seconds(2.0) is None
 
 
+def _drive_capture_without_sleeping(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> tuple[int, str, list[float]]:
+    """`_drive_capture` with `time.sleep` recorded rather than run, so a
+    pause the guard fails to refuse shows up as a call instead of hanging the
+    suite for a day (#279)."""
+    mod = _load_capture_module()
+    calls: list[float] = []
+    monkeypatch.setattr(mod.time, "sleep", lambda s: calls.append(s))
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = mod.main(argv)
+    return rc, buf.getvalue(), calls
+
+
+# `1e10` is the issue's repro: finite, so it passed #140's guard, and past the
+# ~9.2e9 s where `time.sleep` raises OverflowError. `86400.5` is just over the
+# bound, so a guard keyed on the overflow rather than the ceiling still fails.
+@pytest.mark.parametrize("bad", ["1e10", "86400.5"])
+def test_capture_demo_rejects_over_bound_pause_seconds_before_stage_1(
+    bad: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rc, out, calls = _drive_capture_without_sleeping(
+        [f"--pause-seconds={bad}", "--no-open", "--output-dir", str(tmp_path)], monkeypatch
+    )
+
+    assert rc == 2, f"--pause-seconds {bad} should be a usage error (exit 2); got {rc}"
+    assert "STAGE 1" not in out, (
+        f"--pause-seconds {bad} must be rejected before STAGE 1 runs; stdout:\n{out}"
+    )
+    assert not list(tmp_path.iterdir()), "a rejected --pause-seconds must leave no artifacts"
+    assert calls == [], f"a rejected pause must never reach time.sleep; got {calls}"
+    err = capsys.readouterr().err
+    assert "--pause-seconds" in err, f"the error must name the offending flag; got:\n{err}"
+
+
+def test_capture_demo_validate_pause_seconds_upper_bound() -> None:
+    mod = _load_capture_module()
+    # The repro value, also as an `int` (a direct caller need not go through
+    # argparse's `type=float`).
+    assert mod._validate_pause_seconds(1e10) is not None
+    assert mod._validate_pause_seconds(10**10) is not None
+    assert mod._validate_pause_seconds(mod.MAX_PAUSE_SECONDS + 0.5) is not None
+    # Controls: the bound itself is inclusive, and a normal pause is fine.
+    assert mod._validate_pause_seconds(mod.MAX_PAUSE_SECONDS) is None
+    assert mod._validate_pause_seconds(2.0) is None
+
+
+@pytest.mark.parametrize("ok", ["86400", "2.0"])
+def test_capture_demo_accepts_pause_seconds_up_to_the_bound(
+    ok: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Control: the bound itself and a normal value both run all three
+    stages and hand the parsed value to `time.sleep` between them."""
+    rc, out, calls = _drive_capture_without_sleeping(
+        [f"--pause-seconds={ok}", "--no-open", "--output-dir", str(tmp_path)], monkeypatch
+    )
+
+    assert rc == 0, f"--pause-seconds {ok} is valid; got exit {rc}\n{out}"
+    assert "STAGE 3" in out
+    assert calls == [float(ok), float(ok)], f"expected two inter-stage pauses; got {calls}"
+
+
 def test_capture_demo_output_dir_that_is_a_file_exits_2(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
