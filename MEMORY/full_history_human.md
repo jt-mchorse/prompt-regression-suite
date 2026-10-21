@@ -2558,3 +2558,16 @@ the flag, the same file showed up as both an error and an unmatched key. The
 row is now recorded as matched, so the run reports the duplicate id once and
 exits 1. The duplicate file's candidate is still not compared, and a key that
 really matches nothing is still refused.
+
+## 2026-10-21 — A tiny candidate embedding can no longer make a drifted answer pass (#277)
+
+#272 refused a stored embedding so small that the computer keeps only a few
+digits of its size. The candidate's embedding comes from the embedder at diff
+time, though, and was never checked. The note on #251/#272 said that side
+"fails closed", which is true for an all-zero vector but not for a tiny one.
+There the size came out too small, the score came out too high, and the
+cap at 1.0 hid it. A "30-day" answer against a "14-day" snapshot scored a
+perfect 1.0 and passed. The similarity function now scales such a vector up
+before measuring it, which doesn't change the true score, so the same answer
+scores 0.82 and fails. An all-zero vector still scores 0 and fails, and the
+huge-vector error from #267 is unchanged.
