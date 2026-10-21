@@ -2946,5 +2946,20 @@ measured: "main 376609b: kite + integer slot line_count -> validate ok findings=
 context_for_next_session:
   - "CHECK_LIVES_IN_VALIDATE_AND_THE_WRITER_NOT_THE_READER_a_load_snapshot_refusal_would_lock_update_out_of_the_file_it_repairs"
   - "SAVE_SNAPSHOT_REFUSAL_BROKE_9_TESTS_via_4_fixtures_with_an_undescribed_plan_name_string_slot_monkeypatching_io_save_snapshot_misses_callers_bound_through_package_init"
+session: 2026-10-21T07:28Z
+issue: 278
+branch: session/2026-10-21-0725-issue-278
+focus: READ_DEPTH_LIMIT_WAS_THE_STACKS_COMPOSER_2_FRAMES_PER_LEVEL_REPRESENTER_3_SO_340_TO_480_DEEP_LOADED_AND_UPDATE_FORCE_TRACEBACKED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "1409 passed; ruff, format, mypy clean (fresh 3.12 + 3.11 uv venvs)"
+decisions_made: []
+measured: "main 376609b (3.12, cli.main): prompt.extra 340/400/480 lists -> validate rc 0, update --force RecursionError rc 1, file unchanged; 500 refused at load. Sibling: extra {k: &a [*a]} -> validate rc 0, update --force RecursionError in save_snapshot's round-trip !=. Per-level cost bisected at limits 1000/2000 on 3.11/3.12/3.14: dump 3.00 frames (ceiling ~329), load 2.00 (~491). After: _MAX_NESTING_DEPTH=100 (root=1), compose counter on collection starts + alias-expanded iterative walk on read, same walker on to_dict payload in save_snapshot. Revert probe (io.py, pycache cleared): 7 of 9 red; green = at-cap update round-trip and writer-writes-cap controls."
+context_for_next_session:
+  - "A_DEPTH_CAP_NEEDS_ONE_COUNTING_CONVENTION_compose_counter_first_counted_scalar_leaves_and_refused_the_file_the_writer_wrote_at_the_cap_the_writer_control_caught_it"
+  - "LOWERING_A_READ_LIMIT_CREATES_THE_REVERSE_PARITY_BREAK_unless_the_writer_applies_the_same_cap"
+  - "alias_chains_now_refused_by_expanded_depth_even_where_the_writer_would_emit_aliases_conservative_by_choice"
 followups: []
 ---

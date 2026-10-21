@@ -2585,3 +2585,15 @@ a new finding code, `canonical_slots`, naming each failing slot, and
 `update` could not open the file it is meant to repair. Four test fixtures
 had been writing such snapshots by accident and now give their `plan_name`
 slot a description.
+## 2026-10-21 — A snapshot too deep to save is refused when it is read (#278)
+
+#232 refused a snapshot nested too deeply to read, but "too deep" meant
+whenever Python ran out of stack. Reading costs two stack frames per level of
+nesting and writing costs three, so a `prompt.extra` nested 340 to 480 levels
+deep loaded, validated and diffed fine, and then `update --force` crashed with
+a traceback (exit 1) while saving. A tiny self-referencing alias
+(`&a [*a]`) crashed the save the same way. Now there is one explicit limit of
+100 levels, chosen so the writer always has stack to spare, and it applies to
+both reading and writing. A deeper file, an alias chain that expands past
+the limit, or a structure that contains itself is a `parse` finding in
+`validate` and exit 2 elsewhere, and `save_snapshot` refuses to write one.
