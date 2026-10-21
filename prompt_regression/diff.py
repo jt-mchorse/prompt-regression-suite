@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -226,6 +227,17 @@ def cosine(a: list[float], b: list[float]) -> float:
     """Cosine similarity. Returns 0.0 if either vector is zero."""
     if len(a) != len(b):
         raise ValueError(f"vector length mismatch: {len(a)} vs {len(b)}")
+    # A vector whose sum of squares is subnormal is rescaled first (#277). That
+    # sum keeps only a few significant bits, so its norm is off by up to ~30%
+    # and the clamp below hid the error: a candidate drifted from 14-day to
+    # 30-day (true cosine 0.8182), embedded at scale 9.0157e-162, scored 1.0 and
+    # PASSED. #272 refuses such a vector on the stored side at load; the
+    # candidate comes from a BYO embedder at diff time, and cosine is
+    # scale-invariant per vector, so dividing by the max-abs component gives
+    # the exact score. A true zero vector has nothing to divide by and still
+    # returns 0.0 below.
+    a = _rescale_if_underflowed(a)
+    b = _rescale_if_underflowed(b)
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(x * x for x in b))
@@ -255,6 +267,21 @@ def cosine(a: list[float], b: list[float]) -> float:
     if list(a) == list(b):
         return 1.0
     return max(-1.0, min(1.0, value))
+
+
+def _rescale_if_underflowed(vec: list[float]) -> list[float]:
+    """Return ``vec`` divided by its max-abs component when its sum of squares is subnormal.
+
+    Covers a sum that underflows to 0.0 too (every component near 1e-170): the
+    vector is nonzero, so its direction is still defined (#277). Any other
+    vector, a true zero vector included, is returned unchanged.
+    """
+    if sum(x * x for x in vec) >= sys.float_info.min:
+        return vec
+    peak = max((abs(x) for x in vec), default=0.0)
+    if peak == 0.0 or not math.isfinite(peak):
+        return vec
+    return [x / peak for x in vec]
 
 
 def _first_non_finite(vec: list[float]) -> tuple[int, float] | None:
