@@ -2967,3 +2967,21 @@ context_for_next_session:
   - "alias_chains_now_refused_by_expanded_depth_even_where_the_writer_would_emit_aliases_conservative_by_choice"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:32Z
+issue: 279
+branch: session/2026-10-21-0725-issue-279
+focus: CAPTURE_DEMO_PAUSE_SECONDS_FINITE_1E10_OVERFLOWED_TIME_SLEEP_AFTER_STAGE_1_140_REJECTED_ONLY_INF
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1416 passed; ruff, format, mypy clean (3.12 + fresh 3.11 venv)"
+decisions_made: []
+measured: "main cdda1b8: --pause-seconds 1e10 --no-open -> STAGE 1 writes regression_demo.html, then OverflowError 'timestamp out of range for platform time_t' rc 1; time.sleep accepts 9.2e9, overflows at 9.3e9 on darwin. After: MAX_PAUSE_SECONDS=86400.0 (inclusive) in _validate_pause_seconds -> 'error: --pause-seconds must be <= 86400 (one day)' rc 2, output dir not created. Revert probe (capture_demo.py, pycache cleared): 3 of 5 red; green = accept-path controls 86400 and 2.0."
+context_for_next_session:
+  - "A_FINITENESS_GUARD_IS_NOT_A_RANGE_GUARD_inf_and_1e10_hit_the_same_OverflowError_bound_the_value_not_the_symptom"
+  - "end_to_end_pause_tests_must_record_time_sleep_or_an_unfixed_guard_hangs_the_suite_for_the_bound"
+followups: []
+---
