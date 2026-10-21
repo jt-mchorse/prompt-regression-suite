@@ -2585,6 +2585,7 @@ a new finding code, `canonical_slots`, naming each failing slot, and
 `update` could not open the file it is meant to repair. Four test fixtures
 had been writing such snapshots by accident and now give their `plan_name`
 slot a description.
+
 ## 2026-10-21 — A snapshot too deep to save is refused when it is read (#278)
 
 #232 refused a snapshot nested too deeply to read, but "too deep" meant
