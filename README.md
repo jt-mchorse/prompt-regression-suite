@@ -38,8 +38,11 @@ to today's surface:
   operator can audit the snapshot population before a big upgrade.
   `validate` (#49) walks the same dir in *collecting* mode and surfaces
   every malformed file in one pass (codes `parse | schema_version |
-  schema | duplicate_id | unreadable | empty`); pre-flight before `run`
-  so a bad snapshot doesn't abort the run partway through. A file that
+  schema | duplicate_id | canonical_slots | unreadable | empty`);
+  pre-flight before `run` so a bad snapshot doesn't abort the run
+  partway through. A snapshot whose own canonical fails its
+  `structured_slots` (`canonical_slots`, #276) is flagged too: it
+  would fail a diff against itself. A file that
   can't be *read* at all (`unreadable`, #133) is a finding like any
   other — one `chmod 000` snapshot must not take the report down with
   it.

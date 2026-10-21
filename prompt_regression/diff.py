@@ -789,6 +789,26 @@ def diff_slots(slot_specs: dict[str, dict[str, Any]], candidate_text: str) -> li
     return deltas
 
 
+def canonical_slot_failures(
+    slot_specs: dict[str, dict[str, Any]], canonical_text: str
+) -> list[SlotDelta]:
+    """The slots a would-be canonical fails, i.e. why it would fail a diff against itself.
+
+    One definition for every site that holds the invariant #207 stated -- a
+    baseline must pass its own ``structured_slots`` -- because #207 enforced it
+    on one writer (``update``) and the other two ways to reach the state, a
+    hand-edited YAML and the library ``save_snapshot``, were left unchecked
+    while ``validate`` called the result clean (#276). ``diff_slots`` is the
+    check ``diff`` applies; ``type_unknown`` is not a failure there either.
+    """
+    return [d for d in diff_slots(slot_specs, canonical_text) if d.is_failure]
+
+
+def describe_slot_failures(failing: Sequence[SlotDelta]) -> str:
+    """``name: status`` for each failing slot, the wording ``update`` used since #207."""
+    return ", ".join(f"{d.name}: {d.status}" for d in failing)
+
+
 # ----------------------------------------------------------------------
 # Semantic-category channel
 # ----------------------------------------------------------------------

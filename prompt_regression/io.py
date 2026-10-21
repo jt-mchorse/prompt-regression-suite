@@ -25,6 +25,7 @@ from typing import Any, TextIO
 
 import yaml
 
+from .diff import canonical_slot_failures, describe_slot_failures
 from .schema import SCHEMA_VERSION, Snapshot, SnapshotValidationError
 
 PathArg = str | PathLike[str]
@@ -327,6 +328,22 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
     # that was already on disk -- and through the same helper, because the
     # comparison's `str()` leniency is the half a second copy would omit.
     _require_supported_schema_version(snapshot.schema_version, str(p))
+    # The invariant `update` has refused to break since #207, held by the library
+    # writer too (#276): a canonical that fails its own `structured_slots` is a
+    # baseline that fails a diff against itself (cosine 1.0, verdict fail), and
+    # `validate` now reports one on disk as `canonical_slots`. Refused before any
+    # bytes are written, for the same reason as the version check above. Not in
+    # `Snapshot.__post_init__` / `load_snapshot`: a reader that refused it would
+    # leave `update` -- the remedy -- unable to open the file it has to repair.
+    failing = canonical_slot_failures(
+        snapshot.response_shape.structured_slots, snapshot.canonical.text
+    )
+    if failing:
+        raise SnapshotValidationError(
+            f"{p}: refusing to write a snapshot whose canonical.text fails its own "
+            f"structured_slots ({describe_slot_failures(failing)}), so it would fail a "
+            "diff against itself"
+        )
     payload = snapshot.to_dict()
     rendered = yaml.safe_dump(
         payload,
