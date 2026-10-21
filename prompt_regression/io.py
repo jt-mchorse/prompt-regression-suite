@@ -14,10 +14,12 @@ from __future__ import annotations
 import contextlib
 import errno
 import fnmatch
+import math
 import os
 import secrets
 import stat
 import sys
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, date, datetime
 from os import PathLike
 from pathlib import Path
@@ -345,6 +347,13 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
             "diff against itself"
         )
     payload = snapshot.to_dict()
+    # The write half of #278's cap, also before any bytes are written. Without
+    # it a deep `prompt.extra` built in code either overflowed the stack below
+    # or, under the cap's lower limit, was written as a file `load_snapshot`
+    # now refuses.
+    depth = _nesting_depth(payload, _value_children)
+    if depth > _MAX_NESTING_DEPTH:
+        raise SnapshotValidationError(f"{p}: snapshot {_nesting_problem(depth)}")
     rendered = yaml.safe_dump(
         payload,
         sort_keys=False,
@@ -442,6 +451,133 @@ class _UniqueKeySafeLoader(yaml.SafeLoader):
                     )
                 seen.add(key)
         return super().construct_mapping(node, deep=deep)
+
+    # The read half of #278's nesting cap. Counted while composing, so a file
+    # nested far past the cap is refused at the cap rather than at whatever
+    # depth the stack happens to give out (the RecursionError #232 converts).
+    # Only a collection is a level: a scalar leaf is not one to
+    # `_nesting_depth`, and counting it here refused a file the writer had
+    # just written at exactly the cap.
+    _depth = 0
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        if not self.check_event(yaml.SequenceStartEvent, yaml.MappingStartEvent):
+            return super().compose_node(parent, index)
+        self._depth += 1
+        try:
+            if self._depth > _MAX_NESTING_DEPTH:
+                raise yaml.composer.ComposerError(
+                    None,
+                    None,
+                    f"nested deeper than {_MAX_NESTING_DEPTH} levels, "
+                    "the deepest a snapshot can be written back (#278)",
+                    self.peek_event().start_mark,
+                )
+            return super().compose_node(parent, index)
+        finally:
+            self._depth -= 1
+
+    def get_single_node(self) -> Any:
+        # The composed count cannot see an alias: `*a` re-uses a node already
+        # built elsewhere, so an alias chain nests past the cap in a file whose
+        # every literal level is under it, and `&a [*a]` is a list that contains
+        # itself. The writer walks the expanded structure, so the cap is checked
+        # on it too (#278).
+        node = super().get_single_node()
+        if node is not None:
+            depth = _nesting_depth(node, _node_children)
+            if depth > _MAX_NESTING_DEPTH:
+                raise yaml.composer.ComposerError(
+                    None, None, _nesting_problem(depth), node.start_mark
+                )
+        return node
+
+
+#: The deepest container nesting a snapshot may have, on read and on write
+#: (#278). The top-level mapping is level 1, so ``prompt.extra``'s own mapping
+#: is level 3.
+#:
+#: Derived from the writer, which is the side that runs out first. PyYAML's
+#: representer recurses ``represent_data`` -> ``represent_list`` /
+#: ``represent_dict`` -> ``represent_sequence`` / ``represent_mapping`` -- three
+#: frames per level -- while the composer the reader runs costs two. Measured on
+#: 3.11, 3.12 and 3.14 at the default recursion limit of 1000, the writer gives
+#: out at ~329 levels and the reader at ~491, and with no explicit cap the
+#: reader's limit was the stack's: a snapshot 340-480 deep loaded, validated and
+#: diffed, and ``update --force`` died in ``save_snapshot`` with a traceback.
+#: At 100 levels the writer needs 300 frames, under a third of the default
+#: limit, which leaves the rest for whatever stack the caller is already on.
+#: ``tests/test_nesting_depth_parity.py`` re-measures the per-level cost and
+#: pins that budget.
+_MAX_NESTING_DEPTH = 100
+
+
+def _node_children(node: Any) -> list[Any] | None:
+    if isinstance(node, yaml.MappingNode):
+        return [part for pair in node.value for part in pair]
+    if isinstance(node, yaml.SequenceNode):
+        return list(node.value)
+    return None
+
+
+def _value_children(value: Any) -> list[Any] | None:
+    if isinstance(value, Mapping):
+        return [*value.keys(), *value.values()]
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return list(value)
+    return None
+
+
+def _nesting_depth(root: Any, children: Callable[[Any], list[Any] | None]) -> float:
+    """How many containers deep *root* nests; ``inf`` if it contains itself (#278).
+
+    *children* returns a container's members, or ``None`` for a leaf (depth 0).
+    One walker for both halves of the cap -- PyYAML nodes on read, the
+    ``to_dict`` payload on write -- so the two cannot count differently.
+    Iterative, because a recursive walk would fail on exactly the input it
+    exists to refuse, and memoized, so an alias graph is walked once per node.
+    """
+    root_kids = children(root)
+    if root_kids is None:
+        return 0
+    memo: dict[int, float] = {}
+    on_path = {id(root)}
+    # Each frame: the container, an iterator over its members, its deepest child.
+    stack: list[tuple[Any, Iterator[Any], list[float]]] = [(root, iter(root_kids), [0])]
+    while stack:
+        obj, members, deepest = stack[-1]
+        child = next(members, _NO_MORE)
+        if child is _NO_MORE:
+            stack.pop()
+            on_path.discard(id(obj))
+            memo[id(obj)] = deepest[0] + 1
+            if stack:
+                stack[-1][2][0] = max(stack[-1][2][0], deepest[0] + 1)
+            continue
+        if id(child) in on_path:
+            return math.inf
+        if id(child) in memo:
+            deepest[0] = max(deepest[0], memo[id(child)])
+            continue
+        kids = children(child)
+        if kids is not None:
+            on_path.add(id(child))
+            stack.append((child, iter(kids), [0]))
+    return memo[id(root)]
+
+
+_NO_MORE = object()
+
+
+def _nesting_problem(depth: float) -> str:
+    if depth == math.inf:
+        return (
+            "contains itself (a recursive alias), which a snapshot cannot be written back as (#278)"
+        )
+    return (
+        f"nested {int(depth)} levels deep; the limit is {_MAX_NESTING_DEPTH}, "
+        "the deepest a snapshot can be written back (#278)"
+    )
 
 
 def safe_load_yaml(stream: TextIO) -> Any:
