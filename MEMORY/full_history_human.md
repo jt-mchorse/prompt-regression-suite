@@ -2571,3 +2571,17 @@ perfect 1.0 and passed. The similarity function now scales such a vector up
 before measuring it, which doesn't change the true score, so the same answer
 scores 0.82 and fails. An all-zero vector still scores 0 and fails, and the
 huge-vector error from #267 is unchanged.
+
+## 2026-10-21 — `validate` flags a snapshot that fails against its own canonical (#276)
+
+#207 stopped `update` from saving a canonical text that fails the snapshot's
+own structured slots, since such a baseline fails every diff against itself.
+Two other routes into that state stayed open: editing the YAML by hand (which
+`update`'s own error message suggests) and the library `save_snapshot`. In
+both cases `validate` said the file was fine. Now `validate` reports it under
+a new finding code, `canonical_slots`, naming each failing slot, and
+`save_snapshot` refuses to write one. The check is one shared helper that
+`update` also uses. It is deliberately not in the loader, because then
+`update` could not open the file it is meant to repair. Four test fixtures
+had been writing such snapshots by accident and now give their `plan_name`
+slot a description.

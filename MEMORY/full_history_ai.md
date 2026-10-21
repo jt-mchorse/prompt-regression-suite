@@ -2930,3 +2930,21 @@ context_for_next_session:
   - "rescale_lives_in_cosine_so_the_semantic_category_channel_is_covered_too"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:25Z
+issue: 276
+branch: session/2026-10-21-0725-issue-276
+focus: SNAPSHOT_WHOSE_CANONICAL_FAILS_ITS_OWN_STRUCTURED_SLOTS_PASSED_VALIDATE_207_GUARDED_ONE_WRITER_NOW_SHARED_BY_UPDATE_VALIDATE_AND_SAVE_SNAPSHOT
+phase: shipped
+delta:
+  files_changed: 10
+  tests_added: 12
+  suite: "1412 passed; ruff, format, mypy clean (fresh uv 3.12 + 3.11 venvs)"
+decisions_made: []
+measured: "main 376609b: kite + integer slot line_count -> validate ok findings=0 rc 0; diff of own canonical -> verdict fail, line_count: missing, rc 1. After: validate [canonical_slots] (line_count: missing) rc 1 valid=0; save_snapshot raises SnapshotValidationError, file byte-identical. Revert probe (diff/io/validate/cli.py, pycache cleared): 7 of 12 red; green = satisfying-canonical, type_unknown, shipped-examples, save round-trip controls and the diff-premise check."
+context_for_next_session:
+  - "CHECK_LIVES_IN_VALIDATE_AND_THE_WRITER_NOT_THE_READER_a_load_snapshot_refusal_would_lock_update_out_of_the_file_it_repairs"
+  - "SAVE_SNAPSHOT_REFUSAL_BROKE_9_TESTS_via_4_fixtures_with_an_undescribed_plan_name_string_slot_monkeypatching_io_save_snapshot_misses_callers_bound_through_package_init"
+followups: []
+---
