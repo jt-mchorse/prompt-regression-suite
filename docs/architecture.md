@@ -205,7 +205,10 @@ locked by the matching test in `tests/test_cli.py`.
 - **Validator (#49).** `prompt_regression.validate.validate_snapshots(directory)`
   walks the same globs in *collecting* mode and surfaces every
   malformed file as a `ValidationFinding` (codes `parse |
-  schema_version | schema | duplicate_id | unreadable | empty`).
+  schema_version | schema | duplicate_id | canonical_slots |
+  unreadable | empty`). `canonical_slots` (#276) is a file that loads
+  but whose canonical fails its own `structured_slots`, the state
+  `update` and `save_snapshot` refuse to write.
   Unlike `stats`, which refuses the whole directory at exit 2 on the
   first file that fails to load (#115), the validator collects every
   per-file error `prompt-snap run` would abort on, so an operator

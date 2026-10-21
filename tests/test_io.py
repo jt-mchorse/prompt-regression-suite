@@ -34,7 +34,8 @@ def _sample_snapshot() -> Snapshot:
             semantic_categories=["refund-window", "plan-tier"],
             structured_slots={
                 "refund_days": {"type": "integer"},
-                "plan_name": {"type": "string"},
+                # Described, so the canonical satisfies its own slots (#276).
+                "plan_name": {"type": "string", "description": "plan name"},
             },
         ),
         canonical=CanonicalResponse(

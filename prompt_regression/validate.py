@@ -34,6 +34,14 @@ Finding codes (stable, JSON-routable):
                        same way — rename a ``Snapshot.id``. One code
                        rather than two because the operator's action is
                        identical; the reason string says which.
+- ``canonical_slots`` — the snapshot loads, but its own ``canonical.text``
+                       fails its own ``structured_slots`` (each failing
+                       slot is named), so it would fail a diff against
+                       itself (#276). ``update`` has refused to write
+                       that state since #207; a hand-edited YAML reached
+                       it anyway. Its own code, not ``schema``: the file
+                       is schema-valid, and ``update`` -- the remedy --
+                       must still be able to load it.
 - ``unreadable``     — the file matched a snapshot glob but could not
                        be *read* (permission denied, a directory whose
                        name ends in ``.yaml``, a broken symlink, a file
@@ -64,6 +72,7 @@ from typing import Any
 
 import yaml
 
+from .diff import canonical_slot_failures, describe_slot_failures
 from .io import SNAPSHOT_GLOBS, iter_snapshot_paths, load_snapshot, safe_load_yaml
 from .schema import SnapshotValidationError
 
@@ -82,6 +91,7 @@ FINDING_CODES: tuple[str, ...] = (
     "schema_version",
     "schema",
     "duplicate_id",
+    "canonical_slots",
     "unreadable",
     "empty",
 )
@@ -393,8 +403,30 @@ def validate_snapshots(directory: str | Path) -> ValidationReport:
         shadow = ids.shadow_reason_for(snap.id, rel)
         if shadow is not None:
             findings.append(ValidationFinding(path=rel, reason=shadow, code="duplicate_id"))
-            # Don't count the shadow file as valid; the run path would
-            # silently overwrite the prior candidate lookup.
+        # A snapshot that fails a diff against its own canonical (#276). #207 made
+        # `update` refuse to write one and left the other ways in open: editing
+        # `structured_slots` by hand -- which `update`'s own refusal tells the
+        # operator to do -- and the library writer. Checked after the id, not
+        # instead of it, so a file that is both a shadow and self-failing gets
+        # both findings and its id is still recorded for the files after it.
+        failing = canonical_slot_failures(snap.response_shape.structured_slots, snap.canonical.text)
+        if failing:
+            findings.append(
+                ValidationFinding(
+                    path=rel,
+                    reason=(
+                        "canonical.text fails this snapshot's own structured_slots "
+                        f"({describe_slot_failures(failing)}), so it would fail a diff "
+                        "against itself; re-baseline with `prompt-snap update` or edit "
+                        "response_shape.structured_slots"
+                    ),
+                    code="canonical_slots",
+                )
+            )
+        if shadow is not None or failing:
+            # Don't count either as valid: a shadow file silently overwrites the
+            # prior candidate lookup on the run path, and a self-failing one
+            # fails every run of its own canonical.
             continue
         n_valid += 1
 

@@ -49,8 +49,9 @@ from .diff import (
     HashEmbedder,
     NonFiniteEmbeddingError,
     WarnBandThresholdError,
+    canonical_slot_failures,
+    describe_slot_failures,
     diff_response,
-    diff_slots,
     render_classified,
     render_comparison,
     resolve_effective_threshold,
@@ -783,13 +784,11 @@ def _update_command(args: argparse.Namespace) -> int:
     # The new baseline must pass this snapshot's own structural contract (#207).
     # It was saved unchecked, so a canonical missing its declared slots became
     # a baseline that fails a diff against ITSELF (cosine 1.0, every slot
-    # missing) -- and every later run of that text went red. `diff_slots` is
-    # the check `diff` applies; `type_unknown` is not a failure there either.
-    failing = [
-        d for d in diff_slots(snap.response_shape.structured_slots, new_text) if d.is_failure
-    ]
+    # missing) -- and every later run of that text went red. The check is shared
+    # with `validate` and `save_snapshot`, the writers this one left open (#276).
+    failing = canonical_slot_failures(snap.response_shape.structured_slots, new_text)
     if failing:
-        listed = ", ".join(f"{d.name}: {d.status}" for d in failing)
+        listed = describe_slot_failures(failing)
         _eprint(
             f"error: refusing to re-baseline {args.snapshot}: the new canonical fails "
             f"this snapshot's own structured_slots ({listed}), so it would fail a diff "

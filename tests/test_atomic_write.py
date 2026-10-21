@@ -161,7 +161,10 @@ def _sample_snapshot(
             semantic_categories=["refund-window", "plan-tier"],
             structured_slots={
                 "refund_days": {"type": "integer"},
-                "plan_name": {"type": "string"},
+                # A description, so the string extractor finds the plan name in
+                # the canonical: without one this fixture failed its own slots
+                # (`plan_name: missing`), which `save_snapshot` refuses (#276).
+                "plan_name": {"type": "string", "description": "plan name"},
             },
         ),
         canonical=CanonicalResponse(
@@ -211,7 +214,9 @@ def test_save_snapshot_overwrite_failure_preserves_existing_snapshot(
         prompt=original.prompt,
         response_shape=original.response_shape,
         canonical=CanonicalResponse(
-            text="MUTATED TEXT MUST NOT END UP ON DISK",
+            # Still satisfies the slots, so the refusal under test is the
+            # rename failure and not `save_snapshot`'s #276 slot check.
+            text="The Pro plan has a 30-day refund window. MUTATED TEXT MUST NOT END UP ON DISK",
             embedding=original.canonical.embedding,
             embedding_model=original.canonical.embedding_model,
         ),
