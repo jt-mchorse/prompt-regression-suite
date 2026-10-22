@@ -1126,9 +1126,24 @@ def diff_response(
     floor = warn_floor(effective_threshold, warn_band)
     cosine_warn = (not cosine_pass) and cosine_score >= floor
     slots_ok = all(not d.is_failure for d in slot_deltas)
+    # An empty or whitespace-only candidate against a canonical that has words
+    # is a `fail` whatever its cosine (#285): the model returned nothing. #63
+    # made `run` diff an empty candidate instead of skipping it, and rested the
+    # `fail` on the empty text's `e0` vector (D-016) never matching a real
+    # canonical. It does: `e0` is also slot 0, where about 1 in 128 one-word
+    # canonicals hash every gram -- "close" scored an empty response at 1.000,
+    # passing even at `tolerance: 1.0`. Decided here on the text, not the score,
+    # so no embedder (this one or a BYO one) can make nothing look like a match.
+    # `str.split()` is the embedder's own "no tokens" test, so "\n" counts too.
+    empty_candidate = not candidate_text.split() and bool(snapshot.canonical.text.split())
 
-    if not slots_ok:
+    if empty_candidate or not slots_ok:
         verdict = "fail"
+        if empty_candidate:
+            notes.append(
+                "candidate is empty or whitespace-only but the canonical is not: "
+                "the model returned nothing (#285)"
+            )
         for d in slot_deltas:
             if d.is_failure:
                 notes.append(f"slot {d.name!r}: {d.status}")
