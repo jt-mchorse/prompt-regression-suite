@@ -3004,3 +3004,22 @@ context_for_next_session:
   - "no_tokens_is_str_split_the_embedders_own_test_so_unicode_whitespace_agrees_with_the_e0_branch"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:54Z
+issue: 286
+branch: session/2026-10-22-0754-issue-286
+focus: SAVE_SNAPSHOT_199_ROUND_TRIP_NE_WALKED_THE_EXPANDED_ALIAS_GRAPH_SO_A_3KB_WIDE_SHALLOW_EXTRA_MADE_UPDATE_FORCE_EXPONENTIAL
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1442 passed; ruff, format, mypy clean (repo venv 3.14 + fresh 3.11 venv)"
+decisions_made: []
+measured: "main 9302d50 (3.14): 10 aliases/level extra -> validate 0.1 s; update --force 23.8 s at 9 levels, 196 s at 10; profile at 9: dump 0.003 s, loads 0.007 s, != 18.8 s. After: _same_loaded_yaml memoised on (id(a), id(b)), leaves keep identity-then-== -> 0.09 s / 0.08 s, 10-level output byte-identical to unfixed. Revert probe (io.py, pycache cleared): 2 of 5 red (12-level subprocess update hits 30 s budget; helper-vs-== table, red by absence); green = 3-level round trip, NEL under an anchor still escaped, shipped example byte-identical."
+context_for_next_session:
+  - "MEMOISE_THE_COMPARISON_NOT_BOUND_THE_EXPANSION_validate_and_update_now_agree_by_both_accepting_no_new_limit"
+  - "YAML_ESCAPES_NEL_AS_BACKSLASH_N_not_x85_a_test_asserting_x85_in_the_file_is_wrong"
+  - "extra_round_trip_gaps_tuple_omap_frozenset_Decimal_tuple_key_SPLIT_TO_288_needs_refuse_vs_normalise_call"
+followups: ["#288"]
+---
