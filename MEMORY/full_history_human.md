@@ -2623,3 +2623,18 @@ against a canonical that has words, whatever the score, and adds a note
 to the row saying so. The embedder is untouched, so D-016 stands. A
 whitespace-only canonical with an empty candidate still passes, and
 every other score is unchanged.
+
+## 2026-10-22 — `update --force` no longer hangs on a snapshot full of YAML aliases (#286)
+
+To catch #199's NEL problem, `save_snapshot` loads both of its candidate
+renderings back and compares them. That comparison followed every alias
+as if it were a separate copy. A 3 KB `prompt.extra` built from ten
+aliases per level, ten levels deep, loaded, validated and diffed in a
+tenth of a second, and then `update --force` took over three minutes. The
+comparison now remembers which pairs of shared nodes it has already
+checked, so each one is compared once: 0.08 seconds. It gives the same
+answer as before, so every existing snapshot is written byte for byte as
+it was. Some `prompt.extra` values (tuples, `!!omap`, unusual key types)
+still don't survive a save and reload, or fail with a raw YAML error.
+Those are split out to #288, because fixing them needs a decision between
+refusing and normalising those values.
