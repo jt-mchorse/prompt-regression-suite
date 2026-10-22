@@ -369,10 +369,44 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
     escaped = yaml.safe_dump(
         payload, sort_keys=False, default_flow_style=False, allow_unicode=False
     )
-    if yaml.safe_load(rendered) != yaml.safe_load(escaped):
+    #
+    # Compared with `_same_loaded_yaml`, not `!=` (#286). `!=` walks the fully
+    # expanded structure, and `safe_dump` writes a shared node once with an
+    # anchor: ten levels of ten aliases each in `prompt.extra`, a 3 KB file that
+    # loads, validates and diffs in 0.1 s, made this one line take minutes.
+    if not _same_loaded_yaml(yaml.safe_load(rendered), yaml.safe_load(escaped)):
         rendered = escaped
     atomic_write_text(p, rendered)
     return p
+
+
+def _same_loaded_yaml(a: Any, b: Any, _seen: set[tuple[int, int]] | None = None) -> bool:
+    """``a == b`` for two ``yaml.safe_load`` results, comparing a shared node once (#286).
+
+    ``==`` on a container compares every path to a shared member again, so an
+    alias graph costs its *expanded* size: exponential in its depth. Remembering
+    each ``(id(a), id(b))`` pair already under comparison makes it linear in the
+    loaded objects. A pair is recorded before its members are compared, which is
+    safe because any mismatch below returns ``False`` all the way up. Leaves keep
+    ``==``'s own rule, identity first, so the answer matches ``a == b`` and every
+    snapshot without aliases picks the same rendering it did before. Recursive:
+    both inputs are renderings of a payload ``save_snapshot`` has already held
+    to ``_MAX_NESTING_DEPTH``.
+    """
+    if a is b:
+        return True
+    if type(a) is not type(b) or type(a) not in (dict, list, tuple):
+        return bool(a == b)
+    seen = set() if _seen is None else _seen
+    pair = (id(a), id(b))
+    if pair in seen:
+        return True
+    if len(a) != len(b):
+        return False
+    seen.add(pair)
+    if type(a) is dict:
+        return all(k in b and _same_loaded_yaml(v, b[k], seen) for k, v in a.items())
+    return all(_same_loaded_yaml(x, y, seen) for x, y in zip(a, b, strict=True))
 
 
 def _require_supported_schema_version(version: Any, where: str) -> None:
