@@ -2609,3 +2609,17 @@ crashed with the same raw error #140 was meant to remove. Pauses are now
 capped at one day (86400 seconds, which is still allowed). Anything longer
 gets a clean `error:` line and exit code 2 before any stage runs or any
 file is written. Normal pauses work exactly as before.
+
+## 2026-10-22 — An empty answer no longer passes against a one-word canonical (#285)
+
+#63 made `run` diff an empty candidate instead of skipping it, so the
+empty response would fail. That only held as long as the empty text's
+fallback vector never matched a real canonical. It can: the fallback is
+slot 0, and about 1 in 128 one-word canonicals ("close", "people",
+"ballot") hash entirely into slot 0. Against those, an empty or
+whitespace-only response scored a perfect 1.000 and passed even at
+`tolerance: 1.0`. `diff_response` now fails a candidate with no words
+against a canonical that has words, whatever the score, and adds a note
+to the row saying so. The embedder is untouched, so D-016 stands. A
+whitespace-only canonical with an empty candidate still passes, and
+every other score is unchanged.

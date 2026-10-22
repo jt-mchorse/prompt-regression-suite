@@ -125,7 +125,10 @@ a new response against a stored snapshot along two channels:
 
 The verdict is the AND of both channels. Cosine alone (which "passed" but
 the slot extraction failed) is not enough — the snapshot's structural
-assertions are hard requirements.
+assertions are hard requirements. An empty or whitespace-only candidate
+fails against a canonical that has words, whatever its cosine (#285): the
+empty text's fallback vector is also where some one-word canonicals
+embed, so the score alone could call "nothing" a perfect match.
 
 ```python
 from prompt_regression import HashEmbedder, diff_response, load_snapshot

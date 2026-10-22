@@ -2985,3 +2985,22 @@ context_for_next_session:
   - "end_to_end_pause_tests_must_record_time_sleep_or_an_unfixed_guard_hangs_the_suite_for_the_bound"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:49Z
+issue: 285
+branch: session/2026-10-22-0749-issue-285
+focus: EMPTY_CANDIDATE_PASSED_AT_1_000_WHEN_THE_CANONICAL_EMBEDS_TO_e0_63_RESTED_ON_e0_BEING_UNREACHABLE_AND_SLOT_0_IS_A_REAL_SLOT
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 20
+  suite: "1457 passed; ruff, format, mypy clean (repo venv 3.14 + fresh 3.11 venv)"
+decisions_made: []
+measured: "main 9302d50: canonical 'close' tolerance 1.0 -> candidates '' and '   ' pass 1.000 rc 0; 'open' fail 0.000 rc 1. 461 dict words under 8 letters embed to e0 (close, ballot, block, ...). After: diff_response fails a no-token candidate vs a canonical with tokens, note names #285, cosine still reported; run rc 1. Revert probe (diff.py, pycache cleared): 12 of 20 red; green = 2 e0 anti-vacuity arms, blank-canonical+empty-candidate pass (x2), canonical-vs-itself pass (x2), 'open' scores 0.0 unchanged, embed('') still e0."
+context_for_next_session:
+  - "RULE_LIVES_IN_diff_response_NOT_THE_run_LOOP_so_library_callers_get_it_diff_CLI_already_refuses_an_empty_candidate_at_exit_2"
+  - "SCHEMA_REFUSES_AN_EMPTY_CANONICAL_BUT_TAKES_A_WHITESPACE_ONLY_ONE_so_the_nothing_vs_nothing_control_uses_a_blank_canonical"
+  - "no_tokens_is_str_split_the_embedders_own_test_so_unicode_whitespace_agrees_with_the_e0_branch"
+followups: []
+---
