@@ -1021,6 +1021,14 @@ def diff_response(
     downstream surfaces (HTML report, PR comments) show the number that
     was actually applied to this row.
     """
+    # Check the run `threshold` itself, not only the effective one: when the
+    # snapshot carries its own `tolerance`, the override below replaces the run
+    # value before the effective-threshold check sees it, so a NaN / negative /
+    # >1 `threshold` was accepted silently and printed in the override note
+    # ("overrides run threshold nan"). The CLI's `_validate_thresholds` relies on
+    # these library-level raises staying loud (#292).
+    if not 0.0 < threshold <= 1.0:
+        raise ValueError(f"threshold must be in (0, 1]; got {threshold}")
     effective_threshold = resolve_effective_threshold(snapshot, threshold)
     if not 0.0 < effective_threshold <= 1.0:
         raise ValueError(f"threshold must be in (0, 1]; got {effective_threshold}")
