@@ -3023,3 +3023,21 @@ context_for_next_session:
   - "extra_round_trip_gaps_tuple_omap_frozenset_Decimal_tuple_key_SPLIT_TO_288_needs_refuse_vs_normalise_call"
 followups: ["#288"]
 ---
+
+---
+session: 2026-10-23T07:52Z
+issue: 290
+branch: session/2026-10-23-0755-issue-290
+focus: QUOTED_RE_DOUBLE_QUOTE_ARM_PAIRED_TWO_INCH_MARKS_12_AND_16_SO_A_MISSING_STRING_SLOT_PASSED_235_GUARDED_ONLY_SINGLE_QUOTES
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "1473 passed; ruff, format, mypy clean (fresh 3.11 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main dd8b17e: diff_slots(plan_name, 'Our 12\" and 16\" pizzas ship today.') -> ok ' and 16'; '12-inch and 16-inch' -> missing; diff_response canonical 'Your plan tier is Pro. The 12\" and 16\" ...' vs candidate without the tier -> pass. After: (?<!\\d) before the opening double quote -> missing, verdict fail; '... on the \"Pro\" plan.' -> Pro. Revert probe (diff.py, pycache cleared): 6 of 11 red; green = 5 controls ('\"Pro plan\"', 'the \"Pro\" tier', '\"Plan 2\"', '\"Pro\" before the marks', #235 'It's the 'Pro' plan.'). Neighbour wrong fix (closing guard too) -> '\"Plan 2\"' control red."
+context_for_next_session:
+  - "OPENING_GUARD_ONLY_a_closing_guard_drops_real_values_ending_in_a_digit_Plan_2_GPT_4_and_no_inch_mark_can_open_so_two_cannot_pair"
+  - "curly_quotes_and_other_quote_styles_not_examined"
+followups: []
+---
