@@ -3041,3 +3041,21 @@ context_for_next_session:
   - "curly_quotes_and_other_quote_styles_not_examined"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:52Z
+issue: 292
+branch: session/2026-10-23-0755-issue-292
+focus: DIFF_RESPONSE_RANGE_CHECKED_ONLY_THE_EFFECTIVE_THRESHOLD_SO_A_SNAPSHOT_TOLERANCE_LAUNDERED_A_NAN_NEGATIVE_OR_GT1_RUN_THRESHOLD
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1474 passed; ruff, format, mypy clean (fresh 3.11 venv; 1474 passed on 3.12 too)"
+decisions_made: []
+measured: "main dd8b17e: creative_kite_v1 (tolerance 0.75) with threshold nan / 5.0 / -1.0 -> DiffResult, note 'per-snapshot tolerance 0.75 overrides run threshold nan'. After: bare ValueError 'threshold must be in (0, 1]; got nan' before the override; 0.9 still overridden, note byte-identical. Revert probe (diff.py, pycache cleared): 5 of 12 red (4 bad values under a tolerance + the bare-ValueError/message pin); green = 4 no-tolerance raises (already raised), valid-override note, bounds 1.0 and 1e-9."
+context_for_next_session:
+  - "RUN_THRESHOLD_CHECK_IS_A_BARE_ValueError_NOT_A_TYPED_PER_ROW_ERROR_it_is_a_whole_run_misconfig_and_the_CLI_already_refuses_it_at_exit_2"
+  - "warn_band_IS_STILL_CHECKED_ONLY_AGAINST_THE_EFFECTIVE_THRESHOLD_by_design_per_85"
+followups: []
+---

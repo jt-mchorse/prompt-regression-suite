@@ -2650,3 +2650,15 @@ as `12-inch and 16-inch` does. A real `"Pro"` next to the inch marks is
 still read. I only guarded the opening quote. Guarding the closing quote
 too would have dropped real values that end in a number, like
 `"Plan 2"`.
+
+## 2026-10-23 — `diff_response` rejects a bad run threshold even when the snapshot sets its own tolerance (#292)
+
+`diff_response` only checked the threshold it actually applied. When a
+snapshot sets its own `tolerance`, that value replaces the run's
+`threshold` first, so a run threshold of NaN, -1 or 5 was never checked.
+It just appeared in the row note ("per-snapshot tolerance 0.75 overrides
+run threshold nan"). The function now checks the run threshold on entry
+and raises the same error it always raised for an out-of-range threshold.
+The CLI already refused these values with exit 2, so only library
+callers notice the change. A valid run threshold is still overridden by
+the tolerance, and the note reads exactly as before.
