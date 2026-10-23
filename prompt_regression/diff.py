@@ -423,7 +423,13 @@ _INTEGER_RE = _NUMBER_RE
 # apostrophes: `I don't know ... I can't say` extracted `t know ... I can` as
 # the slot's value, so a slot the answer never stated passed, and
 # `It's the 'Pro' plan.` read `s the ` instead of `Pro`.
-_QUOTED_RE = re.compile(r"\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
+# A double quote straight after a digit is an inch or second mark, not an
+# opening quote (#290). #235 left this arm alone, so `Our 12" and 16" pizzas`
+# extracted ` and 16` and a slot the answer never stated passed. Only the
+# opening side is guarded: a closing `"` after a digit is a real quoted value
+# far more often than not (`the "Plan 2" tier`), and with no inch mark able to
+# open a span, two of them can no longer pair up.
+_QUOTED_RE = re.compile(r"(?<!\d)\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
 
 
 def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
