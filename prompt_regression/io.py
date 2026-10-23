@@ -688,11 +688,31 @@ def _created_at_text(value: Any) -> Any:
     `save_snapshot` writes, `%Y-%m-%dT%H:%M:%SZ`, with microseconds only when
     present. A bare date stays a date (`2026-05-18`). Anything else is passed
     through for `from_dict` to judge, so a non-string still fails loudly there.
+
+    A tz-aware value at either end of the year range has no UTC form (#291):
+    `9999-12-31T23:00:00-05:00` is in year 10000 once converted, and
+    `0001-01-01T00:30:00+01:00` in year 0. `astimezone` raises `OverflowError`
+    for both, which no read seam catches, so `validate`, `stats`, `diff` and
+    `run` all died with a traceback at exit 1. It is refused as the
+    `SnapshotValidationError` the field's other refusals raise, which every read
+    seam already routes to a per-file finding / exit 2.
     """
     if isinstance(value, datetime):
-        utc = value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
-        fmt = "%Y-%m-%dT%H:%M:%S.%fZ" if utc.microsecond else "%Y-%m-%dT%H:%M:%SZ"
-        return utc.strftime(fmt)
+        if value.tzinfo is None:
+            utc = value.replace(tzinfo=UTC)
+        else:
+            try:
+                utc = value.astimezone(UTC)
+            except (OverflowError, ValueError) as e:
+                raise SnapshotValidationError(
+                    f"Snapshot.created_at {value.isoformat()} has no UTC form "
+                    f"in the representable year range (#291): {e}"
+                ) from e
+        # `isoformat`, not `strftime`: glibc's `%Y` does not zero-pad a year
+        # below 1000, so Linux wrote `1-01-01T01:30:00Z` where macOS wrote
+        # `0001-...` (#291's CI). `isoformat` always gives four digits.
+        timespec = "microseconds" if utc.microsecond else "seconds"
+        return utc.replace(tzinfo=None).isoformat(timespec=timespec) + "Z"
     if isinstance(value, date):
         return value.isoformat()
     return value
