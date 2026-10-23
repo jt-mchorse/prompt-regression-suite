@@ -2662,3 +2662,17 @@ and raises the same error it always raised for an out-of-range threshold.
 The CLI already refused these values with exit 2, so only library
 callers notice the change. A valid run threshold is still overridden by
 the tolerance, and the note reads exactly as before.
+
+## 2026-10-23 — a `created_at` at the very edge of the calendar no longer crashes every command (#291)
+
+Since #209, an unquoted timestamp with a timezone in `created_at` is
+converted to UTC on load. At the far ends of the calendar that conversion
+has nowhere to go. `9999-12-31T23:00:00-05:00` would be in the year 10000
+once shifted to UTC, and `0001-01-01T00:30:00+01:00` in the year 0. Python
+raised an overflow error that nothing caught, so `validate`, `stats`,
+`diff` and `run` all died with a traceback, and `validate` lost the report
+on every other file in the folder too. That value is now refused like any
+other bad `created_at`. `validate` lists it as a finding for that one file
+and still reports the rest, and the other commands stop with a clean error
+and exit code 2. Timestamps near the edge that still convert fine, such as
+`9999-12-31T23:00:00+05:00`, load as before.

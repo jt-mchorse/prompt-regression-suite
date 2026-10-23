@@ -3059,3 +3059,22 @@ context_for_next_session:
   - "warn_band_IS_STILL_CHECKED_ONLY_AGAINST_THE_EFFECTIVE_THRESHOLD_by_design_per_85"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:52Z
+issue: 291
+branch: session/2026-10-23-0755-issue-291
+focus: TZ_AWARE_CREATED_AT_AT_THE_YEAR_RANGE_EDGE_OVERFLOWED_astimezone_UTC_IN_209s_NORMALIZER_AND_CRASHED_EVERY_READ_SEAM
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 14
+  suite: "1476 passed; ruff, format, mypy clean (fresh 3.11 venv); new tests green on 3.12"
+decisions_made: []
+measured: "main dd8b17e: created_at 9999-12-31T23:00:00-05:00 or 0001-01-01T00:30:00+01:00 -> validate/stats/diff/run Traceback OverflowError: date value out of range, exit 1, validate's sibling file lost. After: SnapshotValidationError naming Snapshot.created_at + the value -> validate a.yml [schema] finding, files=2 valid=1 findings=1 rc 1; stats/diff/run clean error: rc 2. Revert probe (io.py, pycache cleared): 10 of 14 red; green = 4 in-range controls (+02:00, 9999-12-31T23:00+05:00, 0001-01-01T00:30-01:00, 9999-12-31T23:59:59Z)."
+context_for_next_session:
+  - "NO_CLI_CHANGE_NEEDED_every_read_seam_already_routes_SnapshotValidationError_so_the_fix_is_one_try_in_created_at_text"
+  - "VALIDATE_FINDINGS_GO_TO_STDERR_the_summary_line_to_stdout_a_test_matching_the_finding_on_stdout_is_wrong"
+  - "run_STILL_ABORTS_ON_THE_FIRST_BAD_SNAPSHOT_BY_DESIGN_the_issues_lost_b_yml_row_is_that_not_this_bug"
+followups: []
+---
