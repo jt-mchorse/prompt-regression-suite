@@ -708,8 +708,11 @@ def _created_at_text(value: Any) -> Any:
                     f"Snapshot.created_at {value.isoformat()} has no UTC form "
                     f"in the representable year range (#291): {e}"
                 ) from e
-        fmt = "%Y-%m-%dT%H:%M:%S.%fZ" if utc.microsecond else "%Y-%m-%dT%H:%M:%SZ"
-        return utc.strftime(fmt)
+        # `isoformat`, not `strftime`: glibc's `%Y` does not zero-pad a year
+        # below 1000, so Linux wrote `1-01-01T01:30:00Z` where macOS wrote
+        # `0001-...` (#291's CI). `isoformat` always gives four digits.
+        timespec = "microseconds" if utc.microsecond else "seconds"
+        return utc.replace(tzinfo=None).isoformat(timespec=timespec) + "Z"
     if isinstance(value, date):
         return value.isoformat()
     return value
