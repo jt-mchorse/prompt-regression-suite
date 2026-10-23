@@ -2638,3 +2638,15 @@ it was. Some `prompt.extra` values (tuples, `!!omap`, unusual key types)
 still don't survive a save and reload, or fail with a raw YAML error.
 Those are split out to #288, because fixing them needs a decision between
 refusing and normalising those values.
+
+## 2026-10-23 — Inch marks no longer read as a quoted string slot (#290)
+
+#235 stopped apostrophes from counting as quotes, but double quotes were
+left alone. So two inch marks made a pair: `Our 12" and 16" pizzas ship
+today.` gave ` and 16` as the plan name, and an answer that never named a
+plan tier passed the diff. A double quote straight after a digit can no
+longer open a quoted value, so that text now reads as `missing`, the same
+as `12-inch and 16-inch` does. A real `"Pro"` next to the inch marks is
+still read. I only guarded the opening quote. Guarding the closing quote
+too would have dropped real values that end in a number, like
+`"Plan 2"`.
