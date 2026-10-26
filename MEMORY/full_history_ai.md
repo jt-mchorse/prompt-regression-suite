@@ -3097,3 +3097,21 @@ context_for_next_session:
   - "curly_quotes_still_not_matched_by_QUOTED_RE_at_all"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:25Z
+issue: 298
+branch: session/2026-10-26-0725-issue-298
+focus: STRING_SLOT_KEYWORD_FALLBACK_WAS_A_SUBSTRING_SEARCH_name_IN_username_MADE_A_MISSING_SLOT_PASS_AND_DESCRIPTION_KEYWORDS_KEPT_PUNCTUATION
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1532 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 615d967: extract_slots(shipped plan_name) \"I'd need your username...\" and 'That was renamed last year...' -> whole sentence; shipped eligibility_caveat 'One caveat applies...' -> missing (keyword 'caveat,'). After: (?<!\\w)kw s?(?!\\w) IGNORECASE on edge-punct-stripped keywords -> username/renamed/planet {} ; plan/plans/PLAN/'Plan name'/plan_name match; caveat and fees rows extract. Revert probe (diff.py, pycache cleared): 6 of 13 red; green = 5 whole-word controls + no-keyword row + no-substring diff arm."
+context_for_next_session:
+  - "_find_ci_STILL_SUBSTRING_FOR_NUMBER_HINTS_per_issue_scope_BUT_IT_CAN_FALSE_PASS_days_IN_Sundays_ranks_the_wrong_number_'On Sundays 14 people work. Ask for your money back within 30 days.'_->_14"
+  - "EDGE_PUNCT_strips_W_and_underscore_from_word_ends_only_interior_hyphens_kept_Human-readable"
+followups: []
+---
