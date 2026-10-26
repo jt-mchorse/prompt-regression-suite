@@ -3078,3 +3078,22 @@ context_for_next_session:
   - "run_STILL_ABORTS_ON_THE_FIRST_BAD_SNAPSHOT_BY_DESIGN_the_issues_lost_b_yml_row_is_that_not_this_bug"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:20Z
+issue: 297
+branch: session/2026-10-26-0720-issue-297
+focus: QUOTED_RE_ELISION_OPENER_90s_til_PAIRED_A_PLURAL_POSSESSIVE_CLOSER_AND_A_VULGAR_FRACTION_INCH_MARK_SLIPPED_290s_DIGIT_GUARD
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 20
+  suite: "1519 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 6d71683: extract_slots(plan_name) \"back in the '90s our customers' records...\" -> '90s our customers'; \"'til the customers' tickets\" -> 'til the customers'; '3½\" and 5¼\"' -> ' and 5¼'. After: all {} ; '90s the 'Pro' plan -> Pro, 'Teams' -> Teams, 'Tilde' -> Tilde. Revert probe (diff.py, pycache cleared): 10 of 20 red; green = 9 real-value controls + no-apostrophe diff arm. Neighbour wrong fix (refuse s' closer) drops 'Teams'."
+context_for_next_session:
+  - "OPENER_GUARD_ONLY_digit_or_whole_elided_word_after_the_opening_apostrophe_the_s_closer_is_left_alone_so_Teams_still_reads"
+  - "A_REAL_QUOTED_VALUE_STARTING_WITH_A_DIGIT_'24_hours'_NOW_READS_MISSING_loud_by_design_per_the_extract_slots_strictness_rule"
+  - "curly_quotes_still_not_matched_by_QUOTED_RE_at_all"
+followups: []
+---

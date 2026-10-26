@@ -2676,3 +2676,18 @@ other bad `created_at`. `validate` lists it as a finding for that one file
 and still reports the rest, and the other commands stop with a clean error
 and exit code 2. Timestamps near the edge that still convert fine, such as
 `9999-12-31T23:00:00+05:00`, load as before.
+
+## 2026-10-26 — `'90s`, `'til` and `3½"` no longer read as a quoted plan name (#297)
+
+The string-slot extractor still built a quoted value out of apostrophes
+that are not quotes. A word-initial elision such as `'90s` or `'til`
+opened a span, and a plural possessive such as `customers'` closed it. So
+`back in the '90s our customers' records` read `90s our customers` as the
+plan name, and a slot the answer never stated passed. #290's inch-mark
+guard only knew plain digits, so `3½" and 5¼"` did the same thing with
+double quotes. An apostrophe right before a digit or before a short list
+of elided words can no longer open a quote, and a vulgar fraction now
+counts as a number for the inch-mark rule. Real quoted values are still
+read, including ones that end in "s" like `'Teams'`. One trade-off: a
+single-quoted value that starts with a digit, like `'24 hours'`, now reads
+as missing. That is the strict direction this extractor is meant to err in.
