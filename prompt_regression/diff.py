@@ -667,6 +667,32 @@ def _extract_number(text: str, hint: str, *, want_int: bool) -> int | float | No
 
 # Leading/trailing punctuation on a description word (#298): `caveat,` -> `caveat`.
 _EDGE_PUNCT = re.compile(r"^[\W_]+|[\W_]+$")
+# Scripts written without spaces between words (#302): CJK ideographs, kana,
+# Bopomofo, Hangul, Thai, Lao, Khmer, Myanmar. `\w` matches all of them, so
+# #298's `(?<!\w)kw(?!\w)` never matched a CJK keyword inside CJK text
+# (`プラン名はProです。`). A keyword edge in one of these scripts takes no
+# boundary, and a spaced-script edge only refuses a spaced-script word
+# character beside it: a script change is a word edge (`您的plan是`).
+_UNSPACED = (
+    "\u0e00-\u0eff"  # Thai, Lao
+    "\u1000-\u109f\ua9e0-\ua9ff\uaa60-\uaa7f"  # Myanmar
+    "\u1100-\u11ff\u3130-\u318f\ua960-\ua97f\uac00-\ud7ff\uffa0-\uffdc"  # Hangul
+    "\u1780-\u17ff\u19e0-\u19ff"  # Khmer
+    "\u3005-\u3007\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f"  # kana, 々〆〇
+    "\u3100-\u312f\u31a0-\u31bf"  # Bopomofo
+    "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003ffff"  # ideographs
+)
+_UNSPACED_CHAR = re.compile(f"[{_UNSPACED}]")
+# A word character that is not in an unspaced script.
+_SPACED_WORD = f"[^\\W{_UNSPACED}]"
+
+
+def _keyword_pattern(kw: str) -> str:
+    """`kw` as a word, bounded only on its spaced-script edges (#298, #302)."""
+    head = "" if _UNSPACED_CHAR.match(kw[0]) else f"(?<!{_SPACED_WORD})"
+    if _UNSPACED_CHAR.match(kw[-1]):
+        return head + re.escape(kw)
+    return head + re.escape(kw) + f"s?(?!{_SPACED_WORD})"
 
 
 def _extract_string(text: str, hint: str, name: str) -> str | None:
@@ -686,7 +712,7 @@ def _extract_string(text: str, hint: str, name: str) -> str | None:
         w for w in (_EDGE_PUNCT.sub("", w) for w in (hint + " " + name).split()) if len(w) > 3
     ]
     for kw in keywords:
-        word = re.search(rf"(?<!\w){re.escape(kw)}s?(?!\w)", text, re.IGNORECASE)
+        word = re.search(_keyword_pattern(kw), text, re.IGNORECASE)
         if word:
             idx = word.start()
             # Trim to the surrounding sentence.
