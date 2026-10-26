@@ -650,16 +650,30 @@ def _extract_number(text: str, hint: str, *, want_int: bool) -> int | float | No
     return _first_representable(matches, want_int=want_int)
 
 
+# Leading/trailing punctuation on a description word (#298): `caveat,` -> `caveat`.
+_EDGE_PUNCT = re.compile(r"^[\W_]+|[\W_]+$")
+
+
 def _extract_string(text: str, hint: str, name: str) -> str | None:
     quoted = _QUOTED_RE.search(text)
     if quoted:
         return quoted.group(1) or quoted.group(2)
     # Fallback: if any meaningful word from the hint or the slot name appears,
     # report the surrounding sentence as the slot value.
-    keywords = [w for w in (hint + " " + name).split() if len(w) > 3]
+    #
+    # As a WORD (#298). `_find_ci` is a substring search, so the `name` of
+    # "plan name" was found inside `username` and `renamed`, and a slot the
+    # answer never stated read as present: here the hit IS the value. A
+    # plural `s` still matches (`plans`). Edge punctuation is stripped first:
+    # the shipped `eligibility_caveat` description split into `caveat,` and
+    # `fees").`, which no response could ever contain as written.
+    keywords = [
+        w for w in (_EDGE_PUNCT.sub("", w) for w in (hint + " " + name).split()) if len(w) > 3
+    ]
     for kw in keywords:
-        idx = _find_ci(text, kw)
-        if idx != -1:
+        word = re.search(rf"(?<!\w){re.escape(kw)}s?(?!\w)", text, re.IGNORECASE)
+        if word:
+            idx = word.start()
             # Trim to the surrounding sentence.
             sentence = _sentence_around(text, idx)
             return sentence
