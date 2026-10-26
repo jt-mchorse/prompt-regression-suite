@@ -2706,3 +2706,20 @@ punctuation, so the shipped caveat slot looked for `caveat,` and
 word is now stripped. The number-slot hint search still matches
 substrings. That can pick the wrong number (`days` inside `Sundays`) and
 is a separate fix.
+
+## 2026-10-26 — `Corp.'s` and `'bout` no longer read as a quoted plan name (#301)
+
+#297 stopped `'90s` and `'til` from opening a quoted value, but it did so
+from a short word list. Two other apostrophe shapes still opened a span
+that a plural possessive like `customers'` closed. One was a possessive
+glued to punctuation, as in `Acme Corp.'s`, `(Jane)'s` and `U.S.'s`. The
+other was an elision missing from the list, such as `'bout`, `'round` or
+`'cos`. Either way the extractor read `s policy covers our customers` as
+the plan name and a slot the answer never stated passed. Now an
+apostrophe right after a full stop, a closing bracket or a closing curly
+quote can never open a quote, and that rule needs no list. An apostrophe
+that starts `'s`, `'ll`, `'re` and similar tails can't open one either.
+The elision list grew to cover the common ones as a backstop. Real values
+are unchanged: `'Pro'`, `'Teams'`, `('Pro')`, `**'Pro'**`, and single
+letters like `'S'`. An elision that is not on the list and follows a
+space, like `'nother`, still gets through.
