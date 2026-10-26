@@ -438,9 +438,24 @@ _INTEGER_RE = _NUMBER_RE
 # left alone: a real quoted value can end in `s` (`'Teams'`), and with the
 # elision unable to open, the possessive has nothing to pair with. A vulgar
 # fraction is a number too, so `3½" and 5¼"` is the #290 inch-mark case.
+# #297's word list was written from memory, and the apostrophe shape it
+# refused still got through two other ways (#301). `Corp.'s`, `(Jane)'s` and
+# `U.S.'s` are a possessive glued to punctuation, which `(?<!\w)` admits, and
+# `'bout`, `'round`, `'cos` were not on the list. Three rules now refuse an
+# opener. The first needs no list: an apostrophe straight after a sentence
+# terminator, a closing bracket or a closing curly quote is attached to the
+# token before it, and a real quote opens after a space, an opening bracket,
+# a colon or a dash. `"` and markdown `*_` close and open, so they are not on
+# it (`**'Pro'**`). The second is a contraction or possessive tail (`'s`,
+# `'ll`, `'re`...) before a non-word character, which covers `"Acme"'s` and
+# `**Acme**'s`. A quoted single letter (`'S'`, `'M'`) is still a value. The
+# elision catalogue is the backstop for an opener after a space.
+_ATTACHING = ".!?…。！？｡)\\]}”’»›」』）】〕〗〙〛〉》］｝"
+_TAILS = "s|d|ll|re|ve|m|t"
+_ELISIONS = "til|em|cause|n|tis|twas|bout|round|cos|cuz|kay|neath|gainst|tween|cept|ere"
 _QUOTED_RE = re.compile(
     r"(?<![\d¼-¾⅐-⅞])\"([^\"]+)\""
-    r"|(?<!\w)'(?!\d|(?i:til|em|cause|n|tis|twas)(?!\w))([^']+)'(?!\w)"
+    rf"|(?<![\w{_ATTACHING}])'(?!\d|(?i:{_ELISIONS})(?!\w)|(?i:{_TAILS})(?![\w']))([^']+)'(?!\w)"
 )
 
 

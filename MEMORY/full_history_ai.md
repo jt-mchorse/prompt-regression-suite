@@ -3115,3 +3115,22 @@ context_for_next_session:
   - "EDGE_PUNCT_strips_W_and_underscore_from_word_ends_only_interior_hyphens_kept_Human-readable"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:45Z
+issue: 301
+branch: session/2026-10-26-0745-issue-301
+focus: QUOTED_RE_OPENER_REFUSAL_WAS_A_HAND_LIST_A_POSSESSIVE_GLUED_TO_PUNCTUATION_Corp_s_AND_UNLISTED_ELISIONS_bout_round_STILL_PAIRED_A_PLURAL_POSSESSIVE_CLOSER
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 34
+  suite: "1566 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 8144d55: extract_slots(shipped plan_name) \"Acme Corp.'s policy covers our customers' purchases\" -> 's policy covers our customers'; (Jane)'s, U.S.'s, **Acme**'s, Inc.'ll, 'bout, 'round, 'cos, 'cuz, 'Neath, 'Kay same shape. After: all {} ; 'Pro', 'Teams', ('Pro'), : 'Pro', **'Pro'**, 'S', 'M', 'Ready', 'Roundup' still read. Revert probe (diff.py, pycache cleared): 19 of 34 red; green = 13 real-value controls + _Acme_'s (underscore is \\w, already refused) + no-apostrophe diff arm. Neighbours: no glue rule 2 red, no tail rule 1 red, no catalogue additions 10 red, tail boundary (?!\\w) 2 red ('S'/'M')."
+context_for_next_session:
+  - "THREE_OPENER_RULES_glue_after_an_UNAMBIGUOUS_closer_terminators_closing_brackets_closing_curly_quotes_NO_LIST_then_contraction_tail_s_d_ll_re_ve_m_t_before_non_word_non_apostrophe_then_ELISIONS_catalogue"
+  - "DOUBLE_QUOTE_AND_MARKDOWN_STAR_UNDERSCORE_DELIBERATELY_NOT_GLUE_they_open_too_**'Pro'**_must_read"
+  - "UNCATALOGUED_ELISION_AFTER_A_SPACE_'nother_STILL_OPENS_list_is_a_backstop_only"
+followups: []
+---
