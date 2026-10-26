@@ -429,7 +429,19 @@ _INTEGER_RE = _NUMBER_RE
 # opening side is guarded: a closing `"` after a digit is a real quoted value
 # far more often than not (`the "Plan 2" tier`), and with no inch mark able to
 # open a span, two of them can no longer pair up.
-_QUOTED_RE = re.compile(r"(?<!\d)\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
+# #235's guards only see an apostrophe INSIDE a word (#297). A word-initial
+# elision opens like a quote and a plural possessive closes like one, so
+# `the '90s our customers' records` extracted `90s our customers` and
+# `'til the customers' tickets` extracted `til the customers`. An opener
+# straight before a digit (`'90s`, `'24`) or a whole elided word (`'til`,
+# `'em`, `'cause`, `'n'`, `'tis`, `'twas`) is refused instead. The closer is
+# left alone: a real quoted value can end in `s` (`'Teams'`), and with the
+# elision unable to open, the possessive has nothing to pair with. A vulgar
+# fraction is a number too, so `3½" and 5¼"` is the #290 inch-mark case.
+_QUOTED_RE = re.compile(
+    r"(?<![\d¼-¾⅐-⅞])\"([^\"]+)\""
+    r"|(?<!\w)'(?!\d|(?i:til|em|cause|n|tis|twas)(?!\w))([^']+)'(?!\w)"
+)
 
 
 def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
