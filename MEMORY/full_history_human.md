@@ -2691,3 +2691,18 @@ counts as a number for the inch-mark rule. Real quoted values are still
 read, including ones that end in "s" like `'Teams'`. One trade-off: a
 single-quoted value that starts with a digit, like `'24 hours'`, now reads
 as missing. That is the strict direction this extractor is meant to err in.
+
+## 2026-10-26 — a plan-name keyword no longer matches inside `username` (#298)
+
+When a string slot has no quoted value, the extractor falls back to
+looking for a word from the slot's description and returns the sentence
+around it. That search matched inside other words, so the `name` in
+"plan name" was found in `username` and `renamed`. A response that never
+mentioned a plan then passed. The search now matches whole words only,
+ignoring case and allowing a plural "s", so `plan`, `plans` and
+`Plan name` still match. The description words also kept their
+punctuation, so the shipped caveat slot looked for `caveat,` and
+`fees").`, and those could never match. Punctuation at either end of a
+word is now stripped. The number-slot hint search still matches
+substrings. That can pick the wrong number (`days` inside `Sundays`) and
+is a separate fix.
