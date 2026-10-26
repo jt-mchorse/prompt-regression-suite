@@ -2723,3 +2723,19 @@ The elision list grew to cover the common ones as a backstop. Real values
 are unchanged: `'Pro'`, `'Teams'`, `('Pro')`, `**'Pro'**`, and single
 letters like `'S'`. An elision that is not on the list and follows a
 space, like `'nother`, still gets through.
+
+## 2026-10-26 — CJK keywords match inside CJK text again (#302)
+
+#298 made the string-slot keyword search match whole words only, so
+"name" no longer matched inside "username". Python counts CJK, kana,
+Hangul and Thai characters as word characters, though, and those scripts
+put no spaces between words. So a Japanese description keyword like
+`プラン名` could never match in `プラン名はProです。`, and a snapshot that
+passed before now read its plan name as missing. Each end of a keyword is
+now checked on its own. An end written in one of those scripts has no
+word boundary. An end in a spaced script still refuses a neighbouring
+letter from a spaced script, so `username` and `planet` stay out, while
+`plan` inside Chinese text matches. Not fixed here: keywords of three
+characters or fewer are skipped, which drops many CJK words (`套餐`).
+The number and single-quote rules have the same boundary problem with
+CJK (`14日` reads no number), but there the slot fails loudly.

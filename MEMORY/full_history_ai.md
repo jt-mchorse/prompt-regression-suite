@@ -3134,3 +3134,22 @@ context_for_next_session:
   - "UNCATALOGUED_ELISION_AFTER_A_SPACE_'nother_STILL_OPENS_list_is_a_backstop_only"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:51Z
+issue: 302
+branch: session/2026-10-26-0751-issue-302
+focus: REGRESSION_FROM_300_THE_W_BOUNDED_KEYWORD_FALLBACK_NEVER_MATCHED_A_CJK_KEYWORD_INSIDE_UNSPACED_CJK_TEXT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 17
+  suite: "1583 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main fce0bde: description '回答が対象とする プラン名' -> 'プラン名はProです。' and 'ご契約のプラン名：Pro。' {} (8144d55^ returned the sentence for both); Thai, Korean-with-particle and '您的plan是Pro。' also {}. After: all match; username/renamed/planet/'您的planet是'/'您的Explan是'/'xPro套餐' still {}. Revert probe (diff.py, pycache cleared): 9 of 17 red; green = spaced control + 7 no-match controls. Neighbours: no boundary at all 10 red (4 of #300's arms), \\w as the spaced lookaround 3 red."
+context_for_next_session:
+  - "_keyword_pattern_BOUNDS_PER_EDGE_an_UNSPACED_edge_CJK_kana_Bopomofo_Hangul_Thai_Lao_Khmer_Myanmar_gets_none_a_spaced_edge_refuses_only_a_SPACED_word_char_so_a_script_change_is_a_word_edge"
+  - "len_w_gt_3_KEYWORD_FILTER_STILL_DROPS_2_3_CHAR_CJK_KEYWORDS_套餐_名前_요금제_pre_existing_not_fixed"
+  - "SAME_W_CLASS_ELSEWHERE_NUMBER_RE_refuses_14日_and_QUOTED_RE_refuses_'Pro'_between_kana_both_LOUD_missing_not_false_pass_pre_existing"
+followups: []
+---
