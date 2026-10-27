@@ -3172,3 +3172,22 @@ context_for_next_session:
   - "len_w_gt_3_FLOOR_STILL_IN_BOTH_LOOPS_is_307"
 followups: ["#307"]
 ---
+
+---
+session: 2026-10-27T08:10Z
+issue: 307
+branch: session/2026-10-27-0810-issue-307
+focus: LEN_W_GT_3_KEYWORD_FLOOR_DROPPED_EVERY_2_3_CHAR_CJK_KANA_HANGUL_WORD_SO_A_CJK_DESCRIPTION_NEVER_MATCHED_ITS_OWN_CANONICAL
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1596 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 7855c09: extract_slots string '套餐'/'套餐 名称' on '您的套餐是专业版。', 'プラン', '요금제' -> {}; integer hint '期限' -> 90 not 14; CJK canonical diffed against itself -> fail. After: all match, self-diff pass. _is_keyword: unspaced edge -> len >= 2, else len > 3; decision unchanged for 0 of 313489 web2+web2a+propernames entries; repo's 36 unspaced tokens kept 30 -> 36. Revert probe (diff.py, pycache cleared): 7 of 13 red; green = 天, pro x2, plan, 套餐名称, missing-slot fail controls. Neighbour >= 1 -> 天 control red. render_regression_demo.py --no-screenshot byte-identical."
+context_for_next_session:
+  - "_is_keyword_IS_THE_ONE_FLOOR_FOR_BOTH_LOOPS_a_new_keyword_source_must_go_through_it"
+  - "CONFLICTS_WITH_308_ON_THE_hint_words_LINE_rebase_to_EDGE_PUNCT_stripped_plus__is_keyword"
+  - "SHORT_GENERIC_CJK_WORDS_NOW_COUNT_LIKE_LONG_GENERIC_LATIN_ONES_that_is_303_JT_gated"
+followups: []
+---

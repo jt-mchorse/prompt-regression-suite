@@ -2753,3 +2753,17 @@ pattern and punctuation stripping as the string slots. Across a 470,000-
 form dictionary, the shipped hint words matched inside 194 other words
 before and 0 after. One trade-off, the same as #298's: "refunded" no
 longer counts as the hint "refund".
+
+## 2026-10-27 — Short CJK, kana and Hangul words count as slot keywords (#307)
+
+Slot keywords had to be longer than three characters. That rule skips
+"of" and "the" in English, but it also skipped ordinary two- and three-
+character words in Chinese, Japanese and Korean (`套餐`, `プラン`,
+`요금제`). A slot described with those words never matched, so the
+snapshot's own canonical answer failed its slots and could not be saved.
+Now a word that starts or ends in one of those scripts counts at two
+characters or more. Every other word keeps the old rule, and across
+313,489 English dictionary entries no keep-or-skip decision changed. A
+single ideograph such as `天` still does not count. Short generic CJK
+words now count the way long generic English ones already did. Which
+words should count at all is #303, which is waiting on JT.
