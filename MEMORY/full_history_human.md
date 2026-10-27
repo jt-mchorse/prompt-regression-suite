@@ -2739,3 +2739,17 @@ letter from a spaced script, so `username` and `planet` stay out, while
 characters or fewer are skipped, which drops many CJK words (`套餐`).
 The number and single-quote rules have the same boundary problem with
 CJK (`14日` reads no number), but there the slot fails loudly.
+
+## 2026-10-27 — Number-slot hint words match whole words only (#306)
+
+A number slot picks the number closest to a word from its description.
+#298 made string-slot keywords match whole words, but the number search
+still looked for the word anywhere, so the hint "days" matched inside
+"Sundays", "Holidays" and "weekdays". In "open Sundays 9 to 5 ... a 14.5
+day refund window" the slot read 9 instead of 14.5. Since #211 treats a
+fractional value in a whole-number slot as a mismatch, that turned a
+failing diff into a pass. The number search now uses the same whole-word
+pattern and punctuation stripping as the string slots. Across a 470,000-
+form dictionary, the shipped hint words matched inside 194 other words
+before and 0 after. One trade-off, the same as #298's: "refunded" no
+longer counts as the hint "refund".

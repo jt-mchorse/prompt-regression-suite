@@ -489,7 +489,7 @@ def extract_slots(text: str, slot_specs: dict[str, dict[str, Any]]) -> dict[str,
     value: int | float | str | bool | None
     for name, spec in slot_specs.items():
         slot_type = spec.get("type")
-        # NOT lowered (#215): `_find_ci` already matches case-insensitively, and
+        # NOT lowered (#215): the hint search already matches case-insensitively, and
         # `"İ".lower()` is `i` + U+0307, which `re.IGNORECASE` never matches
         # against `İ` -- a hint word spelled exactly as in the text was lost.
         hint = spec.get("description") or ""
@@ -622,33 +622,27 @@ def _first_representable(matches: Sequence[re.Match[str]], *, want_int: bool) ->
     return None
 
 
-def _find_ci(text: str, word: str) -> int:
-    """Index of ``word`` in ``text``, ignoring case, as a position IN ``text`` (#213).
-
-    Both callers used ``text.lower().find(...)`` and then indexed the ORIGINAL
-    ``text`` with the result. ``str.lower()`` can change length -- ``"İ".lower()``
-    is two characters -- so every ``İ`` before the hint word moved the position
-    one character right: with thirty ``İ``s in a response, the integer slot for
-    "delivery days" read the ``90`` of a trailing "Ref 90." instead of the
-    ``3`` beside "Delivery", and the string slot returned the wrong sentence.
-    Any Turkish response (İstanbul, İade) could do it. A case-insensitive search
-    on ``text`` itself has no second string to disagree with.
-    """
-    m = re.search(re.escape(word), text, re.IGNORECASE)
-    return m.start() if m else -1
-
-
 def _extract_number(text: str, hint: str, *, want_int: bool) -> int | float | None:
     pattern = _INTEGER_RE if want_int else _NUMBER_RE
     matches = list(pattern.finditer(text))
     if not matches:
         return None
     if hint:
-        # Prefer the number closest to the hint word.
-        hint_words = [w for w in hint.split() if len(w) > 3]
+        # Prefer the number closest to the hint word -- found as a WORD (#306),
+        # as `_extract_string` finds its keywords (#298). A substring search
+        # found `days` inside `Sundays` and `Holidays`, and the number beside
+        # that false hit won: a fractional refund window read as the `9` of
+        # "open Sundays 9 to 5", so #211's `type_mismatch` became a pass.
+        # Edge punctuation is stripped first, so `requested.` can match.
+        #
+        # The search runs on `text` itself, never a lowered copy, and indexes
+        # `text` with the result (#213): `"İ".lower()` is two characters, so a
+        # position found in `text.lower()` drifted right past every `İ`.
+        hint_words = [w for w in (_EDGE_PUNCT.sub("", w) for w in hint.split()) if len(w) > 3]
         for hw in hint_words:
-            idx = _find_ci(text, hw)
-            if idx != -1:
+            found = re.search(_keyword_pattern(hw), text, re.IGNORECASE)
+            if found:
+                idx = found.start()
                 # Nearest to `idx` first, then outward. `sorted` is stable, so
                 # the head of this list is the same match `min(...)` picked
                 # before — the ordering only matters when the nearest token
@@ -702,7 +696,7 @@ def _extract_string(text: str, hint: str, name: str) -> str | None:
     # Fallback: if any meaningful word from the hint or the slot name appears,
     # report the surrounding sentence as the slot value.
     #
-    # As a WORD (#298). `_find_ci` is a substring search, so the `name` of
+    # As a WORD (#298). A substring search found the `name` of
     # "plan name" was found inside `username` and `renamed`, and a slot the
     # answer never stated read as present: here the hit IS the value. A
     # plural `s` still matches (`plans`). Edge punctuation is stripped first:
