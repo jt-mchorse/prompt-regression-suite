@@ -3153,3 +3153,22 @@ context_for_next_session:
   - "SAME_W_CLASS_ELSEWHERE_NUMBER_RE_refuses_14日_and_QUOTED_RE_refuses_'Pro'_between_kana_both_LOUD_missing_not_false_pass_pre_existing"
 followups: []
 ---
+
+---
+session: 2026-10-27T08:06Z
+issue: 306
+branch: session/2026-10-27-0806-issue-306
+focus: NUMBER_SLOT_HINT_SEARCH_WAS_STILL_A_SUBSTRING_days_IN_Sundays_RANKED_THE_WRONG_NUMBER_AND_A_211_TYPE_MISMATCH_PASSED_298_FIXED_STRING_SLOTS_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1595 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 7855c09: shipped refund_days 'Holidays: 14 per year. ... within 30 days.' -> 14; 'open Sundays 9 to 5. ... 14.5 day refund window.' -> 9; prompt-snap diff on a hash-rebaselined refund_window_v1 copy Sundays pass rc 0, weekends fail rc 1. After: 30 / 14.5, both fail rc 1. web2 + plural-s (470785 forms): other-word hits for the 8 shipped hint words 194 -> 0 (days 76 -> 0). Revert probe (diff.py, pycache cleared): 6 of 12 red; green = days/DAYS/Days, Numbers plural, CJK hint, weekends end-to-end controls. render_regression_demo.py --no-screenshot byte-identical."
+context_for_next_session:
+  - "_find_ci_REMOVED_both_slot_kinds_now_search_with__keyword_pattern_on_EDGE_PUNCT_stripped_words_213_note_moved_to__extract_number"
+  - "INFLECTIONS_OTHER_THAN_PLURAL_s_NO_LONGER_COUNT_refunded_is_not_refund_same_tradeoff_as_298"
+  - "len_w_gt_3_FLOOR_STILL_IN_BOTH_LOOPS_is_307"
+followups: ["#307"]
+---
