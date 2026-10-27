@@ -638,7 +638,7 @@ def _extract_number(text: str, hint: str, *, want_int: bool) -> int | float | No
         # The search runs on `text` itself, never a lowered copy, and indexes
         # `text` with the result (#213): `"İ".lower()` is two characters, so a
         # position found in `text.lower()` drifted right past every `İ`.
-        hint_words = [w for w in (_EDGE_PUNCT.sub("", w) for w in hint.split()) if len(w) > 3]
+        hint_words = [w for w in (_EDGE_PUNCT.sub("", w) for w in hint.split()) if _is_keyword(w)]
         for hw in hint_words:
             found = re.search(_keyword_pattern(hw), text, re.IGNORECASE)
             if found:
@@ -681,6 +681,21 @@ _UNSPACED_CHAR = re.compile(f"[{_UNSPACED}]")
 _SPACED_WORD = f"[^\\W{_UNSPACED}]"
 
 
+def _is_keyword(word: str) -> bool:
+    """Whether a description word is long enough to search for (#307).
+
+    `len > 3` stands in for "a meaningful word" in spaced text: it drops `of`,
+    `the`, `if`. In an unspaced script a whole word is often two or three
+    characters (`套餐`, `プラン`, `요금제`), so the same floor dropped every one,
+    and a CJK description of short words never matched its own canonical. A
+    word with an unspaced-script edge needs two characters -- one ideograph
+    alone (`天`) sits inside too many other words.
+    """
+    if word and (_UNSPACED_CHAR.match(word[0]) or _UNSPACED_CHAR.match(word[-1])):
+        return len(word) >= 2
+    return len(word) > 3
+
+
 def _keyword_pattern(kw: str) -> str:
     """`kw` as a word, bounded only on its spaced-script edges (#298, #302)."""
     head = "" if _UNSPACED_CHAR.match(kw[0]) else f"(?<!{_SPACED_WORD})"
@@ -703,7 +718,7 @@ def _extract_string(text: str, hint: str, name: str) -> str | None:
     # the shipped `eligibility_caveat` description split into `caveat,` and
     # `fees").`, which no response could ever contain as written.
     keywords = [
-        w for w in (_EDGE_PUNCT.sub("", w) for w in (hint + " " + name).split()) if len(w) > 3
+        w for w in (_EDGE_PUNCT.sub("", w) for w in (hint + " " + name).split()) if _is_keyword(w)
     ]
     for kw in keywords:
         word = re.search(_keyword_pattern(kw), text, re.IGNORECASE)
