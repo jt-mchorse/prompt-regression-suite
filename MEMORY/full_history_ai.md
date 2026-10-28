@@ -3191,3 +3191,21 @@ context_for_next_session:
   - "SHORT_GENERIC_CJK_WORDS_NOW_COUNT_LIKE_LONG_GENERIC_LATIN_ONES_that_is_303_JT_gated"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:17Z
+issue: 310
+branch: session/2026-10-28-0817-issue-310
+focus: SAVE_SNAPSHOT_WROTE_A_FIELD_MUTATED_AFTER_CONSTRUCTION_THAT_LOAD_SNAPSHOT_THEN_REFUSED_NOW_READS_ITS_OUTPUT_BACK_THROUGH_THE_LOADER_FIRST
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "1617 passed; ruff + mypy clean"
+decisions_made: []
+measured: "origin/main 7df966e: load, set tolerance=1.5, save -> written; load -> SnapshotValidationError. After: refused, file byte-identical. Six mutations (tolerance 1.5 / str, duplicate category, slot type list, temperature 5.0, NaN embedding) all refused. Revert 6 red / 3 green. The shipped examples are hand-authored block scalars: first save reformats them, identical to main writer output. One structural lock (both seams call the version rule) follows the call into _snapshot_from_yaml_data. PR #311."
+context_for_next_session:
+  - "_snapshot_from_yaml_data_IS_THE_ONE_POST_PARSE_PATH_save_snapshot_runs_its_output_through_it"
+  - "OPEN_FROM_THE_SAME_HUNT_iter_snapshot_paths_skips_symlinked_directories_rglob_default_decision_shaped_not_yet_filed"
+followups: []
+---

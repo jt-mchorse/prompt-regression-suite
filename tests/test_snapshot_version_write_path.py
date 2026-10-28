@@ -227,7 +227,12 @@ def test_both_seams_call_the_shared_rule() -> None:
     it has done so in four sibling repos today — so only a structural check
     separates it.
     """
-    for func in (save_snapshot, load_snapshot):
+    # Since #310 `load_snapshot`'s post-read steps live in
+    # `_snapshot_from_yaml_data`, which `save_snapshot` also runs on its output.
+    from prompt_regression.io import _snapshot_from_yaml_data
+
+    assert "_snapshot_from_yaml_data" in inspect.getsource(load_snapshot)
+    for func in (save_snapshot, _snapshot_from_yaml_data):
         assert "_require_supported_schema_version" in inspect.getsource(func), (
             f"{func.__name__} carries its own copy of the version rule"
         )

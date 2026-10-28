@@ -2767,3 +2767,12 @@ characters or more. Every other word keeps the old rule, and across
 single ideograph such as `天` still does not count. Short generic CJK
 words now count the way long generic English ones already did. Which
 words should count at all is #303, which is waiting on JT.
+
+## 2026-10-28 — Saving a snapshot can no longer produce a file that will not load (#310)
+
+Snapshot settings are checked when a snapshot is created. A setting changed
+afterwards, for example a tolerance of 1.5, was saved without complaint, and
+the file then failed to load in every command, including the one meant to
+repair it. Saving now reads its own output back through the loader before
+writing, and refuses with the loader's reason. The file on disk is left
+untouched. PR #311.
