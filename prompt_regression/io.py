@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import errno
 import fnmatch
+import io
 import math
 import os
 import secrets
@@ -376,6 +377,19 @@ def save_snapshot(snapshot: Snapshot, path: PathArg) -> Path:
     # loads, validates and diffs in 0.1 s, made this one line take minutes.
     if not _same_loaded_yaml(yaml.safe_load(rendered), yaml.safe_load(escaped)):
         rendered = escaped
+    # Read back exactly as `load_snapshot` will, before any bytes are written
+    # (#310). Every schema rule lives in the constructors, and the dataclasses
+    # are mutable -- `update` itself sets `notes` after construction -- so a
+    # field changed after `load_snapshot` to `tolerance=1.5`, a duplicate
+    # category or a NaN embedding was written as a file this package then
+    # refused to load, `update` included. #165, #276 and #278 each closed one
+    # such field here; this closes the class.
+    try:
+        _snapshot_from_yaml_data(safe_load_yaml(io.StringIO(rendered)), p)
+    except SnapshotValidationError as e:
+        raise SnapshotValidationError(
+            f"{p}: refusing to write a snapshot load_snapshot would refuse: {e}"
+        ) from None
     atomic_write_text(p, rendered)
     return p
 
@@ -655,6 +669,15 @@ def load_snapshot(path: PathArg) -> Snapshot:
     p = Path(path)
     with p.open("r", encoding="utf-8") as f:
         data: Any = safe_load_yaml(f)
+    return _snapshot_from_yaml_data(data, p)
+
+
+def _snapshot_from_yaml_data(data: Any, p: Path) -> Snapshot:
+    """Everything `load_snapshot` does after parsing the file (#310).
+
+    One definition: `save_snapshot` puts its rendered YAML through it before
+    writing, so the writer cannot emit a file this reader refuses.
+    """
     if not isinstance(data, dict):
         raise SnapshotValidationError(f"{p}: snapshot YAML must be a mapping at the top level")
     version = data.get("schema_version", SCHEMA_VERSION)
