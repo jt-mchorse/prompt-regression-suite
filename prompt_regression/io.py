@@ -280,6 +280,34 @@ def _resolve_symlinked_target(target: Path) -> Path:
     return Path(os.path.realpath(target))
 
 
+def _refuse_unwritable_target(target: Path) -> None:
+    """Raise ``PermissionError`` if *target* exists and cannot be written (#316).
+
+    ``os.replace`` swaps the directory ENTRY, so only the directory's write
+    bit is checked and the target's own is never consulted: a ``chmod 444``
+    snapshot was silently rewritten by ``prompt-snap update --force``, and a
+    read-only ``--out`` file by ``run`` / ``diff`` / ``validate``.
+    ``Path.write_text``, the call this helper replaced, opens the file for
+    writing and fails with ``EACCES``. Raising the same error here, before the
+    temp file exists, keeps that contract and leaves nothing behind; the
+    CLI's ``except OSError`` write seams turn it into ``error:`` + exit 2, as
+    their comments already said they did for a "read-only file".
+
+    ``os.access`` asks the kernel the same question the open would, so root
+    (which ``Path.write_text`` lets through) still writes. The ``os.stat``
+    first keeps a missing target -- the create case -- out of the check, and
+    lets a link loop raise its own ``ELOOP`` rather than a misleading
+    ``EACCES``. Like ``Path.write_text``, this is a check at open time, not a
+    lock: a ``chmod`` racing the write is not covered.
+    """
+    try:
+        os.stat(target)
+    except FileNotFoundError:
+        return
+    if not os.access(target, os.W_OK):
+        raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(target))
+
+
 def atomic_write_text(path: PathArg, text: str) -> None:
     # `Path.write_text` is not atomic: SIGINT/SIGTERM/disk-full/OOM
     # between the implicit `open(..., "w")` truncate and `close()`
@@ -300,7 +328,11 @@ def atomic_write_text(path: PathArg, text: str) -> None:
     # A symlinked destination is written THROUGH, as `Path.write_text` does:
     # the link stays a link and the file it names gets the new contents (#219).
     # See `_resolve_symlinked_target`.
+    #
+    # A read-only existing target is refused, as `Path.write_text` refuses it,
+    # instead of being renamed over (#316). See `_refuse_unwritable_target`.
     target = _resolve_symlinked_target(Path(path))
+    _refuse_unwritable_target(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
