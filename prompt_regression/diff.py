@@ -414,8 +414,16 @@ class SlotDelta:
 # became `\d+(?:\.\d+)?` with it: `\b` never let a token end on a bare `.`
 # before a space, and this lookahead would, so `5.` at a sentence end would
 # reach `_coerce_match`'s float route and lose a 17+ digit integer.
+#
+# A comma between digits is the same hazard (#315). Only a `,ddd` group was
+# refused at the end, and nothing refused a start after `digit,`, so a comma
+# decimal (de/fr/es/pt/ru/it) matched as two numbers: `14,5 days` stopped
+# after `14` and then read `5` on its own, nearest "days", status `ok`; and
+# `1,0000` read `0000`. Any digit-comma-digit run that is not a valid `,ddd`
+# grouping is now one token with no match in it -- `missing`, as for #217.
+# Reading `14,5` as 14.5 would be a locale decision; this does not make it.
 _NUMBER_RE = re.compile(
-    r"(?<![\w.-])-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\w|\.\d|,\d{3})"
+    r"(?<![\w.-])(?<!\d,)-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\w|\.\d|,\d)"
 )
 _INTEGER_RE = _NUMBER_RE
 # A single-quoted span opens after a non-word character and closes before one
