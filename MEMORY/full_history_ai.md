@@ -3227,3 +3227,22 @@ context_for_next_session:
   - "PARSING_14_COMMA_5_AS_14_5_IS_A_LOCALE_DECISION_NOT_MADE"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:23Z
+issue: 316
+branch: session/2026-10-30-0723-issue-316
+focus: ATOMIC_WRITE_TEXT_RENAMED_OVER_A_READ_ONLY_0444_TARGET_UPDATE_FORCE_AND_OUT_SILENTLY_OVERWROTE_A_FROZEN_FILE_NOW_EACCES_LIKE_PATH_WRITE_TEXT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "1626 passed; ruff, format, mypy clean (fresh 3.11 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "origin/main 5191cbf (macOS uid 502): atomic_write_text on a 0444 file -> no error, contents replaced, mode still 0444; Path.write_text -> PermissionError(13). After: both EACCES, file byte-identical, no .tmp left; update --force on a 0444 snapshot and diff --out on a 0444 file -> error: + exit 2. Revert probe (io.py, pycache cleared): 5 of 9 red; green = 2 write_text parity arms + 2 writable/missing controls. PR #318."
+context_for_next_session:
+  - "_refuse_unwritable_target_RUNS_AFTER_THE_SYMLINK_RESOLVE_BEFORE_THE_TEMP_os_stat_then_os_access_W_OK_root_still_writes_link_loop_still_ELOOP"
+  - "READ_ONLY_TESTS_SKIP_AS_ROOT_github_ubuntu_runners_are_non_root_runner_so_CI_runs_them"
+  - "SAME_RENAME_OVER_GAP_LIKELY_IN_SIBLING_REPOS_ATOMIC_WRITERS_reported_to_orchestrator_not_filed_here"
+followups: []
+---
