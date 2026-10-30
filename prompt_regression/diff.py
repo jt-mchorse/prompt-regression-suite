@@ -422,8 +422,36 @@ class SlotDelta:
 # `1,0000` read `0000`. Any digit-comma-digit run that is not a valid `,ddd`
 # grouping is now one token with no match in it -- `missing`, as for #217.
 # Reading `14,5` as 14.5 would be a locale decision; this does not make it.
+#
+# `,` was one member of a class (#319). Every other mark that writes a decimal
+# point or a digit group between digits still read a fragment, status `ok`:
+# `14٫5` -> 5, `14'5` -> 5, `14·5` -> 5, `Fr. 1'250.50` -> 1, `1 000` (U+202F) -> 0.
+# `_NUM_SEP` is every mark that, between two digits, makes ONE number, and
+# both guards refuse the whole class. A run the grammar cannot read is then
+# `missing`, as for `14,5`; reading `1 000` as 1000 would be the same locale
+# decision. What reads as TWO numbers stays out and still reads the nearer
+# one: ASCII space (`3 5` can be a list) and every other space that is not a
+# digit-group mark, dashes (`14–21` is a range), quotation marks, `/`
+# (`1/2`, `10/30`), `:` (`14:30`), primes (`5′10″`, feet and inches), `;`,
+# the Arabic, ideographic and katakana list commas (`،` `、` `・`), and the
+# Greek question mark U+0387 even though NFC folds it to U+00B7. `.` is not
+# here because the grammar reads it and the first lookbehind already refuses
+# a start after it. tests/test_slot_number_separators.py scans every Pd, Po,
+# Zs, Pi and Pf codepoint and pins the set that is left.
+_NUM_SEP = (
+    ","  # decimal comma (#317), and the group mark the grammar reads as `,ddd`
+    "\uff0c\ufe50\ufe10"  # fullwidth, small and vertical comma: NFKC `,`
+    "\uff0e\ufe52\u2024"  # fullwidth and small full stop, one dot leader: NFKC `.`
+    "'\uff07\u2019"  # apostrophe (fullwidth too) and U+2019: Swiss group, 1'250
+    "\u066b\u066c"  # Arabic decimal and thousands separators: only ever numeric
+    "\u00b7"  # middle dot: the British raised decimal point, 14·5
+    "\u00a0\u202f"  # no-break and narrow no-break space: fr/ru/pl group marks
+    "\u2009\u2007"  # thin space (SI group mark) and figure space (made for digits)
+)
 _NUMBER_RE = re.compile(
-    r"(?<![\w.-])(?<!\d,)-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\w|\.\d|,\d)"
+    rf"(?<![\w.-])(?<!\d[{_NUM_SEP}])-?"
+    r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)"
+    rf"(?!\w|\.\d|[{_NUM_SEP}]\d)"
 )
 _INTEGER_RE = _NUMBER_RE
 # A single-quoted span opens after a non-word character and closes before one

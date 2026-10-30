@@ -3246,3 +3246,23 @@ context_for_next_session:
   - "SAME_RENAME_OVER_GAP_LIKELY_IN_SIBLING_REPOS_ATOMIC_WRITERS_reported_to_orchestrator_not_filed_here"
 followups: []
 ---
+
+---
+session: 2026-10-30T08:02Z
+issue: 319
+branch: session/2026-10-30-0756-issue-319
+focus: NUMBER_RE_KNEW_ONLY_COMMA_EVERY_OTHER_ONE_NUMBER_SEPARATOR_U066B_APOSTROPHE_U2019_MIDDLE_DOT_NBSP_NNBSP_THIN_SPACE_STILL_SPLIT_14_X_5_INTO_A_FRAGMENT_STATUS_OK_THE_SURFACE_317_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 51
+  suite: "1703 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 206da34, integer slot 'days': 14<U+066B>5 -> 5, 14'5 -> 5, 14<U+2019>5 -> 5, 14<U+00B7>5 -> 5, 'Fr. 1'250.50' -> 1, 1<U+202F/U+00A0/U+2009>000 -> 0, arabic-indic 14<U+066B>5 -> 14, all ok; diff canonical 14 vs candidate 14'5 etc -> pass. Space search 14{c}5 over 693 Pd/Po/Zs/Pi/Pf codepoints: main 691 ok, branch 675 ok; non-ok set == '.' + the 17 _NUM_SEP members. Revert probe (diff.py, pycache cleared): 36 of 51 red; green = 13 two-number/unchanged controls + 14.5 fail + 14 pass. Lookahead-only 36 red, lookbehind-only 36 red. render_regression_demo.py --no-screenshot byte-identical. PR #320."
+context_for_next_session:
+  - "_NUM_SEP_IS_THE_ONE_LIST_OF_MARKS_THAT_MAKE_ONE_NUMBER_BETWEEN_DIGITS_comma_plus_NFKC_comma_and_dot_forms_apostrophe_U2019_U066B_U066C_middle_dot_NBSP_NNBSP_thin_figure_space"
+  - "DELIBERATE_EXCLUSIONS_ascii_and_general_spaces_dashes_slash_colon_primes_quotes_list_commas_U0387_read_as_two_numbers_test_scans_every_Pd_Po_Zs_Pi_Pf_and_pins_the_set"
+  - "ASCII_HYPHEN_14_DASH_5_READS_14_BUT_EN_DASH_14_5_READS_5_range_reading_differs_by_dash_not_in_scope"
+  - "PARSING_1_NNBSP_000_AS_1000_IS_THE_SAME_LOCALE_DECISION_317_DECLINED"
+followups: []
+---
