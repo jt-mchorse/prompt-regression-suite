@@ -2802,3 +2802,17 @@ case, and the CLI already documented a read-only path as an `error:` with
 exit 2. The helper now checks that an existing target is writable before
 it starts, so both cases end with `error:` and exit 2, and the file is
 left as it was. New files and writable files behave as before. PR #318.
+
+## 2026-10-30 — Every one-number separator now splits like a comma decimal (#319)
+
+#317 stopped `14,5 days` reading as 5, but the number pattern knew only the
+comma. Every other mark that writes a decimal point or a digit group still
+cut the number in two, and the slot read the nearer half with status `ok`:
+`14٫5` (Arabic decimal separator), `14'5`, `14·5`, Swiss `1'250.50`, and
+`1 000` written with a no-break or thin space all passed a diff against 14.
+The pattern now refuses a named list of these marks, and each mark carries
+a comment giving its reason. A run like this reads as `missing`, as `14,5`
+already did. Marks that separate two numbers are left out on purpose:
+spaces, dashes for ranges, `/`, `:`, primes, list commas. A test tries every
+punctuation and space character between two digits and pins exactly which
+ones no longer read as a number. PR #320.
