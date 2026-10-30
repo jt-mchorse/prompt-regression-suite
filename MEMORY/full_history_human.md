@@ -2789,3 +2789,16 @@ loudly, the same way a number glued to a unit already does. Thousands
 groups, `$1,234.56`, and lists with a space after the comma (`3, 5`)
 read as before. Reading `14,5` as 14.5 would be a locale decision and
 is not made here. PR #317.
+
+## 2026-10-30 — A read-only snapshot or report is no longer silently overwritten (#316)
+
+Every write goes through a helper that writes a temporary file and renames
+it over the target, so an interrupted write cannot leave a half-written
+file. A rename only needs permission on the directory, though, so a file
+made read-only with `chmod 444`, the natural way to freeze a baseline, was
+rewritten anyway: `prompt-snap update --force` reported success, and
+`--out` replaced a read-only report. A plain file write refuses in that
+case, and the CLI already documented a read-only path as an `error:` with
+exit 2. The helper now checks that an existing target is writable before
+it starts, so both cases end with `error:` and exit 2, and the file is
+left as it was. New files and writable files behave as before. PR #318.
