@@ -2776,3 +2776,16 @@ the file then failed to load in every command, including the one meant to
 repair it. Saving now reads its own output back through the loader before
 writing, and refuses with the loader's reason. The file on disk is left
 untouched. PR #311.
+
+## 2026-10-30 — A comma decimal no longer passes as its last digits (#315)
+
+A number written with a decimal comma, as in German, French or Spanish
+(`14,5 days`), was read as the digits after the comma. An integer slot
+got 5 with status `ok`, so a candidate that changed the refund window
+from 14 to 14,5 passed the diff. The number pattern only recognised a
+comma in a thousands group like `1,000`. Now any digit-comma-digit run
+that is not a valid thousands group reads as `missing`, which fails
+loudly, the same way a number glued to a unit already does. Thousands
+groups, `$1,234.56`, and lists with a space after the comma (`3, 5`)
+read as before. Reading `14,5` as 14.5 would be a locale decision and
+is not made here. PR #317.

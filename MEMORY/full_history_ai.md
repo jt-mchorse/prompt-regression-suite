@@ -3209,3 +3209,21 @@ context_for_next_session:
   - "OPEN_FROM_THE_SAME_HUNT_iter_snapshot_paths_skips_symlinked_directories_rglob_default_decision_shaped_not_yet_filed"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:23Z
+issue: 315
+branch: session/2026-10-30-0723-issue-315
+focus: NUMBER_RE_READ_A_COMMA_DECIMAL_14_COMMA_5_AS_ITS_TAIL_5_STATUS_OK_211_THROUGH_THE_OTHER_SEPARATOR_LOOKAHEAD_KNEW_ONLY_COMMA_DDD_AND_NOTHING_REFUSED_A_START_AFTER_DIGIT_COMMA
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 26
+  suite: "1643 passed; ruff, format, mypy clean (fresh 3.12 venv, pip install -e .[dev])"
+decisions_made: []
+measured: "main 5191cbf: integer/number slot '14,5 days' -> 5/5.0, '1,5' -> 5, '14,50' -> 50, '1,0000' -> 0, '1,000,5' -> 5; diff_response canonical '14 day' vs candidate '14,5 day' -> pass. After: all missing, diff fail; 1,000 / 12,345,678 / 1,234.56 / '3, 5' / '2026, 14' / trailing '14,' unchanged. Revert probe (diff.py, pycache cleared): 16 of 26 red; green = 8 comma controls + 14.5 fail + 14 pass. Half-fix neighbours: lookahead-only 16 red, lookbehind-only 14 red. render_regression_demo.py --no-screenshot byte-identical. PR #317."
+context_for_next_session:
+  - "NUMBER_RE_NOW_REFUSES_COMMA_DIGIT_AT_THE_END_AND_A_START_AFTER_DIGIT_COMMA_a_comma_list_without_spaces_1_COMMA_2_COMMA_3_is_now_missing_too_same_tradeoff_as_217"
+  - "PARSING_14_COMMA_5_AS_14_5_IS_A_LOCALE_DECISION_NOT_MADE"
+followups: []
+---
